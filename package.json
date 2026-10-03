@@ -9,6 +9,11 @@
   },
   "dependencies": {
     "express": "^4.19.2",
+    "multer": "^2.4.0",
+    "mysql2": "^3.24.5",
     "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "ssh2": "^1.17.0"
   }
 }

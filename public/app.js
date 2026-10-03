@@ -7,12 +7,16 @@ if (window.lucide) {
 
 const socket = io();
 
-// Elementos do DOM
+// ==========================================
+// ELEMENTOS DO DOM
+// ==========================================
+// Modal de Login
 const loginModal = document.getElementById('login-modal');
 const loginForm = document.getElementById('login-form');
 const usernameInput = document.getElementById('username-input');
 const avatarPreview = document.getElementById('avatar-preview');
 
+// Perfil Local
 const myAvatarImg = document.getElementById('my-avatar');
 const myUsernameEl = document.getElementById('my-username');
 const myUserStatusEl = document.getElementById('my-userstatus');
@@ -20,19 +24,26 @@ const cardMyAvatar = document.getElementById('card-my-avatar');
 const cardMyName = document.getElementById('card-my-name');
 const cardLocalUser = document.getElementById('card-local-user');
 
+// Status de Voz e Ações Rápidas
 const voiceStatusBox = document.getElementById('voice-status-box');
 const quickDisconnectBtn = document.getElementById('quick-disconnect-btn');
 const quickScreenShareBtn = document.getElementById('quick-screenshare-btn');
-const quickCameraBtn = document.getElementById('quick-camera-btn');
+const btnVoiceSoundboard = document.getElementById('btn-voice-soundboard');
 
+// Controles do Usuário
 const btnToggleMic = document.getElementById('btn-toggle-mic');
 const btnToggleDeaf = document.getElementById('btn-toggle-deaf');
+const btnUserSettings = document.getElementById('btn-user-settings');
 
+// Canais e Membros
 const channelGamezeda = document.getElementById('btn-channel-gamezeda');
 const voiceUsersContainer = document.getElementById('voice-users-container');
 const membersListContent = document.getElementById('members-list-content');
 const dynamicVoiceCards = document.getElementById('dynamic-voice-cards');
+const membersSidebar = document.getElementById('members-sidebar');
+const btnToggleMembersSidebar = document.getElementById('btn-toggle-members-sidebar');
 
+// Palco de Vídeo / Telas
 const videoStage = document.getElementById('video-stage');
 const streamSwitcherBar = document.getElementById('stream-switcher-bar');
 const mainScreenTile = document.getElementById('main-screen-tile');
@@ -41,18 +52,24 @@ const screenSharerName = document.getElementById('screen-sharer-name');
 const btnFullscreenScreen = document.getElementById('btn-fullscreen-screen');
 const btnStopScreenTile = document.getElementById('btn-stop-screen-tile');
 
+// Controles do Palco
 const btnStageScreen = document.getElementById('btn-stage-screen');
 const btnStageScreenText = document.getElementById('btn-stage-screen-text');
-const btnStageCamera = document.getElementById('btn-stage-camera');
+const btnStageSoundboard = document.getElementById('btn-stage-soundboard');
 const btnStageMic = document.getElementById('btn-stage-mic');
 const btnStageDisconnect = document.getElementById('btn-stage-disconnect');
 
+// Chat
 const messagesContainer = document.getElementById('messages-container');
 const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
 const currentChannelNameEl = document.getElementById('current-channel-name');
+const chatSearchInput = document.getElementById('chat-search-input');
+const btnAttachFile = document.getElementById('btn-attach-file');
+const chatFileInput = document.getElementById('chat-file-input');
+const btnEmojiTrigger = document.getElementById('btn-emoji-trigger');
 
-// Menu de Contexto do Usuário (Botão Direito)
+// Menu de Contexto do Usuário
 const userContextMenu = document.getElementById('user-context-menu');
 const ctxVolumeSlider = document.getElementById('ctx-volume-slider');
 const ctxVolumeVal = document.getElementById('ctx-volume-val');
@@ -63,8 +80,40 @@ const ctxCheckSfx = document.getElementById('ctx-check-sfx');
 const ctxItemVideo = document.getElementById('ctx-item-video');
 const ctxCheckVideo = document.getElementById('ctx-check-video');
 
-// Configurações locais de usuário (Volume, Mute, SFX, Vídeo)
-// peerId -> { volume: 100, muted: false, sfxMuted: false, videoDisabled: false }
+// Modal de Configurações
+const settingsModal = document.getElementById('settings-modal');
+const btnCloseSettings = document.getElementById('btn-close-settings');
+const btnSaveSettings = document.getElementById('btn-save-settings');
+const settingAudioInput = document.getElementById('setting-audio-input');
+const settingAudioOutput = document.getElementById('setting-audio-output');
+const micTestMeter = document.getElementById('mic-test-meter');
+const btnTestOutputSound = document.getElementById('btn-test-output-sound');
+const settingNoiseSuppressionToggle = document.getElementById('setting-noise-suppression-toggle');
+const settingNoiseThresholdSlider = document.getElementById('setting-noise-threshold-slider');
+const settingNoiseThreshVal = document.getElementById('setting-noise-thresh-val');
+
+// Modal de Soundboard
+const soundboardModal = document.getElementById('soundboard-modal');
+const btnCloseSoundboard = document.getElementById('btn-close-soundboard');
+const btnOpenSoundboardHeader = document.getElementById('btn-open-soundboard-header');
+const soundboardSearchInput = document.getElementById('soundboard-search-input');
+const soundboardGrid = document.getElementById('soundboard-grid');
+const btnOpenAddSoundModal = document.getElementById('btn-open-add-sound-modal');
+const addSoundModal = document.getElementById('add-sound-modal');
+const btnCloseAddSound = document.getElementById('btn-close-add-sound');
+const addSoundForm = document.getElementById('add-sound-form');
+const soundToast = document.getElementById('sound-toast');
+
+// ==========================================
+// ESTADO LOCAL
+// ==========================================
+let currentUser = null;
+let currentTextChannel = 'geral';
+let inVoice = false;
+let isMuted = false;
+let isDeafened = false;
+let isScreenSharing = false;
+
 const userConfigs = new Map();
 let currentContextPeerId = null;
 
@@ -80,50 +129,37 @@ function getUserConfig(peerId) {
   return userConfigs.get(peerId);
 }
 
-// Estado Local
-let currentUser = null;
-let currentTextChannel = 'geral';
-let inVoice = false;
-let isMuted = false;
-let isDeafened = false;
-let isScreenSharing = false;
-
-// Gerenciador de Múltiplas Transmissões Simultâneas
-// id -> { id, name, avatar, stream, isLocal }
+// Transmissões simultâneas
 const activeStreams = new Map();
 let currentViewedStreamId = null;
 
 const channelMessagesStore = {};
 let allOnlineUsers = [];
 let allVoiceUsers = [];
+let availableSounds = [];
 
-// Gerenciador WebRTC
+// ==========================================
+// GERENCIADOR WEBRTC HD
+// ==========================================
 const webrtc = new WebRTCManager(
   socket,
-  // onRemoteTrack (quando chega vídeo de tela compartilhada)
   (peerId, stream, track) => {
-    console.log('[App 📺] Vídeo recebido de:', peerId);
     const peer = allOnlineUsers.find(u => u.id === peerId);
     const name = peer ? peer.name : `Participante ${peerId.substring(0, 4)}`;
     const avatar = peer ? peer.avatar : `https://api.dicebear.com/7.x/bottts/svg?seed=${peerId}`;
-
     registerStream(peerId, stream, name, avatar, false);
   },
-  // onRemoteRemove
   (peerId, type) => {
-    console.log('[App] Remoção de track de:', peerId, type);
     if (type === 'video' || !type) {
       unregisterStream(peerId);
     }
   },
-  // onSpeakingChange
   (isSpeaking) => {
     socket.emit('voice:speaking', { isSpeaking });
     if (cardLocalUser) cardLocalUser.classList.toggle('speaking', isSpeaking);
     const localPill = document.querySelector(`.voice-user-pill[data-user-id="${socket.id}"]`);
     if (localPill) localPill.classList.toggle('speaking', isSpeaking);
   },
-  // onRemoteSpeaking
   (peerId, isSpeaking) => {
     const card = document.getElementById(`voice-card-${peerId}`);
     if (card) card.classList.toggle('speaking', isSpeaking);
@@ -132,17 +168,28 @@ const webrtc = new WebRTCManager(
   }
 );
 
+// Medidor de teste de microfone no modal de configurações
+setInterval(() => {
+  if (settingsModal.style.display !== 'none' && webrtc.analyser) {
+    const buffer = new Uint8Array(webrtc.analyser.frequencyBinCount);
+    webrtc.analyser.getByteFrequencyData(buffer);
+    let sum = 0;
+    for (let i = 0; i < buffer.length; i++) sum += buffer[i];
+    const avg = sum / buffer.length;
+    const pct = Math.min(100, Math.round((avg / 60) * 100));
+    if (micTestMeter) micTestMeter.style.width = `${pct}%`;
+  }
+}, 60);
+
 // ==========================================
-// GERENCIAMENTO DE MÚLTIPLAS LIVES / TELAS
+// TRANSMISSÕES SIMULTÂNEAS
 // ==========================================
 function registerStream(id, stream, name, avatar, isLocal) {
   activeStreams.set(id, { id, name, avatar, stream, isLocal });
 
-  // Se não estiver assistindo nenhuma live no momento, foca nesta automaticamente
   if (!currentViewedStreamId || !activeStreams.has(currentViewedStreamId)) {
     viewStream(id);
   } else {
-    // Apenas atualiza a barra de troca de lives
     renderStreamSwitcherBar();
     renderVoiceStageCards();
     renderVoiceChannelUsers();
@@ -190,7 +237,6 @@ function viewStream(id) {
   renderVoiceChannelUsers();
 }
 
-// Barra de seleção rápida quando 2 ou mais pessoas transmitem tela
 function renderStreamSwitcherBar() {
   if (!streamSwitcherBar) return;
 
@@ -204,7 +250,7 @@ function renderStreamSwitcherBar() {
     label.style.fontWeight = '700';
     label.style.textTransform = 'uppercase';
     label.style.marginRight = '8px';
-    label.textContent = 'Transmissões:';
+    label.textContent = 'Transmissões HD:';
     streamSwitcherBar.appendChild(label);
 
     activeStreams.forEach(streamItem => {
@@ -225,13 +271,14 @@ function renderStreamSwitcherBar() {
   }
 }
 
-// Preview dinâmico de avatar
+// ==========================================
+// LOGIN & SOCKET INITIALIZATION
+// ==========================================
 usernameInput.addEventListener('input', (e) => {
   const val = e.target.value.trim();
   avatarPreview.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(val || 'Gamezeda')}`;
 });
 
-// Entrar no servidor
 loginForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const name = usernameInput.value.trim();
@@ -250,7 +297,6 @@ loginForm.addEventListener('submit', (e) => {
   sounds.playJoin();
 });
 
-// Inicialização com dados do servidor
 socket.on('init:state', (data) => {
   if (data.chatMessages) {
     Object.assign(channelMessagesStore, data.chatMessages);
@@ -281,16 +327,12 @@ socket.on('voice:peer-speaking', ({ peerId, isSpeaking }) => {
   if (pill) pill.classList.toggle('speaking', isSpeaking);
 });
 
-// Quando alguém ativa/desativa tela
 socket.on('voice:peer-screen-status', ({ peerId, isSharing }) => {
-  console.log(`[Socket 📺] Peer ${peerId} screen status:`, isSharing);
-  if (!isSharing) {
-    unregisterStream(peerId);
-  }
+  if (!isSharing) unregisterStream(peerId);
 });
 
 // ==========================================
-// RENDERIZAÇÃO DE MEMBROS REAIS
+// RENDERIZAÇÃO DE MEMBROS
 // ==========================================
 function renderMembersSidebar() {
   if (!membersListContent) return;
@@ -340,15 +382,11 @@ function createMemberItem(user, isVoice) {
   `;
 
   if (user.id !== socket.id) {
-    div.addEventListener('contextmenu', (e) => {
-      openContextMenu(e, user.id, user.name);
-    });
+    div.addEventListener('contextmenu', (e) => openContextMenu(e, user.id, user.name));
   }
-
   return div;
 }
 
-// Lista abaixo de 🔊 Gamezeda
 function renderVoiceChannelUsers() {
   if (!voiceUsersContainer) return;
   voiceUsersContainer.innerHTML = '';
@@ -367,7 +405,6 @@ function renderVoiceChannelUsers() {
       ${isSharing ? '<span class="live-indicator" style="font-size: 10px; margin-left: 6px; padding: 2px 5px; cursor: pointer;">🔴 AO VIVO</span>' : ''}
     `;
 
-    // Clicar no pill do usuário que está transmitindo troca para a live dele!
     pill.addEventListener('click', (e) => {
       e.stopPropagation();
       if (activeStreams.has(streamKey)) {
@@ -377,34 +414,26 @@ function renderVoiceChannelUsers() {
       }
     });
 
-    // Botão direito abre menu de contexto
     if (!isLocal) {
-      pill.addEventListener('contextmenu', (e) => {
-        openContextMenu(e, user.id, user.name);
-      });
+      pill.addEventListener('contextmenu', (e) => openContextMenu(e, user.id, user.name));
     }
 
     voiceUsersContainer.appendChild(pill);
   });
 }
 
-// Cards dos participantes no palco
 function renderVoiceStageCards() {
   if (!dynamicVoiceCards) return;
   dynamicVoiceCards.innerHTML = '';
 
-  // Card do usuário local
   if (cardLocalUser) {
     const hasLocalStream = activeStreams.has('local');
     cardLocalUser.classList.toggle('has-stream', hasLocalStream);
     cardLocalUser.onclick = () => {
-      if (activeStreams.has('local')) {
-        viewStream('local');
-      }
+      if (activeStreams.has('local')) viewStream('local');
     };
   }
 
-  // Cards dos outros participantes
   const otherVoiceUsers = allVoiceUsers.filter(u => u.id !== socket.id);
   otherVoiceUsers.forEach(user => {
     const hasStream = activeStreams.has(user.id);
@@ -416,24 +445,17 @@ function renderVoiceStageCards() {
       <div class="card-name">${escapeHtml(user.name)}</div>
     `;
 
-    // Clicar no card do usuário troca para a live dele!
     card.addEventListener('click', () => {
-      if (activeStreams.has(user.id)) {
-        viewStream(user.id);
-      }
+      if (activeStreams.has(user.id)) viewStream(user.id);
     });
 
-    // Botão direito abre menu de contexto
-    card.addEventListener('contextmenu', (e) => {
-      openContextMenu(e, user.id, user.name);
-    });
-
+    card.addEventListener('contextmenu', (e) => openContextMenu(e, user.id, user.name));
     dynamicVoiceCards.appendChild(card);
   });
 }
 
 // ==========================================
-// CANAIS DE TEXTO SEPARADOS
+// CHAT & CANAIS DE TEXTO
 // ==========================================
 document.querySelectorAll('[data-channel]').forEach(el => {
   el.addEventListener('click', () => {
@@ -461,9 +483,14 @@ function switchTextChannel(chName) {
   renderCurrentChannelMessages();
 }
 
-function renderCurrentChannelMessages() {
+function renderCurrentChannelMessages(filterText = '') {
   messagesContainer.innerHTML = '';
-  const messages = channelMessagesStore[currentTextChannel] || [];
+  let messages = channelMessagesStore[currentTextChannel] || [];
+
+  if (filterText) {
+    const query = filterText.toLowerCase();
+    messages = messages.filter(m => (m.text && m.text.toLowerCase().includes(query)) || (m.sender && m.sender.toLowerCase().includes(query)));
+  }
 
   if (messages.length === 0) {
     const emptyBanner = document.createElement('div');
@@ -526,6 +553,20 @@ function appendMessageToContainer(msg) {
 
   const div = document.createElement('div');
   div.className = 'message-item';
+
+  let attachmentHtml = '';
+  if (msg.attachmentUrl) {
+    const isImg = /\.(png|jpe?g|gif|webp|svg)$/i.test(msg.attachmentUrl);
+    const isAudio = /\.(mp3|wav|ogg|m4a)$/i.test(msg.attachmentUrl);
+    if (isImg) {
+      attachmentHtml = `<div class="message-attachment"><img src="${msg.attachmentUrl}" alt="Anexo" loading="lazy"></div>`;
+    } else if (isAudio) {
+      attachmentHtml = `<div class="message-attachment"><audio controls src="${msg.attachmentUrl}"></audio></div>`;
+    } else {
+      attachmentHtml = `<div class="message-attachment"><a href="${msg.attachmentUrl}" target="_blank" style="color: #5865F2; text-decoration: underline;">📁 Baixar Anexo</a></div>`;
+    }
+  }
+
   div.innerHTML = `
     <img class="message-avatar" src="${msg.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + encodeURIComponent(msg.sender)}" alt="${msg.sender}">
     <div class="message-content">
@@ -534,13 +575,63 @@ function appendMessageToContainer(msg) {
         <span class="message-time">${msg.timestamp}</span>
       </div>
       <div class="message-text">${escapeHtml(msg.text)}</div>
+      ${attachmentHtml}
     </div>
   `;
   messagesContainer.appendChild(div);
 }
 
+// Upload de anexo de arquivo no chat
+btnAttachFile.addEventListener('click', () => chatFileInput.click());
+chatFileInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res = await fetch('/api/chat-file', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (data.success) {
+      socket.emit('chat:send', {
+        channelId: currentTextChannel,
+        text: `Enviou um arquivo: ${file.name}`,
+        attachmentUrl: data.url
+      });
+    }
+  } catch (err) {
+    alert('Erro ao enviar arquivo.');
+  }
+  chatFileInput.value = '';
+});
+
+// Busca no Chat
+chatSearchInput.addEventListener('input', (e) => {
+  renderCurrentChannelMessages(e.target.value.trim());
+});
+
+// Toggle da barra lateral de membros
+btnToggleMembersSidebar.addEventListener('click', () => {
+  if (membersSidebar) {
+    const isHidden = membersSidebar.style.display === 'none';
+    membersSidebar.style.display = isHidden ? 'flex' : 'none';
+  }
+});
+
+// Emoji trigger
+btnEmojiTrigger.addEventListener('click', () => {
+  const emojis = ['😀', '😂', '🔥', '🎉', '👍', '🎮', '💀', '💩'];
+  const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+  chatInput.value += ` ${randomEmoji} `;
+  chatInput.focus();
+});
+
 // ==========================================
-// CONEXÃO DE VOZ & TELA
+// CONEXÃO DE VOZ & TELA HD
 // ==========================================
 channelGamezeda.addEventListener('click', async () => {
   if (inVoice) {
@@ -585,7 +676,7 @@ function leaveVoice() {
   document.querySelector('.chat-input-wrapper').style.display = 'block';
 
   btnStageScreen.classList.remove('active-stream');
-  btnStageScreenText.textContent = 'Compartilhar Tela';
+  btnStageScreenText.textContent = 'Compartilhar Tela HD';
 
   myUserStatusEl.textContent = 'Online';
   socket.emit('voice:leave');
@@ -594,7 +685,7 @@ function leaveVoice() {
 quickDisconnectBtn.addEventListener('click', leaveVoice);
 btnStageDisconnect.addEventListener('click', leaveVoice);
 
-// COMPARTILHAR TELA
+// Compartilhar Tela em HD
 async function toggleScreenShare() {
   if (!inVoice) {
     channelGamezeda.click();
@@ -605,12 +696,12 @@ async function toggleScreenShare() {
     unregisterStream('local');
     isScreenSharing = false;
     btnStageScreen.classList.remove('active-stream');
-    btnStageScreenText.textContent = 'Compartilhar Tela';
+    btnStageScreenText.textContent = 'Compartilhar Tela HD';
   } else {
     const stream = await webrtc.startScreenShare();
     if (stream) {
       isScreenSharing = true;
-      registerStream('local', stream, `${currentUser ? currentUser.name : 'Você'} (Sua Tela)`, currentUser ? currentUser.avatar : '', true);
+      registerStream('local', stream, `${currentUser ? currentUser.name : 'Você'} (Sua Tela HD)`, currentUser ? currentUser.avatar : '', true);
       btnStageScreen.classList.add('active-stream');
       btnStageScreenText.textContent = 'Parar Tela';
     }
@@ -621,7 +712,6 @@ quickScreenShareBtn.addEventListener('click', toggleScreenShare);
 btnStageScreen.addEventListener('click', toggleScreenShare);
 btnStopScreenTile.addEventListener('click', toggleScreenShare);
 
-// Tela Cheia
 btnFullscreenScreen.addEventListener('click', () => {
   if (sharedScreenVideo.requestFullscreen) {
     sharedScreenVideo.requestFullscreen();
@@ -630,7 +720,6 @@ btnFullscreenScreen.addEventListener('click', () => {
   }
 });
 
-// Mutar / Desmutar
 btnToggleMic.addEventListener('click', () => {
   isMuted = webrtc.toggleMute();
   if (isMuted) {
@@ -645,7 +734,6 @@ btnToggleMic.addEventListener('click', () => {
 });
 btnStageMic.addEventListener('click', () => btnToggleMic.click());
 
-// Fone
 btnToggleDeaf.addEventListener('click', () => {
   isDeafened = !isDeafened;
   btnToggleDeaf.classList.toggle('active-muted', isDeafened);
@@ -654,24 +742,223 @@ btnToggleDeaf.addEventListener('click', () => {
   });
 });
 
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+// ==========================================
+// MODAL DE CONFIGURAÇÕES DE DISPOSITIVOS E ÁUDIO
+// ==========================================
+async function openSettingsModal() {
+  settingsModal.style.display = 'flex';
+  await populateDeviceSelectors();
+
+  // Sincroniza toggle e slider de supressão de ruído
+  settingNoiseSuppressionToggle.checked = webrtc.noiseSuppressionEnabled;
+  settingNoiseThresholdSlider.value = webrtc.noiseGateThreshold;
+  settingNoiseThreshVal.textContent = webrtc.noiseGateThreshold;
 }
 
-// Alerta de HTTPS
-if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-  const httpsBanner = document.getElementById('https-banner');
-  const httpsLink = document.getElementById('https-link');
-  if (httpsBanner && httpsLink) {
-    httpsLink.href = `https://${location.hostname}:${location.port || '3050'}`;
-    httpsBanner.style.display = 'block';
+function closeSettingsModal() {
+  settingsModal.style.display = 'none';
+}
+
+async function populateDeviceSelectors() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const audioInputs = devices.filter(d => d.kind === 'audioinput');
+    const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
+
+    settingAudioInput.innerHTML = '';
+    audioInputs.forEach((device, index) => {
+      const opt = document.createElement('option');
+      opt.value = device.deviceId;
+      opt.textContent = device.label || `Microfone ${index + 1}`;
+      if (device.deviceId === webrtc.selectedInputDeviceId) opt.selected = true;
+      settingAudioInput.appendChild(opt);
+    });
+
+    settingAudioOutput.innerHTML = '';
+    audioOutputs.forEach((device, index) => {
+      const opt = document.createElement('option');
+      opt.value = device.deviceId;
+      opt.textContent = device.label || `Alto-falante / Fone ${index + 1}`;
+      if (device.deviceId === webrtc.selectedOutputDeviceId) opt.selected = true;
+      settingAudioOutput.appendChild(opt);
+    });
+  } catch (err) {
+    console.warn('Erro ao listar dispositivos:', err);
   }
 }
 
+btnUserSettings.addEventListener('click', openSettingsModal);
+btnCloseSettings.addEventListener('click', closeSettingsModal);
+btnSaveSettings.addEventListener('click', closeSettingsModal);
+
+settingAudioInput.addEventListener('change', (e) => {
+  webrtc.setInputDevice(e.target.value);
+});
+
+settingAudioOutput.addEventListener('change', (e) => {
+  webrtc.setOutputDevice(e.target.value);
+});
+
+btnTestOutputSound.addEventListener('click', () => {
+  sounds.playJoin();
+});
+
+settingNoiseSuppressionToggle.addEventListener('change', (e) => {
+  webrtc.setNoiseSuppression(e.target.checked);
+});
+
+settingNoiseThresholdSlider.addEventListener('input', (e) => {
+  const val = parseFloat(e.target.value);
+  settingNoiseThreshVal.textContent = val;
+  webrtc.setNoiseSuppression(settingNoiseSuppressionToggle.checked, val);
+});
+
 // ==========================================
-// MENU DE CONTEXTO DO USUÁRIO (DISCORD STYLE)
+// SOUNDBOARD DO SERVIDOR
+// ==========================================
+async function openSoundboardModal() {
+  soundboardModal.style.display = 'flex';
+  await loadSoundboardSounds();
+}
+
+function closeSoundboardModal() {
+  soundboardModal.style.display = 'none';
+}
+
+async function loadSoundboardSounds() {
+  soundboardGrid.innerHTML = '<div style="color: #949ba4; padding: 20px; text-align: center; grid-column: 1 / -1;">Carregando...</div>';
+  try {
+    const res = await fetch('/api/soundboard');
+    const data = await res.json();
+    if (data.success) {
+      availableSounds = data.sounds;
+      renderSoundboardGrid();
+    }
+  } catch (err) {
+    soundboardGrid.innerHTML = '<div style="color: #ed4245; padding: 20px; text-align: center; grid-column: 1 / -1;">Erro ao carregar sons.</div>';
+  }
+}
+
+function renderSoundboardGrid(filterText = '') {
+  soundboardGrid.innerHTML = '';
+  let filtered = availableSounds;
+  if (filterText) {
+    const q = filterText.toLowerCase();
+    filtered = filtered.filter(s => s.name.toLowerCase().includes(q) || s.emoji.includes(q));
+  }
+
+  if (filtered.length === 0) {
+    soundboardGrid.innerHTML = '<div style="color: #949ba4; padding: 20px; text-align: center; grid-column: 1 / -1;">Nenhum som encontrado.</div>';
+    return;
+  }
+
+  filtered.forEach(sound => {
+    const tile = document.createElement('div');
+    tile.className = 'soundboard-tile';
+    tile.innerHTML = `
+      <div class="soundboard-tile-emoji">${sound.emoji}</div>
+      <div class="soundboard-tile-name" title="${escapeHtml(sound.name)}">${escapeHtml(sound.name)}</div>
+    `;
+
+    tile.addEventListener('click', () => {
+      playSoundLocally(sound.file_url);
+      socket.emit('soundboard:play', {
+        soundId: sound.id,
+        soundUrl: sound.file_url,
+        soundName: sound.name,
+        emoji: sound.emoji
+      });
+      showSoundToast(`Você tocou: ${sound.emoji} ${sound.name}`);
+    });
+
+    soundboardGrid.appendChild(tile);
+  });
+}
+
+function playSoundLocally(url) {
+  const audio = new Audio(url);
+  webrtc.applyOutputDeviceToElement(audio);
+  audio.play().catch(e => console.warn('Erro ao tocar som:', e));
+}
+
+function showSoundToast(msg) {
+  if (!soundToast) return;
+  soundToast.textContent = msg;
+  soundToast.style.display = 'flex';
+  setTimeout(() => {
+    soundToast.style.display = 'none';
+  }, 2500);
+}
+
+socket.on('soundboard:played', ({ soundUrl, soundName, emoji, playedBy, playedById }) => {
+  if (playedById !== socket.id) {
+    playSoundLocally(soundUrl);
+    showSoundToast(`🎵 ${playedBy} tocou: ${emoji} ${soundName}`);
+  }
+});
+
+btnVoiceSoundboard.addEventListener('click', openSoundboardModal);
+btnStageSoundboard.addEventListener('click', openSoundboardModal);
+btnOpenSoundboardHeader.addEventListener('click', openSoundboardModal);
+btnCloseSoundboard.addEventListener('click', closeSoundboardModal);
+
+soundboardSearchInput.addEventListener('input', (e) => {
+  renderSoundboardGrid(e.target.value.trim());
+});
+
+// Adicionar Som (Upload)
+btnOpenAddSoundModal.addEventListener('click', () => {
+  addSoundModal.style.display = 'flex';
+});
+
+btnCloseAddSound.addEventListener('click', () => {
+  addSoundModal.style.display = 'none';
+});
+
+addSoundForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fileInput = document.getElementById('sound-file-input');
+  const nameInput = document.getElementById('sound-name-input');
+  const emojiInput = document.getElementById('sound-emoji-input');
+
+  if (!fileInput.files[0]) return;
+
+  const formData = new FormData();
+  formData.append('audio', fileInput.files[0]);
+  formData.append('name', nameInput.value.trim());
+  formData.append('emoji', emojiInput.value.trim() || '🔊');
+  formData.append('created_by', currentUser ? currentUser.name : 'Anônimo');
+
+  try {
+    const btnSubmit = document.getElementById('btn-submit-sound');
+    btnSubmit.disabled = true;
+    btnSubmit.textContent = 'Enviando...';
+
+    const res = await fetch('/api/soundboard', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      addSoundModal.style.display = 'none';
+      addSoundForm.reset();
+      await loadSoundboardSounds();
+      showSoundToast('Novo som cadastrado com sucesso!');
+    } else {
+      alert(data.error || 'Erro ao cadastrar som.');
+    }
+    btnSubmit.disabled = false;
+    btnSubmit.textContent = 'Salvar e Enviar Som';
+  } catch (err) {
+    alert('Erro na comunicação com o servidor.');
+  }
+});
+
+// ==========================================
+// MENU DE CONTEXTO (DISCORD BOTÃO DIREITO)
 // ==========================================
 function updateSliderBackground(slider, val, max = 200) {
   const pct = (val / max) * 100;
@@ -687,17 +974,14 @@ function openContextMenu(e, peerId, peerName) {
   currentContextPeerId = peerId;
   const config = getUserConfig(peerId);
 
-  // Sincroniza slider com volume atual
   ctxVolumeSlider.value = config.volume;
   ctxVolumeVal.textContent = `${config.volume}%`;
   updateSliderBackground(ctxVolumeSlider, config.volume, 200);
 
-  // Sincroniza checkboxes
   ctxCheckMute.classList.toggle('checked', config.muted);
   ctxCheckSfx.classList.toggle('checked', config.sfxMuted);
   ctxCheckVideo.classList.toggle('checked', config.videoDisabled);
 
-  // Exibe o menu e posiciona com ajuste inteligente para caber na janela
   userContextMenu.style.display = 'flex';
   const menuWidth = 230;
   const menuHeight = 175;
@@ -716,27 +1000,23 @@ function openContextMenu(e, peerId, peerName) {
 }
 
 function closeContextMenu() {
-  if (userContextMenu) {
-    userContextMenu.style.display = 'none';
-  }
+  if (userContextMenu) userContextMenu.style.display = 'none';
   currentContextPeerId = null;
 }
 
-// Fechar menu ao clicar fora
 document.addEventListener('click', (e) => {
-  if (userContextMenu && !userContextMenu.contains(e.target)) {
-    closeContextMenu();
-  }
+  if (userContextMenu && !userContextMenu.contains(e.target)) closeContextMenu();
 });
 
-// Fechar com Escape
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeContextMenu();
+    closeSettingsModal();
+    closeSoundboardModal();
+    addSoundModal.style.display = 'none';
   }
 });
 
-// Slider de volume (0% a 200%)
 ctxVolumeSlider.addEventListener('input', (e) => {
   const vol = parseInt(e.target.value, 10);
   ctxVolumeVal.textContent = `${vol}%`;
@@ -750,7 +1030,6 @@ ctxVolumeSlider.addEventListener('input', (e) => {
 });
 ctxVolumeSlider.addEventListener('click', (e) => e.stopPropagation());
 
-// Checkbox: Silenciar (Voz)
 ctxItemMute.addEventListener('click', (e) => {
   e.stopPropagation();
   if (!currentContextPeerId) return;
@@ -760,7 +1039,6 @@ ctxItemMute.addEventListener('click', (e) => {
   webrtc.setUserMuted(currentContextPeerId, config.muted);
 });
 
-// Checkbox: Silenciar efeitos sonoros (Som da tela)
 ctxItemSfx.addEventListener('click', (e) => {
   e.stopPropagation();
   if (!currentContextPeerId) return;
@@ -770,7 +1048,6 @@ ctxItemSfx.addEventListener('click', (e) => {
   webrtc.setUserScreenAudioMuted(currentContextPeerId, config.sfxMuted);
 });
 
-// Checkbox: Desativar vídeo
 ctxItemVideo.addEventListener('click', (e) => {
   e.stopPropagation();
   if (!currentContextPeerId) return;
@@ -778,13 +1055,11 @@ ctxItemVideo.addEventListener('click', (e) => {
   config.videoDisabled = !config.videoDisabled;
   ctxCheckVideo.classList.toggle('checked', config.videoDisabled);
 
-  // Aplica imediatamente se estiver visualizando o vídeo deste usuário
   if (currentViewedStreamId === currentContextPeerId) {
     sharedScreenVideo.style.display = config.videoDisabled ? 'none' : 'block';
   }
 });
 
-// Botão direito no player da tela também abre as opções do streamer
 if (mainScreenTile) {
   mainScreenTile.addEventListener('contextmenu', (e) => {
     if (currentViewedStreamId && currentViewedStreamId !== 'local' && currentViewedStreamId !== socket.id) {
@@ -792,4 +1067,14 @@ if (mainScreenTile) {
       openContextMenu(e, currentViewedStreamId, peer ? peer.name : 'Participante');
     }
   });
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+if (window.lucide) {
+  window.lucide.createIcons();
 }
