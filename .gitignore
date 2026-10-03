@@ -1,0 +1,20 @@
+# Dependências
+node_modules/
+
+# Certificados SSL locais
+*.pem
+
+# Logs
+*.log
+npm-debug.log*
+
+# Variáveis de ambiente
+.env
+.env.local
+
+# Scripts com credenciais e chaves da VPS (mantidos localmente)
+deploy_docker.py
+deploy_vps.py
+check_*.py
+verify_*.py
+PROMPT_NOVA_JANELA.md

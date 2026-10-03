@@ -1,0 +1,14 @@
+{
+  "name": "discord-clone-webrtc",
+  "version": "1.0.0",
+  "description": "Discord Clone com Chat em Tempo Real e Compartilhamento de Tela WebRTC",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}

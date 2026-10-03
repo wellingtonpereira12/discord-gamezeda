@@ -1,0 +1,9 @@
+services:
+  discord-gamezeda:
+    build: .
+    container_name: discord-gamezeda
+    restart: always
+    ports:
+      - "3050:3000"
+    environment:
+      - PORT=3000

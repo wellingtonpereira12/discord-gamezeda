@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discord - Jogos Bolados / Gamezeda</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Socket.io Client -->
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+  <!-- MODAL DE ENTRADA (SEM LOGIN, APENAS DIGITE SEU NOME) -->
+  <div id="login-modal" class="modal-overlay">
+    <div class="welcome-modal">
+      <div class="modal-header">
+        <img src="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png" width="48" height="38" style="margin-bottom: 12px;" alt="Discord">
+        <h2>Entrar no Jogos Bolados</h2>
+        <p>Acesse o grupo <strong>Gamezeda</strong> com voz e compartilhamento de tela!</p>
+      </div>
+
+      <div class="avatar-preview-container">
+        <img id="avatar-preview" class="avatar-preview" src="https://api.dicebear.com/7.x/bottts/svg?seed=Gamezeda" alt="Avatar">
+      </div>
+
+      <form id="login-form">
+        <div class="form-group">
+          <label for="username-input">Como devemos te chamar?</label>
+          <input type="text" id="username-input" class="form-input" placeholder="Digite seu nome ou apelido..." autofocus required maxlength="24">
+        </div>
+        <button type="submit" class="btn-enter">Entrar no Servidor</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- AVISO DE CONEXÃO SEGURA PARA MICROFONE (SE NECESSÁRIO) -->
+  <div id="https-banner" style="display: none; background: #5865F2; color: #fff; text-align: center; padding: 8px 12px; font-size: 13px; font-weight: 600; z-index: 10000; position: fixed; top: 0; left: 0; right: 0;">
+    🔒 Para que o microfone e compartilhamento de tela funcionem sem bloqueio do navegador: 
+    <a id="https-link" href="#" style="color: #fff; text-decoration: underline; margin-left: 8px; font-weight: 700;">Clique aqui para acessar via HTTPS</a>
+  </div>
+
+  <!-- APLICAÇÃO DISCORD COMPLETA -->
+  <div id="app">
+    
+    <!-- COLUNA 1: BARRA DE CANAIS DO SERVIDOR JOGOS BOLADOS / GAMEZEDA -->
+    <div class="channels-sidebar">
+      
+      <!-- Cabeçalho do Servidor -->
+      <div class="server-header" id="server-header-btn">
+        <span style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-weight: 800;">Jogos Bolados</span>
+          <i data-lucide="badge-check" style="width: 16px; height: 16px; color: #5865F2;"></i>
+        </span>
+        <i data-lucide="chevron-down" style="width: 18px; height: 18px;"></i>
+      </div>
+
+
+      <!-- Lista de Canais Rolável -->
+      <div class="channels-scroll">
+        
+        <!-- Categoria Canais de Texto -->
+        <div class="channel-category">
+          <span>Text Channels</span>
+          <i data-lucide="plus" style="width: 14px; height: 14px; cursor: pointer;"></i>
+        </div>
+
+        <div class="channel-item active" data-channel="geral">
+          <span class="channel-icon">#</span>
+          <span>geral</span>
+        </div>
+        <div class="channel-item" data-channel="links">
+          <span class="channel-icon">#</span>
+          <span>links</span>
+        </div>
+        <div class="channel-item" data-channel="meme-imagem-videos">
+          <span class="channel-icon">#</span>
+          <span>meme-imagem-videos</span>
+        </div>
+        <div class="channel-item" data-channel="musicas">
+          <span class="channel-icon">#</span>
+          <span>musicas</span>
+        </div>
+        <div class="channel-item" data-channel="novo-video-youtube">
+          <span class="channel-icon">#</span>
+          <span>novo-video-youtube</span>
+        </div>
+        <div class="channel-item" data-channel="clips-twitch">
+          <span class="channel-icon">#</span>
+          <span>clips twitch</span>
+        </div>
+        <div class="channel-item" data-channel="blogger">
+          <span class="channel-icon">#</span>
+          <span>blogger</span>
+        </div>
+        <div class="channel-item" data-channel="informacoes-eventos-regras">
+          <span class="channel-icon">#</span>
+          <span>informações-eventos-regras</span>
+        </div>
+        <div class="channel-item" data-channel="nova-live">
+          <span class="channel-icon">#</span>
+          <span>nova-live</span>
+        </div>
+        <div class="channel-item" data-channel="vendo-mousepad">
+          <span class="channel-icon">#</span>
+          <span>vendo-mousepad</span>
+        </div>
+        <div class="channel-item" data-channel="to-sem-mic">
+          <span class="channel-icon">#</span>
+          <span>to-sem-mic</span>
+        </div>
+        <div class="channel-item" data-channel="tribunal-de-justica">
+          <span class="channel-icon">#</span>
+          <span>tribunal-de-justiça-dos-ad...</span>
+        </div>
+
+        <!-- Categoria Canais de Voz -->
+        <div class="channel-category" style="margin-top: 14px;">
+          <span>Canal de Voz do meu pau</span>
+          <i data-lucide="plus" style="width: 14px; height: 14px; cursor: pointer;"></i>
+        </div>
+
+        <div class="channel-item" data-voice="so-adm">
+          <i data-lucide="lock" class="channel-icon" style="width: 16px; height: 16px;"></i>
+          <span>Só ADM</span>
+        </div>
+
+        <!-- CANAL OFICIAL GAMEZEDA (ONDE VOCÊ COMPARTILHA A TELA) -->
+        <div class="channel-item" id="btn-channel-gamezeda" data-voice="gamezeda" style="font-weight: 700; color: #fff;">
+          <i data-lucide="volume-2" class="channel-icon" style="color: #23a55a;"></i>
+          <span style="flex: 1;">Gamezeda</span>
+          <span style="font-size: 11px; color: #23a55a; font-family: monospace;" id="voice-timer">6:10:02</span>
+        </div>
+
+        <!-- Lista de quem está conectado no canal Gamezeda (atualizado em tempo real com usuários reais) -->
+        <div class="voice-users-list" id="voice-users-container"></div>
+
+      </div>
+
+      <!-- Barra de Status de Voz (quando conectado) -->
+      <div class="voice-connection-status" id="voice-status-box">
+        <div class="voice-status-header">
+          <div class="voice-status-title">
+            <i data-lucide="activity" style="width: 16px; height: 16px;"></i>
+            <span>Voz conectada</span>
+          </div>
+          <span class="voice-status-sub">Gamezeda / Jogos Bolados</span>
+        </div>
+        <div class="voice-quick-actions">
+          <button class="btn-voice-action" id="quick-screenshare-btn" title="Compartilhar Tela">
+            <i data-lucide="screen-share" style="width: 16px; height: 16px;"></i>
+            <span>Tela</span>
+          </button>
+          <button class="btn-voice-action" id="quick-camera-btn" title="Ligar Câmera">
+            <i data-lucide="video" style="width: 16px; height: 16px;"></i>
+            <span>Vídeo</span>
+          </button>
+          <button class="btn-voice-action danger" id="quick-disconnect-btn" title="Desconectar">
+            <i data-lucide="phone-off" style="width: 16px; height: 16px;"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Barra do Usuário Logado (Perfil) -->
+      <div class="user-panel">
+        <div class="user-info">
+          <div class="user-avatar-wrap">
+            <img id="my-avatar" class="user-avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=Takalho" alt="User">
+            <div class="status-dot"></div>
+          </div>
+          <div class="user-details">
+            <div class="user-name" id="my-username">Takalho</div>
+            <div class="user-subtext" id="my-userstatus">Em voz</div>
+          </div>
+        </div>
+
+        <div class="user-controls">
+          <button class="icon-btn" id="btn-toggle-mic" title="Silenciar Microfone">
+            <i data-lucide="mic" id="mic-icon" style="width: 18px; height: 18px;"></i>
+          </button>
+          <button class="icon-btn" id="btn-toggle-deaf" title="Desativar Áudio">
+            <i data-lucide="headphones" id="headphones-icon" style="width: 18px; height: 18px;"></i>
+          </button>
+          <button class="icon-btn" title="Configurações de Usuário">
+            <i data-lucide="settings" style="width: 18px; height: 18px;"></i>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- COLUNA 2: ÁREA CENTRAL (CHAT + PALCO DE COMPARTILHAMENTO DE TELA) -->
+    <div class="main-content">
+      
+      <!-- Cabeçalho Superior do Chat -->
+      <div class="chat-header">
+        <div class="chat-header-title">
+          <span class="hash">#</span>
+          <span id="current-channel-name">geral</span>
+        </div>
+
+        <div class="chat-header-icons">
+          <i data-lucide="pin" style="width: 18px; height: 18px; cursor: pointer;"></i>
+          <i data-lucide="bell" style="width: 18px; height: 18px; cursor: pointer;"></i>
+          <i data-lucide="users" style="width: 18px; height: 18px; cursor: pointer;"></i>
+          <input type="text" placeholder="Buscar Jogos Bolados">
+          <i data-lucide="inbox" style="width: 18px; height: 18px; cursor: pointer;"></i>
+          <i data-lucide="help-circle" style="width: 18px; height: 18px; cursor: pointer;"></i>
+        </div>
+      </div>
+
+      <!-- PALCO DE VÍDEO & COMPARTILHAMENTO DE TELA (DISCORD STAGE) -->
+      <div class="video-stage" id="video-stage">
+        
+        <!-- Barra de Seleção de Transmissões Ativas (Quando 2 ou mais pessoas transmitem) -->
+        <div class="stream-switcher-bar" id="stream-switcher-bar" style="display: none;"></div>
+
+        <!-- Grade de Vídeos / Telas -->
+        <div class="video-grid" id="video-grid">
+          
+          <!-- Quadro Principal de Tela Compartilhada (criado dinamicamente ou fixado) -->
+          <div class="screen-tile" id="main-screen-tile" style="display: none;">
+            <div class="screen-tile-badge">
+              <span class="live-indicator">AO VIVO</span>
+              <span id="screen-sharer-name">Você está transmitindo</span>
+            </div>
+
+            <div class="screen-tile-controls">
+              <button class="screen-btn" id="btn-fullscreen-screen" title="Tela Cheia">
+                <i data-lucide="maximize" style="width: 16px; height: 16px;"></i>
+              </button>
+              <button class="screen-btn" id="btn-stop-screen-tile" title="Parar Transmissão">
+                <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+              </button>
+            </div>
+
+            <video id="shared-screen-video" autoplay playsinline muted></video>
+          </div>
+
+          <div class="user-voice-card" id="card-local-user">
+            <img id="card-my-avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=Gamezeda" alt="Você">
+            <div class="card-name" id="card-my-name">Você</div>
+          </div>
+          <!-- Cards dinâmicos dos outros participantes reais -->
+          <div id="dynamic-voice-cards" style="display: contents;"></div>
+
+        </div>
+
+        <!-- BARRA FLUTUANTE DE CONTROLES DO DISCORD -->
+        <div class="stage-control-bar">
+          <button class="stage-btn" id="btn-stage-screen" title="Compartilhar Tela">
+            <i data-lucide="screen-share" style="width: 18px; height: 18px;"></i>
+            <span id="btn-stage-screen-text">Compartilhar Tela</span>
+          </button>
+
+          <button class="stage-btn" id="btn-stage-camera" title="Câmera">
+            <i data-lucide="video" style="width: 18px; height: 18px;"></i>
+            <span>Câmera</span>
+          </button>
+
+          <button class="stage-btn" id="btn-stage-mic" title="Microfone">
+            <i data-lucide="mic" id="stage-mic-icon" style="width: 18px; height: 18px;"></i>
+            <span id="stage-mic-text">Microfone</span>
+          </button>
+
+          <button class="stage-btn danger" id="btn-stage-disconnect" title="Desconectar do canal">
+            <i data-lucide="phone-off" style="width: 18px; height: 18px;"></i>
+            <span>Desconectar</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- ÁREA DE MENSAGENS DO CHAT (CADA CANAL COM SEU HISTÓRICO SEPARADO) -->
+      <div class="messages-container" id="messages-container"></div>
+
+      <!-- Campo de Digitação na Base -->
+      <div class="chat-input-wrapper">
+        <form id="chat-form" class="chat-input-bar">
+          <button type="button" class="chat-plus-btn" title="Adicionar arquivo">
+            <i data-lucide="plus-circle" style="width: 20px; height: 20px;"></i>
+          </button>
+          <input type="text" id="chat-input" placeholder="Conversar em #geral" autocomplete="off">
+          <div class="chat-actions">
+            <span title="Presente">🎁</span>
+            <span title="GIF">GIF</span>
+            <span title="Figurinha">🏷️</span>
+            <span title="Emoji">😀</span>
+          </div>
+        </form>
+      </div>
+
+    </div>
+
+    <!-- COLUNA 3: BARRA LATERAL DE MEMBROS REAIS (DIREITA) -->
+    <div class="members-sidebar" id="members-sidebar">
+      <div id="members-list-content">
+        <!-- Renderizado dinamicamente com usuários reais -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MENU DE CONTEXTO DO USUÁRIO (DISCORD BOTÃO DIREITO) -->
+  <div id="user-context-menu" class="discord-context-menu" style="display: none;">
+    <div class="context-menu-slider-group">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span class="context-menu-label">Volume do usuário</span>
+        <span id="ctx-volume-val" style="font-size: 11px; color: #949ba4; font-weight: 700;">100%</span>
+      </div>
+      <input type="range" id="ctx-volume-slider" class="discord-slider" min="0" max="200" value="100">
+    </div>
+    <div class="context-menu-separator"></div>
+    <div class="context-menu-item" id="ctx-item-mute">
+      <span>Silenciar</span>
+      <div class="context-menu-checkbox" id="ctx-check-mute"></div>
+    </div>
+    <div class="context-menu-item" id="ctx-item-sfx">
+      <span>Silenciar efeitos sonoros</span>
+      <div class="context-menu-checkbox" id="ctx-check-sfx"></div>
+    </div>
+    <div class="context-menu-item" id="ctx-item-video">
+      <span>Desativar vídeo</span>
+      <div class="context-menu-checkbox" id="ctx-check-video"></div>
+    </div>
+  </div>
+
+  <!-- Scripts do Aplicativo -->
+  <script type="module" src="app.js"></script>
+
+</body>
+</html>
