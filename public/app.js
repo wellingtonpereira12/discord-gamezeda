@@ -358,10 +358,9 @@ function viewStream(id) {
   }
 
   screenSharerName.textContent = streamData.name;
-  const hasAudio = streamData.stream && streamData.stream.getAudioTracks && streamData.stream.getAudioTracks().length > 0;
   const liveIndicatorEl = mainScreenTile.querySelector('.live-indicator');
   if (liveIndicatorEl) {
-    liveIndicatorEl.textContent = hasAudio ? 'AO VIVO 1080p60 • 🔊 COM SOM' : 'AO VIVO 1080p60';
+    liveIndicatorEl.textContent = 'AO VIVO 1080p60 • 🔊 COM SOM';
   }
 
   updateScreenAudioMeter(streamData.stream);
@@ -840,16 +839,10 @@ async function toggleScreenShare() {
     const stream = await webrtc.startScreenShare();
     if (stream) {
       isScreenSharing = true;
-      const hasAudio = stream.getAudioTracks && stream.getAudioTracks().length > 0;
       registerStream('local', stream, `${currentUser ? currentUser.name : 'Você'} (Sua Tela HD)`, currentUser ? currentUser.avatar : '', true);
       btnStageScreen.classList.add('active-stream');
       btnStageScreenText.textContent = 'Parar Tela';
-
-      if (hasAudio) {
-        showSoundToast('🔊 Transmitindo tela com som do sistema!');
-      } else {
-        showSoundToast('ℹ️ Transmitindo sem som (selecione "Tela inteira" e marque a caixa "Compartilhar áudio do sistema")');
-      }
+      showSoundToast('🔊 Transmitindo tela com som do sistema!');
     }
   }
 }

@@ -592,7 +592,7 @@ export class WebRTCManager {
   // Compartilhamento de Tela 100% Compatível e Robusto (W3C Standard)
   async startScreenShare() {
     try {
-      // Captura de tela com áudio usando parâmetros padrão compatíveis com todos os navegadores
+      // Captura de tela com áudio obrigatório e pré-selecionado por padrão
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           cursor: "always",
@@ -600,32 +600,36 @@ export class WebRTCManager {
           height: { ideal: 1080, max: 1440 },
           frameRate: { ideal: 60, max: 60 }
         },
-        audio: true
+        audio: true,
+        systemAudio: "include"
       });
-
-      this.localScreenStream = stream;
-      this.isScreenSharing = true;
 
       const screenVideoTrack = stream.getVideoTracks()[0];
       const screenAudioTrack = stream.getAudioTracks()[0];
 
-      if (screenAudioTrack) {
-        console.log('[WebRTC 🔊] Áudio do sistema capturado com sucesso! ID:', screenAudioTrack.id);
-        this.localScreenAudioTrackId = screenAudioTrack.id;
-        try {
-          if (screenAudioTrack.applyConstraints) {
-            await screenAudioTrack.applyConstraints({
-              echoCancellation: false,
-              noiseSuppression: false,
-              autoGainControl: false
-            });
-          }
-        } catch (e) {
-          console.warn('Aviso: constraints de áudio de tela:', e);
+      if (!screenAudioTrack) {
+        console.warn('[WebRTC ⚠️] Áudio do sistema não selecionado.');
+        alert('Atenção: O compartilhamento é sempre realizado COM SOM do sistema.\nPor favor, escolha a opção "Tela inteira" no compartilhamento do navegador.');
+        stream.getTracks().forEach(t => t.stop());
+        this.isScreenSharing = false;
+        return null;
+      }
+
+      this.localScreenStream = stream;
+      this.isScreenSharing = true;
+      this.localScreenAudioTrackId = screenAudioTrack.id;
+      console.log('[WebRTC 🔊] Áudio do sistema capturado com sucesso! ID:', screenAudioTrack.id);
+
+      try {
+        if (screenAudioTrack.applyConstraints) {
+          await screenAudioTrack.applyConstraints({
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          });
         }
-      } else {
-        console.log('[WebRTC ℹ️] Tela compartilhada sem áudio do sistema.');
-        this.localScreenAudioTrackId = null;
+      } catch (e) {
+        console.warn('Aviso: constraints de áudio de tela:', e);
       }
 
       if ('contentHint' in screenVideoTrack) {
