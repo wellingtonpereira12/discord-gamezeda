@@ -202,7 +202,8 @@ setInterval(() => {
 function registerStream(id, stream, name, avatar, isLocal) {
   activeStreams.set(id, { id, name, avatar, stream, isLocal });
 
-  if (!currentViewedStreamId || !activeStreams.has(currentViewedStreamId)) {
+  // Se for a tela local do usuário, OU se não houver tela ativa em exibição, abre imediatamente no palco
+  if (isLocal || !currentViewedStreamId || !activeStreams.has(currentViewedStreamId)) {
     viewStream(id);
   } else {
     renderStreamSwitcherBar();
@@ -836,13 +837,23 @@ async function toggleScreenShare() {
     btnStageScreen.classList.remove('active-stream');
     btnStageScreenText.textContent = 'Compartilhar Tela HD';
   } else {
-    const stream = await webrtc.startScreenShare();
-    if (stream) {
-      isScreenSharing = true;
-      registerStream('local', stream, `${currentUser ? currentUser.name : 'Você'} (Sua Tela HD)`, currentUser ? currentUser.avatar : '', true);
-      btnStageScreen.classList.add('active-stream');
-      btnStageScreenText.textContent = 'Parar Tela';
-      showSoundToast('🔊 Transmitindo tela com som do sistema!');
+    try {
+      const stream = await webrtc.startScreenShare();
+      if (stream) {
+        isScreenSharing = true;
+        registerStream('local', stream, `${currentUser ? currentUser.name : 'Você'} (Sua Tela HD)`, currentUser ? currentUser.avatar : '', true);
+        btnStageScreen.classList.add('active-stream');
+        btnStageScreenText.textContent = 'Parar Tela';
+        const hasAudio = stream.getAudioTracks && stream.getAudioTracks().length > 0;
+        if (hasAudio) {
+          showSoundToast('🔊 Transmitindo tela com som do sistema!');
+        } else {
+          showSoundToast('📺 Transmitindo tela!');
+        }
+      }
+    } catch (err) {
+      console.error('Erro em toggleScreenShare:', err);
+      showSoundToast('❌ Falha ao iniciar transmissão: ' + (err.message || 'Erro'));
     }
   }
 }

@@ -592,87 +592,120 @@ export class WebRTCManager {
   // Compartilhamento de Tela 100% Compatível e Robusto (W3C Standard)
   async startScreenShare() {
     try {
-      // Captura de tela com áudio obrigatório e pré-selecionado por padrão
-      const stream = await navigator.mediaDevices.getDisplayMedia({
+      let stream = null;
+
+      // Opções limpas e sem restrições estritas de min/max que causam OverconstrainedError
+      const displayMediaOptions = {
         video: {
           cursor: "always",
-          width: { ideal: 1920, max: 2560 },
-          height: { ideal: 1080, max: 1440 },
-          frameRate: { ideal: 60, max: 60 }
+          frameRate: { ideal: 60 }
         },
-        audio: true,
-        systemAudio: "include"
-      });
+        audio: true
+      };
 
-      const screenVideoTrack = stream.getVideoTracks()[0];
-      const screenAudioTrack = stream.getAudioTracks()[0];
+      try {
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          ...displayMediaOptions,
+          systemAudio: "include"
+        });
+      } catch (optErr) {
+        if (optErr.name === 'NotAllowedError') {
+          console.log('[WebRTC] Compartilhamento cancelado pelo usuário.');
+          return null;
+        }
+        console.warn('[WebRTC] Tentando captura básica sem systemAudio:', optErr);
+        stream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
+      }
 
-      if (!screenAudioTrack) {
-        console.warn('[WebRTC ⚠️] Áudio do sistema não selecionado.');
-        alert('Atenção: O compartilhamento é sempre realizado COM SOM do sistema.\nPor favor, escolha a opção "Tela inteira" no compartilhamento do navegador.');
-        stream.getTracks().forEach(t => t.stop());
-        this.isScreenSharing = false;
+      if (!stream) {
         return null;
       }
 
       this.localScreenStream = stream;
       this.isScreenSharing = true;
-      this.localScreenAudioTrackId = screenAudioTrack.id;
-      console.log('[WebRTC 🔊] Áudio do sistema capturado com sucesso! ID:', screenAudioTrack.id);
 
-      try {
-        if (screenAudioTrack.applyConstraints) {
-          await screenAudioTrack.applyConstraints({
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false
-          });
-        }
-      } catch (e) {
-        console.warn('Aviso: constraints de áudio de tela:', e);
+      const screenVideoTrack = stream.getVideoTracks()[0];
+      const screenAudioTrack = stream.getAudioTracks()[0];
+
+      if (screenAudioTrack) {
+        console.log('[WebRTC 🔊] Áudio do sistema capturado com sucesso! ID:', screenAudioTrack.id);
+        this.localScreenAudioTrackId = screenAudioTrack.id;
+        try {
+          if (screenAudioTrack.applyConstraints) {
+            screenAudioTrack.applyConstraints({
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false
+            }).catch(() => {});
+          }
+        } catch (e) {}
+      } else {
+        console.warn('[WebRTC ℹ️] Tela compartilhada sem trilha de áudio.');
+        this.localScreenAudioTrackId = null;
       }
 
-      if ('contentHint' in screenVideoTrack) {
-        screenVideoTrack.contentHint = 'motion';
-      }
+      if (screenVideoTrack) {
+        try {
+          if ('contentHint' in screenVideoTrack) {
+            screenVideoTrack.contentHint = 'motion';
+          }
+        } catch (e) {}
 
-      screenVideoTrack.onended = () => {
-        this.stopScreenShare();
-      };
+        screenVideoTrack.onended = () => {
+          this.stopScreenShare();
+        };
+      }
 
       for (const [peerId, pc] of this.peers.entries()) {
-        const senders = this.getPeerSenders(peerId);
+        try {
+          const senders = this.getPeerSenders(peerId);
 
-        if (senders.screenVideoSender) {
-          try { pc.removeTrack(senders.screenVideoSender); } catch(e) {}
+          if (senders.screenVideoSender) {
+            try { pc.removeTrack(senders.screenVideoSender); } catch(e) {}
+            senders.screenVideoSender = null;
+          }
+          if (senders.screenAudioSender) {
+            try { pc.removeTrack(senders.screenAudioSender); } catch(e) {}
+            senders.screenAudioSender = null;
+          }
+
+          if (screenVideoTrack) {
+            senders.screenVideoSender = pc.addTrack(screenVideoTrack, this.localScreenStream);
+          }
+          if (screenAudioTrack) {
+            senders.screenAudioSender = pc.addTrack(screenAudioTrack, this.localScreenStream);
+          }
+
+          await this.renegotiate(pc, peerId, {
+            screenStreamId: this.localScreenStream.id,
+            screenAudioTrackId: screenAudioTrack ? screenAudioTrack.id : null
+          });
+          await this.applyBitrateParameters(pc);
+        } catch (peerErr) {
+          console.warn(`[WebRTC] Falha ao adicionar tracks ao peer ${peerId}:`, peerErr);
         }
-        if (senders.screenAudioSender) {
-          try { pc.removeTrack(senders.screenAudioSender); } catch(e) {}
-        }
+      }
 
-        senders.screenVideoSender = pc.addTrack(screenVideoTrack, this.localScreenStream);
-
-        if (screenAudioTrack) {
-          senders.screenAudioSender = pc.addTrack(screenAudioTrack, this.localScreenStream);
-        }
-
-        await this.renegotiate(pc, peerId, {
+      try {
+        this.socket.emit('voice:screen-status', {
+          isSharing: true,
+          hasAudio: !!screenAudioTrack,
           screenStreamId: this.localScreenStream.id,
           screenAudioTrackId: screenAudioTrack ? screenAudioTrack.id : null
         });
-        await this.applyBitrateParameters(pc);
-      }
-
-      this.socket.emit('voice:screen-status', {
-        isSharing: true,
-        hasAudio: !!screenAudioTrack,
-        screenStreamId: this.localScreenStream.id,
-        screenAudioTrackId: screenAudioTrack ? screenAudioTrack.id : null
-      });
+      } catch (sockErr) {}
 
       return this.localScreenStream;
     } catch (err) {
       console.error('[WebRTC] Falha ao capturar tela:', err);
+      try {
+        this.socket.emit('client:error', {
+          action: 'startScreenShare',
+          message: err.message || String(err),
+          name: err.name,
+          stack: err.stack
+        });
+      } catch (e) {}
       this.isScreenSharing = false;
       return null;
     }

@@ -60,6 +60,11 @@ export function registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVo
     });
   });
 
+  // Log de erros do cliente no terminal do servidor
+  socket.on('client:error', (data) => {
+    console.error(`[CLIENT ERROR ${socket.id}]:`, JSON.stringify(data));
+  });
+
   // Indicador de fala em tempo real
   socket.on('voice:speaking', ({ isSpeaking }) => {
     const user = users.get(socket.id);
