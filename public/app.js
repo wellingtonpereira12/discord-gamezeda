@@ -51,6 +51,9 @@ const sharedScreenVideo = document.getElementById('shared-screen-video');
 const screenSharerName = document.getElementById('screen-sharer-name');
 const btnFullscreenScreen = document.getElementById('btn-fullscreen-screen');
 const btnStopScreenTile = document.getElementById('btn-stop-screen-tile');
+const btnToggleScreenSound = document.getElementById('btn-toggle-screen-sound');
+const screenSoundIcon = document.getElementById('screen-sound-icon');
+const screenAudioMeter = document.getElementById('screen-audio-meter');
 
 // Controles do Palco
 const btnStageScreen = document.getElementById('btn-stage-screen');
@@ -168,6 +171,18 @@ const webrtc = new WebRTCManager(
   }
 );
 
+webrtc.onRemoteScreenAudio = (peerId, stream, track) => {
+  console.log(`[WebRTC 🔊] Áudio de tela recebido de ${peerId}`);
+  if (currentViewedStreamId === peerId) {
+    const liveIndicatorEl = mainScreenTile.querySelector('.live-indicator');
+    if (liveIndicatorEl) {
+      liveIndicatorEl.textContent = 'AO VIVO 1080p60 • 🔊 COM SOM';
+    }
+    updateScreenAudioMeter(stream);
+    updateScreenSoundButtonState();
+  }
+};
+
 // Medidor de teste de microfone no modal de configurações
 setInterval(() => {
   if (settingsModal.style.display !== 'none' && webrtc.analyser) {
@@ -216,6 +231,109 @@ function unregisterStream(id) {
   renderVoiceChannelUsers();
 }
 
+let screenAudioMeterTimer = null;
+let screenAudioCtx = null;
+
+function updateScreenAudioMeter(stream) {
+  if (screenAudioMeterTimer) {
+    clearInterval(screenAudioMeterTimer);
+    screenAudioMeterTimer = null;
+  }
+  if (!stream || !screenAudioMeter) return;
+
+  const audioTracks = stream.getAudioTracks ? stream.getAudioTracks() : [];
+  if (audioTracks.length === 0) {
+    screenAudioMeter.style.display = 'none';
+    return;
+  }
+
+  screenAudioMeter.style.display = 'inline-block';
+  screenAudioMeter.textContent = '[ · · · ]';
+
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!screenAudioCtx) {
+      screenAudioCtx = new AudioCtx();
+    }
+    if (screenAudioCtx.state === 'suspended') {
+      screenAudioCtx.resume().catch(() => {});
+    }
+
+    const src = screenAudioCtx.createMediaStreamSource(stream);
+    const analyser = screenAudioCtx.createAnalyser();
+    analyser.fftSize = 128;
+    src.connect(analyser);
+
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    screenAudioMeterTimer = setInterval(() => {
+      analyser.getByteFrequencyData(data);
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) sum += data[i];
+      const avg = sum / data.length;
+
+      let bars = '· · ·';
+      if (avg > 30) bars = ' ▂▃▅▆▇';
+      else if (avg > 20) bars = ' ▂▃▅▆';
+      else if (avg > 12) bars = ' ▂▃▅';
+      else if (avg > 6) bars = ' ▂▃';
+      else if (avg > 2) bars = ' ▂';
+
+      screenAudioMeter.textContent = `[ ${bars} ]`;
+      screenAudioMeter.style.color = avg > 2 ? '#23a55a' : '#949ba4';
+    }, 100);
+  } catch (e) {
+    console.warn('Screen VU meter error:', e);
+  }
+}
+
+function updateScreenSoundButtonState() {
+  if (!btnToggleScreenSound) return;
+  let isMuted = false;
+  if (!currentViewedStreamId) {
+    isMuted = true;
+  } else {
+    const streamData = activeStreams.get(currentViewedStreamId);
+    if (streamData && streamData.isLocal) {
+      isMuted = sharedScreenVideo.muted;
+    } else if (currentViewedStreamId) {
+      isMuted = webrtc.isPeerScreenAudioMuted(currentViewedStreamId);
+    }
+  }
+
+  btnToggleScreenSound.title = isMuted ? "Ativar som da tela" : "Silenciar som da tela";
+  btnToggleScreenSound.innerHTML = isMuted
+    ? `<i data-lucide="volume-x" style="width: 16px; height: 16px; color: #ed4245;"></i>`
+    : `<i data-lucide="volume-2" style="width: 16px; height: 16px; color: #23a55a;"></i>`;
+  if (window.lucide) window.lucide.createIcons();
+}
+
+if (btnToggleScreenSound) {
+  btnToggleScreenSound.addEventListener('click', () => {
+    if (!currentViewedStreamId) return;
+
+    const streamData = activeStreams.get(currentViewedStreamId);
+    if (!streamData) return;
+
+    const hasAudio = streamData.stream && streamData.stream.getAudioTracks && streamData.stream.getAudioTracks().length > 0;
+    if (!hasAudio && !streamData.isLocal) {
+      showSoundToast('ℹ️ Esta transmissão não possui áudio do sistema.');
+      return;
+    }
+
+    if (streamData.isLocal) {
+      sharedScreenVideo.muted = !sharedScreenVideo.muted;
+      updateScreenSoundButtonState();
+      showSoundToast(sharedScreenVideo.muted ? '🔇 Preview do som desativado' : '🔊 Ouvindo preview do som no fone!');
+    } else {
+      const isMuted = webrtc.togglePeerScreenAudio(currentViewedStreamId);
+      const config = getUserConfig(currentViewedStreamId);
+      config.sfxMuted = isMuted;
+      updateScreenSoundButtonState();
+      showSoundToast(isMuted ? '🔇 Som da transmissão silenciado' : '🔊 Som da transmissão ativado!');
+    }
+  });
+}
+
 function viewStream(id) {
   const streamData = activeStreams.get(id);
   if (!streamData) return;
@@ -224,9 +342,30 @@ function viewStream(id) {
   sharedScreenVideo.srcObject = streamData.stream;
   const config = getUserConfig(id);
   sharedScreenVideo.style.display = config.videoDisabled ? 'none' : 'block';
-  sharedScreenVideo.play().catch(e => console.warn('Video play blocked:', e));
+
+  // sharedScreenVideo fica sempre muted por padrão:
+  // O áudio da transmissão remota é reproduzido nativamente pelo WebRTC Manager
+  // evitando duplicidade/eco e funcionando mesmo ao trocar de canais.
+  sharedScreenVideo.muted = true;
+
+  updateScreenSoundButtonState();
+
+  const playPromise = sharedScreenVideo.play();
+  if (playPromise !== undefined) {
+    playPromise.catch(e => {
+      console.warn('Video play blocked:', e);
+    });
+  }
 
   screenSharerName.textContent = streamData.name;
+  const hasAudio = streamData.stream && streamData.stream.getAudioTracks && streamData.stream.getAudioTracks().length > 0;
+  const liveIndicatorEl = mainScreenTile.querySelector('.live-indicator');
+  if (liveIndicatorEl) {
+    liveIndicatorEl.textContent = hasAudio ? 'AO VIVO 1080p60 • 🔊 COM SOM' : 'AO VIVO 1080p60';
+  }
+
+  updateScreenAudioMeter(streamData.stream);
+
   mainScreenTile.style.display = 'flex';
   videoStage.style.display = 'flex';
   messagesContainer.style.display = 'none';
@@ -701,9 +840,16 @@ async function toggleScreenShare() {
     const stream = await webrtc.startScreenShare();
     if (stream) {
       isScreenSharing = true;
+      const hasAudio = stream.getAudioTracks && stream.getAudioTracks().length > 0;
       registerStream('local', stream, `${currentUser ? currentUser.name : 'Você'} (Sua Tela HD)`, currentUser ? currentUser.avatar : '', true);
       btnStageScreen.classList.add('active-stream');
       btnStageScreenText.textContent = 'Parar Tela';
+
+      if (hasAudio) {
+        showSoundToast('🔊 Transmitindo tela com som do sistema!');
+      } else {
+        showSoundToast('ℹ️ Transmitindo sem som (selecione "Tela inteira" e marque a caixa "Compartilhar áudio do sistema")');
+      }
     }
   }
 }

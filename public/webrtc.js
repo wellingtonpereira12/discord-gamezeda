@@ -1,4 +1,4 @@
-// WebRTC Manager - Transmissão HD (1080p60fps / 8Mbps), Áudio Stereo 256k, Supressor de Ruído e Dispositivos
+// WebRTC Manager - Transmissão HD (1080p60fps / 8Mbps), Áudio Dual (Voz + Tela Independentes), Supressor de Ruído e Dispositivos
 export class WebRTCManager {
   constructor(socket, onRemoteTrack, onRemoteRemove, onSpeakingChange, onRemoteSpeaking) {
     this.socket = socket;
@@ -6,10 +6,12 @@ export class WebRTCManager {
     this.onRemoteRemove = onRemoteRemove;
     this.onSpeakingChange = onSpeakingChange;
     this.onRemoteSpeaking = onRemoteSpeaking;
+    this.onRemoteScreenAudio = null;
 
     this.localAudioStream = null;
     this.localScreenStream = null;
     this.processedAudioStream = null;
+    this.localScreenAudioTrackId = null;
 
     this.isMuted = false;
     this.isScreenSharing = false;
@@ -20,10 +22,17 @@ export class WebRTCManager {
 
     // Supressor de Ruído (Noise Gate)
     this.noiseSuppressionEnabled = localStorage.getItem('discord_noise_gate_enabled') !== 'false';
-    this.noiseGateThreshold = parseFloat(localStorage.getItem('discord_noise_gate_thresh') || '14'); // limiar 0 a 100
+    this.noiseGateThreshold = parseFloat(localStorage.getItem('discord_noise_gate_thresh') || '14');
 
     // Mapa de conexões: peerId -> RTCPeerConnection
     this.peers = new Map();
+
+    // Rastreamento explícito de Senders por Peer: peerId -> { micSender, screenVideoSender, screenAudioSender }
+    this.peerSenders = new Map();
+
+    // Rastreamento dos IDs de Stream de Tela e Track de Áudio da Tela de cada Peer remoto
+    this.peerScreenStreamIds = new Map();      // peerId -> streamId
+    this.peerScreenAudioTrackIds = new Map();  // peerId -> trackId
 
     // Elementos de áudio remotos
     this.remoteVoiceAudios = new Map();  // peerId -> HTMLAudioElement (Microfone)
@@ -52,6 +61,17 @@ export class WebRTCManager {
     this.setupSocketEvents();
   }
 
+  getPeerSenders(peerId) {
+    if (!this.peerSenders.has(peerId)) {
+      this.peerSenders.set(peerId, {
+        micSender: null,
+        screenVideoSender: null,
+        screenAudioSender: null
+      });
+    }
+    return this.peerSenders.get(peerId);
+  }
+
   ensureAudioContext() {
     if (!this.audioContext) {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -75,8 +95,14 @@ export class WebRTCManager {
       this.getOrCreatePeer(peerId);
     });
 
-    this.socket.on('webrtc:offer', async ({ senderId, offer, type }) => {
+    this.socket.on('webrtc:offer', async ({ senderId, offer, type, screenStreamId, screenAudioTrackId }) => {
       console.log(`[WebRTC 📞] Oferta de ${senderId} (${type || 'call'})`);
+      if (screenStreamId) {
+        this.peerScreenStreamIds.set(senderId, screenStreamId);
+      }
+      if (screenAudioTrackId) {
+        this.peerScreenAudioTrackIds.set(senderId, screenAudioTrackId);
+      }
       const pc = this.getOrCreatePeer(senderId);
 
       try {
@@ -96,7 +122,9 @@ export class WebRTCManager {
         this.socket.emit('webrtc:answer', {
           targetId: senderId,
           answer,
-          type
+          type,
+          screenStreamId: this.localScreenStream ? this.localScreenStream.id : null,
+          screenAudioTrackId: this.localScreenAudioTrackId
         });
 
         await this.applyBitrateParameters(pc);
@@ -105,8 +133,14 @@ export class WebRTCManager {
       }
     });
 
-    this.socket.on('webrtc:answer', async ({ senderId, answer }) => {
+    this.socket.on('webrtc:answer', async ({ senderId, answer, screenStreamId, screenAudioTrackId }) => {
       console.log(`[WebRTC 📞] Resposta de ${senderId}`);
+      if (screenStreamId) {
+        this.peerScreenStreamIds.set(senderId, screenStreamId);
+      }
+      if (screenAudioTrackId) {
+        this.peerScreenAudioTrackIds.set(senderId, screenAudioTrackId);
+      }
       const pc = this.peers.get(senderId);
       if (pc) {
         try {
@@ -142,21 +176,50 @@ export class WebRTCManager {
       }
     });
 
+    this.socket.on('voice:peer-screen-status', ({ peerId, isSharing, screenStreamId, screenAudioTrackId }) => {
+      if (isSharing) {
+        if (screenStreamId) this.peerScreenStreamIds.set(peerId, screenStreamId);
+        if (screenAudioTrackId) this.peerScreenAudioTrackIds.set(peerId, screenAudioTrackId);
+      } else {
+        this.peerScreenStreamIds.delete(peerId);
+        this.peerScreenAudioTrackIds.delete(peerId);
+        const screenAudio = this.remoteScreenAudios.get(peerId);
+        if (screenAudio) {
+          screenAudio.srcObject = null;
+        }
+      }
+    });
+
     this.socket.on('voice:peer-left', ({ peerId }) => {
       console.log(`[WebRTC 📞] Participante saiu: ${peerId}`);
       this.closePeer(peerId);
     });
   }
 
-  // Otimização de SDP para alta fidelidade (Opus 256kbps Stereo)
   optimizeSdp(sdp) {
     if (!sdp) return sdp;
-    // Injeta maxaveragebitrate de 256kbps, stereo=1 e cbr=1 para som com fidelidade de estúdio
-    return sdp.replace(/a=fmtp:(\d+) minptime=\d+;useinbandfec=1/g,
-      'a=fmtp:$1 minptime=10;useinbandfec=1;stereo=1;maxaveragebitrate=256000;cbr=1');
+    // Localiza o payload type do Opus (geralmente 111) e injeta estéreo e alta taxa de bits
+    const opusMatch = sdp.match(/a=rtpmap:(\d+)\s+opus\/48000/i);
+    if (opusMatch) {
+      const pt = opusMatch[1];
+      const fmtpRegex = new RegExp(`a=fmtp:${pt}\\s+(.*)`);
+      if (fmtpRegex.test(sdp)) {
+        sdp = sdp.replace(fmtpRegex, (line, params) => {
+          let updated = params;
+          if (!updated.includes('stereo=1')) updated += ';stereo=1;sprop-stereo=1';
+          if (!updated.includes('maxaveragebitrate')) updated += ';maxaveragebitrate=256000';
+          if (!updated.includes('minptime=')) updated += ';minptime=10';
+          if (!updated.includes('useinbandfec=')) updated += ';useinbandfec=1';
+          return `a=fmtp:${pt} ${updated}`;
+        });
+      } else {
+        sdp = sdp.replace(new RegExp(`(a=rtpmap:${pt}\\s+opus\\/48000\\/2\\r?\\n)`),
+          `$1a=fmtp:${pt} minptime=10;useinbandfec=1;stereo=1;sprop-stereo=1;maxaveragebitrate=256000\r\n`);
+      }
+    }
+    return sdp;
   }
 
-  // Alocação de Bitrate Máximo no Sender (8 Mbps para vídeo sem pixelado)
   async applyBitrateParameters(pc) {
     try {
       const senders = pc.getSenders();
@@ -166,7 +229,6 @@ export class WebRTCManager {
           if (!params.encodings || params.encodings.length === 0) {
             params.encodings = [{}];
           }
-          // 8 Mbps para 1080p/60fps com máxima nitidez em jogos
           params.encodings[0].maxBitrate = 8000000;
           params.encodings[0].maxFramerate = 60;
           params.encodings[0].degradationPreference = 'maintain-resolution';
@@ -176,7 +238,7 @@ export class WebRTCManager {
           if (!params.encodings || params.encodings.length === 0) {
             params.encodings = [{}];
           }
-          params.encodings[0].maxBitrate = 256000; // 256 kbps para áudio cristalino
+          params.encodings[0].maxBitrate = 256000;
           await sender.setParameters(params);
         }
       }
@@ -198,7 +260,9 @@ export class WebRTCManager {
       this.socket.emit('webrtc:offer', {
         targetId: peerId,
         offer,
-        type: 'call'
+        type: 'call',
+        screenStreamId: this.localScreenStream ? this.localScreenStream.id : null,
+        screenAudioTrackId: this.localScreenAudioTrackId
       });
 
       await this.applyBitrateParameters(pc);
@@ -224,20 +288,17 @@ export class WebRTCManager {
       }
     };
 
+    // Identificação 100% Confiável de Tracks: Voz vs Áudio de Tela
     pc.ontrack = (event) => {
-      console.log(`[WebRTC 📞] Track recebido de ${peerId}: ${event.track.kind}`);
+      console.log(`[WebRTC 📞] Track recebido de ${peerId}: ${event.track.kind} (ID: ${event.track.id})`);
+      const incomingStream = event.streams[0] || new MediaStream([event.track]);
+      const knownScreenStreamId = this.peerScreenStreamIds.get(peerId);
+      const knownScreenAudioTrackId = this.peerScreenAudioTrackIds.get(peerId);
 
-      if (event.track.kind === 'audio') {
-        const stream = event.streams[0] || new MediaStream([event.track]);
-        if (!this.remoteVoiceAudios.has(peerId)) {
-          this.playRemoteVoice(peerId, stream);
-        } else {
-          this.playRemoteScreenAudio(peerId, stream);
-        }
-      } else if (event.track.kind === 'video') {
-        const videoStream = new MediaStream([event.track]);
+      if (event.track.kind === 'video') {
+        this.peerScreenStreamIds.set(peerId, incomingStream.id);
         if (this.onRemoteTrack) {
-          this.onRemoteTrack(peerId, videoStream, event.track);
+          this.onRemoteTrack(peerId, incomingStream, event.track);
         }
 
         event.track.onended = () => {
@@ -245,6 +306,23 @@ export class WebRTCManager {
             this.onRemoteRemove(peerId, 'video');
           }
         };
+      } else if (event.track.kind === 'audio') {
+        const isScreenAudio = (knownScreenAudioTrackId && event.track.id === knownScreenAudioTrackId) ||
+                              (knownScreenStreamId && incomingStream.id === knownScreenStreamId) ||
+                              (incomingStream.getVideoTracks && incomingStream.getVideoTracks().length > 0) ||
+                              (this.peerScreenStreamIds.has(peerId) && this.remoteVoiceAudios.has(peerId) && this.remoteVoiceAudios.get(peerId).srcObject);
+
+        if (isScreenAudio) {
+          console.log(`[WebRTC 🔊] Roteado para SOM DE TELA/JOGO de ${peerId}`);
+          this.peerScreenAudioTrackIds.set(peerId, event.track.id);
+          this.playRemoteScreenAudio(peerId, incomingStream);
+          if (this.onRemoteScreenAudio) {
+            this.onRemoteScreenAudio(peerId, incomingStream, event.track);
+          }
+        } else {
+          console.log(`[WebRTC 🎙️] Roteado para VOZ/MICROFONE de ${peerId}`);
+          this.playRemoteVoice(peerId, incomingStream);
+        }
       }
     };
 
@@ -254,29 +332,30 @@ export class WebRTCManager {
       }
     };
 
-    this.addLocalTracksToPeer(pc);
+    this.addLocalTracksToPeer(pc, peerId);
     this.peers.set(peerId, pc);
     return pc;
   }
 
-  addLocalTracksToPeer(pc) {
+  // Adiciona tracks locais garantindo referência separada para cada sender
+  addLocalTracksToPeer(pc, peerId) {
+    const senders = this.getPeerSenders(peerId);
     const audioTrack = this.getOutgoingAudioTrack();
-    if (audioTrack) {
-      const senders = pc.getSenders();
-      const exists = senders.some(s => s.track && s.track.kind === 'audio');
-      if (!exists) {
-        pc.addTrack(audioTrack, this.processedAudioStream || this.localAudioStream);
-      }
+
+    if (audioTrack && !senders.micSender) {
+      senders.micSender = pc.addTrack(audioTrack, this.processedAudioStream || this.localAudioStream);
     }
 
     if (this.localScreenStream) {
-      this.localScreenStream.getTracks().forEach(track => {
-        const senders = pc.getSenders();
-        const exists = senders.some(s => s.track && s.track.id === track.id);
-        if (!exists) {
-          pc.addTrack(track, this.localScreenStream);
-        }
-      });
+      const screenVideoTrack = this.localScreenStream.getVideoTracks()[0];
+      const screenAudioTrack = this.localScreenStream.getAudioTracks()[0];
+
+      if (screenVideoTrack && !senders.screenVideoSender) {
+        senders.screenVideoSender = pc.addTrack(screenVideoTrack, this.localScreenStream);
+      }
+      if (screenAudioTrack && !senders.screenAudioSender) {
+        senders.screenAudioSender = pc.addTrack(screenAudioTrack, this.localScreenStream);
+      }
     }
   }
 
@@ -290,7 +369,7 @@ export class WebRTCManager {
     return null;
   }
 
-  // Reproduzir Voz com controle de dispositivo de saída (setSinkId)
+  // Reproduzir Voz
   playRemoteVoice(peerId, stream) {
     this.ensureAudioContext();
 
@@ -304,7 +383,6 @@ export class WebRTCManager {
       this.remoteVoiceAudios.set(peerId, audio);
     }
     audio.srcObject = stream;
-
     this.applyOutputDeviceToElement(audio);
 
     const volPercent = this.userVolumes.has(peerId) ? this.userVolumes.get(peerId) : 100;
@@ -312,15 +390,18 @@ export class WebRTCManager {
     audio.volume = Math.max(0, Math.min(1.0, volPercent / 100));
     audio.muted = isMuted;
 
-    audio.play().catch(() => {
-      const unlock = () => { audio.play(); document.removeEventListener('click', unlock); };
-      document.addEventListener('click', unlock);
-    });
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        const unlock = () => { audio.play(); document.removeEventListener('click', unlock); };
+        document.addEventListener('click', unlock);
+      });
+    }
 
     this.attachRemoteSpeechDetection(peerId, stream);
   }
 
-  // Reproduzir Áudio de Tela com controle de saída
+  // Reproduzir Áudio de Tela com tratamento de Autoplay
   playRemoteScreenAudio(peerId, stream) {
     this.ensureAudioContext();
 
@@ -341,7 +422,13 @@ export class WebRTCManager {
     audio.volume = Math.max(0, Math.min(1.0, volPercent / 100));
     audio.muted = isSfxMuted;
 
-    audio.play().catch(() => {});
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        const unlock = () => { audio.play(); document.removeEventListener('click', unlock); };
+        document.addEventListener('click', unlock);
+      });
+    }
   }
 
   applyOutputDeviceToElement(audioEl) {
@@ -384,7 +471,7 @@ export class WebRTCManager {
     } catch (e) {}
   }
 
-  // Capturar microfone local com Supressor de Ruído (Noise Gate)
+  // Capturar microfone local
   async startAudio() {
     this.ensureAudioContext();
 
@@ -408,17 +495,15 @@ export class WebRTCManager {
       console.log('[WebRTC 🎤] Microfone ativado!');
       this.isMuted = false;
 
-      // Configuração da cadeia de áudio com Noise Gate
       this.setupAudioProcessingChain(this.localAudioStream);
 
       const outgoingTrack = this.getOutgoingAudioTrack();
       for (const [peerId, pc] of this.peers.entries()) {
-        const senders = pc.getSenders();
-        const existing = senders.find(s => s.track && s.track.kind === 'audio');
-        if (existing) {
-          await existing.replaceTrack(outgoingTrack);
+        const senders = this.getPeerSenders(peerId);
+        if (senders.micSender) {
+          await senders.micSender.replaceTrack(outgoingTrack);
         } else {
-          pc.addTrack(outgoingTrack, this.processedAudioStream || this.localAudioStream);
+          senders.micSender = pc.addTrack(outgoingTrack, this.processedAudioStream || this.localAudioStream);
           await this.renegotiate(pc, peerId);
         }
       }
@@ -432,7 +517,6 @@ export class WebRTCManager {
     }
   }
 
-  // Processador de Áudio: Filtro Passa-Altas + Noise Gate
   setupAudioProcessingChain(rawStream) {
     try {
       this.ensureAudioContext();
@@ -443,16 +527,13 @@ export class WebRTCManager {
 
       this.localSourceNode = this.audioContext.createMediaStreamSource(rawStream);
 
-      // Filtro passa-altas para remover vibrações graves (ruído de mesa e ventoinhas < 80Hz)
       const highpass = this.audioContext.createBiquadFilter();
       highpass.type = 'highpass';
       highpass.frequency.value = 80;
 
-      // Noise Gate Gain Node
       this.noiseGateNode = this.audioContext.createGain();
       this.noiseGateNode.gain.value = 1.0;
 
-      // Destino do stream processado
       this.destinationNode = this.audioContext.createMediaStreamDestination();
 
       this.localSourceNode.connect(highpass);
@@ -461,12 +542,11 @@ export class WebRTCManager {
 
       this.processedAudioStream = this.destinationNode.stream;
     } catch (e) {
-      console.warn('Erro ao configurar cadeia de processamento de áudio, usando áudio nativo:', e);
+      console.warn('Usando áudio direto sem processamento adicional:', e);
       this.processedAudioStream = rawStream;
     }
   }
 
-  // Mudança do dispositivo de entrada (Microfone) em tempo real
   async setInputDevice(deviceId) {
     this.selectedInputDeviceId = deviceId;
     localStorage.setItem('discord_input_device', deviceId);
@@ -478,7 +558,6 @@ export class WebRTCManager {
     }
   }
 
-  // Mudança do dispositivo de saída (Alto-falante / Fone)
   async setOutputDevice(deviceId) {
     this.selectedOutputDeviceId = deviceId;
     localStorage.setItem('discord_output_device', deviceId);
@@ -488,7 +567,6 @@ export class WebRTCManager {
     document.querySelectorAll('audio').forEach(audio => this.applyOutputDeviceToElement(audio));
   }
 
-  // Configuração do Supressor de Ruído
   setNoiseSuppression(enabled, threshold) {
     this.noiseSuppressionEnabled = enabled;
     if (threshold !== undefined) {
@@ -505,32 +583,51 @@ export class WebRTCManager {
         track.enabled = !this.isMuted;
       });
     }
+    if (this.noiseGateNode) {
+      this.noiseGateNode.gain.value = this.isMuted ? 0.0 : 1.0;
+    }
     return this.isMuted;
   }
 
-  // Compartilhamento de Tela em Ultra HD (1080p / 60 FPS / 8 Mbps / Som Stereo)
+  // Compartilhamento de Tela 100% Compatível e Robusto (W3C Standard)
   async startScreenShare() {
     try {
-      this.localScreenStream = await navigator.mediaDevices.getDisplayMedia({
+      // Captura de tela com áudio usando parâmetros padrão compatíveis com todos os navegadores
+      const stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           cursor: "always",
           width: { ideal: 1920, max: 2560 },
           height: { ideal: 1080, max: 1440 },
           frameRate: { ideal: 60, max: 60 }
         },
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          channelCount: 2,
-          sampleRate: 48000
-        }
+        audio: true
       });
 
+      this.localScreenStream = stream;
       this.isScreenSharing = true;
-      const screenVideoTrack = this.localScreenStream.getVideoTracks()[0];
 
-      // contentHint = 'motion' evita blur e garante 60fps fluído em jogos
+      const screenVideoTrack = stream.getVideoTracks()[0];
+      const screenAudioTrack = stream.getAudioTracks()[0];
+
+      if (screenAudioTrack) {
+        console.log('[WebRTC 🔊] Áudio do sistema capturado com sucesso! ID:', screenAudioTrack.id);
+        this.localScreenAudioTrackId = screenAudioTrack.id;
+        try {
+          if (screenAudioTrack.applyConstraints) {
+            await screenAudioTrack.applyConstraints({
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false
+            });
+          }
+        } catch (e) {
+          console.warn('Aviso: constraints de áudio de tela:', e);
+        }
+      } else {
+        console.log('[WebRTC ℹ️] Tela compartilhada sem áudio do sistema.');
+        this.localScreenAudioTrackId = null;
+      }
+
       if ('contentHint' in screenVideoTrack) {
         screenVideoTrack.contentHint = 'motion';
       }
@@ -540,21 +637,38 @@ export class WebRTCManager {
       };
 
       for (const [peerId, pc] of this.peers.entries()) {
-        pc.addTrack(screenVideoTrack, this.localScreenStream);
+        const senders = this.getPeerSenders(peerId);
 
-        const screenAudioTrack = this.localScreenStream.getAudioTracks()[0];
-        if (screenAudioTrack) {
-          pc.addTrack(screenAudioTrack, this.localScreenStream);
+        if (senders.screenVideoSender) {
+          try { pc.removeTrack(senders.screenVideoSender); } catch(e) {}
+        }
+        if (senders.screenAudioSender) {
+          try { pc.removeTrack(senders.screenAudioSender); } catch(e) {}
         }
 
-        await this.renegotiate(pc, peerId);
+        senders.screenVideoSender = pc.addTrack(screenVideoTrack, this.localScreenStream);
+
+        if (screenAudioTrack) {
+          senders.screenAudioSender = pc.addTrack(screenAudioTrack, this.localScreenStream);
+        }
+
+        await this.renegotiate(pc, peerId, {
+          screenStreamId: this.localScreenStream.id,
+          screenAudioTrackId: screenAudioTrack ? screenAudioTrack.id : null
+        });
         await this.applyBitrateParameters(pc);
       }
 
-      this.socket.emit('voice:screen-status', { isSharing: true });
+      this.socket.emit('voice:screen-status', {
+        isSharing: true,
+        hasAudio: !!screenAudioTrack,
+        screenStreamId: this.localScreenStream.id,
+        screenAudioTrackId: screenAudioTrack ? screenAudioTrack.id : null
+      });
+
       return this.localScreenStream;
     } catch (err) {
-      console.error('[WebRTC] Falha ao compartilhar tela HD:', err);
+      console.error('[WebRTC] Falha ao capturar tela:', err);
       this.isScreenSharing = false;
       return null;
     }
@@ -562,36 +676,50 @@ export class WebRTCManager {
 
   async stopScreenShare() {
     if (this.localScreenStream) {
-      this.localScreenStream.getTracks().forEach(track => {
-        track.stop();
-        for (const [peerId, pc] of this.peers.entries()) {
-          const sender = pc.getSenders().find(s => s.track === track);
-          if (sender) {
-            try { pc.removeTrack(sender); } catch (e) {}
-            this.renegotiate(pc, peerId);
-          }
+      const tracks = this.localScreenStream.getTracks();
+
+      for (const [peerId, pc] of this.peers.entries()) {
+        const senders = this.getPeerSenders(peerId);
+
+        if (senders.screenVideoSender) {
+          try { pc.removeTrack(senders.screenVideoSender); } catch (e) {}
+          senders.screenVideoSender = null;
         }
-      });
+
+        if (senders.screenAudioSender) {
+          try { pc.removeTrack(senders.screenAudioSender); } catch (e) {}
+          senders.screenAudioSender = null;
+        }
+
+        await this.renegotiate(pc, peerId, { isScreenStopped: true });
+      }
+
+      tracks.forEach(track => track.stop());
       this.localScreenStream = null;
+      this.localScreenAudioTrackId = null;
     }
+
     this.isScreenSharing = false;
     this.socket.emit('voice:screen-status', { isSharing: false });
   }
 
-  async renegotiate(pc, targetId) {
+  async renegotiate(pc, targetId, extraData = {}) {
     if (!targetId) return;
     try {
       if (pc.signalingState !== 'stable') {
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise(r => setTimeout(r, 250));
       }
+      if (pc.signalingState !== 'stable') return;
+
       let offer = await pc.createOffer();
       offer.sdp = this.optimizeSdp(offer.sdp);
       await pc.setLocalDescription(offer);
 
       this.socket.emit('webrtc:offer', {
-        targetId: targetId,
+        targetId,
         offer,
-        type: 'stream-update'
+        type: 'stream-update',
+        ...extraData
       });
     } catch (e) {
       console.warn('Renegotiate warning:', e);
@@ -623,7 +751,6 @@ export class WebRTCManager {
         for (let i = 0; i < buffer.length; i++) sum += buffer[i];
         const avg = sum / buffer.length;
 
-        // Noise Gate Logic: Se o som estiver abaixo do limiar, corta o ganho
         const threshold = this.noiseGateThreshold;
         const isOpen = avg > threshold;
 
@@ -647,6 +774,10 @@ export class WebRTCManager {
       pc.close();
       this.peers.delete(peerId);
     }
+    this.peerSenders.delete(peerId);
+    this.peerScreenStreamIds.delete(peerId);
+    this.peerScreenAudioTrackIds.delete(peerId);
+
     const voiceAudio = this.remoteVoiceAudios.get(peerId);
     if (voiceAudio) {
       voiceAudio.remove();
@@ -675,6 +806,9 @@ export class WebRTCManager {
     }
 
     this.peers.clear();
+    this.peerSenders.clear();
+    this.peerScreenStreamIds.clear();
+    this.peerScreenAudioTrackIds.clear();
     this.remoteVoiceAudios.clear();
     this.remoteScreenAudios.clear();
   }
@@ -698,5 +832,16 @@ export class WebRTCManager {
     this.userScreenAudioMutes.set(peerId, isMuted);
     const screenAudio = this.remoteScreenAudios.get(peerId);
     if (screenAudio) screenAudio.muted = isMuted;
+  }
+
+  togglePeerScreenAudio(peerId) {
+    const currentMute = this.userScreenAudioMutes.get(peerId) || false;
+    const newMute = !currentMute;
+    this.setUserScreenAudioMuted(peerId, newMute);
+    return newMute;
+  }
+
+  isPeerScreenAudioMuted(peerId) {
+    return this.userScreenAudioMutes.get(peerId) || false;
   }
 }

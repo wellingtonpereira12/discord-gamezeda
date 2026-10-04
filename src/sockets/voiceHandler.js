@@ -37,20 +37,18 @@ export function registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVo
   });
 
   // Sinalização WebRTC: Oferta
-  socket.on('webrtc:offer', ({ targetId, offer, type }) => {
-    io.to(targetId).emit('webrtc:offer', {
-      senderId: socket.id,
-      offer,
-      type
+  socket.on('webrtc:offer', (payload) => {
+    io.to(payload.targetId).emit('webrtc:offer', {
+      ...payload,
+      senderId: socket.id
     });
   });
 
   // Sinalização WebRTC: Resposta
-  socket.on('webrtc:answer', ({ targetId, answer, type }) => {
-    io.to(targetId).emit('webrtc:answer', {
-      senderId: socket.id,
-      answer,
-      type
+  socket.on('webrtc:answer', (payload) => {
+    io.to(payload.targetId).emit('webrtc:answer', {
+      ...payload,
+      senderId: socket.id
     });
   });
 
@@ -74,13 +72,13 @@ export function registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVo
   });
 
   // Status de compartilhamento de tela
-  socket.on('voice:screen-status', ({ isSharing }) => {
+  socket.on('voice:screen-status', (payload) => {
     const user = users.get(socket.id);
     if (!user) return;
-    user.isScreenSharing = isSharing;
+    user.isScreenSharing = payload.isSharing;
     socket.to('gamezeda').emit('voice:peer-screen-status', {
-      peerId: socket.id,
-      isSharing
+      ...payload,
+      peerId: socket.id
     });
     broadcastVoiceState();
   });
