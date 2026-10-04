@@ -592,30 +592,11 @@ export class WebRTCManager {
   // Compartilhamento de Tela 100% Compatível e Robusto (W3C Standard)
   async startScreenShare() {
     try {
-      let stream = null;
-
-      // Opções limpas e sem restrições estritas de min/max que causam OverconstrainedError
-      const displayMediaOptions = {
-        video: {
-          cursor: "always",
-          frameRate: { ideal: 60 }
-        },
+      console.log('[WebRTC] Solicitando getDisplayMedia({ video: true, audio: true })...');
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
         audio: true
-      };
-
-      try {
-        stream = await navigator.mediaDevices.getDisplayMedia({
-          ...displayMediaOptions,
-          systemAudio: "include"
-        });
-      } catch (optErr) {
-        if (optErr.name === 'NotAllowedError') {
-          console.log('[WebRTC] Compartilhamento cancelado pelo usuário.');
-          return null;
-        }
-        console.warn('[WebRTC] Tentando captura básica sem systemAudio:', optErr);
-        stream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
-      }
+      });
 
       if (!stream) {
         return null;

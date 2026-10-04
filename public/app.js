@@ -1,11 +1,34 @@
-import { sounds } from './sounds.js';
-import { WebRTCManager } from './webrtc.js';
+import { sounds } from './sounds.js?v=20261004_v4';
+import { WebRTCManager } from './webrtc.js?v=20261004_v4';
 
 if (window.lucide) {
   window.lucide.createIcons();
 }
 
 const socket = io();
+
+// Telemetria de erros do cliente enviada ao console do servidor para diagnóstico imediato
+window.addEventListener('error', (e) => {
+  try {
+    socket.emit('client:error', {
+      type: 'uncaught_error',
+      message: e.message,
+      filename: e.filename,
+      lineno: e.lineno,
+      stack: e.error ? e.error.stack : null
+    });
+  } catch(err) {}
+});
+
+window.addEventListener('unhandledrejection', (e) => {
+  try {
+    socket.emit('client:error', {
+      type: 'unhandled_rejection',
+      message: e.reason ? (e.reason.message || String(e.reason)) : 'unknown',
+      stack: e.reason ? e.reason.stack : null
+    });
+  } catch(err) {}
+});
 
 // ==========================================
 // ELEMENTOS DO DOM
