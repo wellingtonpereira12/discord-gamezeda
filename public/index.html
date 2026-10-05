@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Discord - Jogos Bolados Teste / Gamezeda</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Discord - Jogos Bolados / Gamezeda</title>
+  <link rel="stylesheet" href="style.css?v=20261005_v8">
   <link rel="icon" href="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -13,12 +13,12 @@
 </head>
 <body>
 
-  <!-- MODAL DE ENTRADA (SEM LOGIN, APENAS APELIDO) -->
+  <!-- MODAL DE ENTRADA (COM CHECAGEM INTELIGENTE DE CADASTRO/SENHA) -->
   <div id="login-modal" class="modal-overlay">
     <div class="welcome-modal">
       <div class="modal-header">
         <img src="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png" width="48" height="38" style="margin-bottom: 12px;" alt="Discord">
-        <h2>Entrar no Jogos Bolados Teste</h2>
+        <h2>Entrar no Jogos Bolados</h2>
         <p>Acesse o grupo <strong>Gamezeda</strong> com voz e tela em HD!</p>
       </div>
 
@@ -26,12 +26,31 @@
         <img id="avatar-preview" class="avatar-preview" src="https://api.dicebear.com/7.x/bottts/svg?seed=Gamezeda" alt="Avatar">
       </div>
 
+      <!-- Alerta de Erro ou Bloqueio -->
+      <div id="login-auth-alert" class="login-alert-box" style="display: none;"></div>
+
       <form id="login-form">
-        <div class="form-group">
-          <label for="username-input">Como devemos te chamar?</label>
-          <input type="text" id="username-input" class="form-input" placeholder="Digite seu nome ou apelido..." autofocus required maxlength="24">
+        <!-- ETAPA 1: NOME / APELIDO -->
+        <div id="login-step-username">
+          <div class="form-group">
+            <label for="username-input">Como devemos te chamar?</label>
+            <input type="text" id="username-input" class="form-input" placeholder="Digite seu nome ou apelido..." autofocus required maxlength="24">
+          </div>
+          <button type="submit" id="btn-login-submit" class="btn-enter">Entrar no Servidor</button>
         </div>
-        <button type="submit" class="btn-enter">Entrar no Servidor</button>
+
+        <!-- ETAPA 2: SENHA (EXIGIDA SOMENTE QUANDO O NICK TEM CADASTRO FINALIZADO EM OUTRO COMPUTADOR) -->
+        <div id="login-step-password" style="display: none;">
+          <div class="account-info-box" style="margin-bottom: 12px; font-size: 12px; padding: 10px;">
+            🔒 Este nick possui cadastro com senha. Digite sua senha para entrar neste computador:
+          </div>
+          <div class="form-group">
+            <label for="login-password-input">Sua Senha</label>
+            <input type="password" id="login-password-input" class="form-input" placeholder="Digite sua senha cadastrada...">
+          </div>
+          <button type="button" id="btn-login-confirm-password" class="btn-enter" style="width: 100%; margin-top: 10px;">Confirmar Senha e Entrar</button>
+          <button type="button" id="btn-login-back-username" class="btn-subtle" style="width: 100%; margin-top: 8px; justify-content: center;">Voltar e trocar apelido</button>
+        </div>
       </form>
     </div>
   </div>
@@ -51,7 +70,7 @@
       <!-- Cabeçalho do Servidor -->
       <div class="server-header" id="server-header-btn">
         <span style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-weight: 800;">Jogos Bolados Teste</span>
+          <span style="font-weight: 800;">Jogos Bolados</span>
           <i data-lucide="badge-check" style="width: 16px; height: 16px; color: #5865F2;"></i>
         </span>
         <i data-lucide="chevron-down" style="width: 18px; height: 18px;"></i>
@@ -134,7 +153,7 @@
             <i data-lucide="activity" style="width: 16px; height: 16px;"></i>
             <span>Voz conectada</span>
           </div>
-          <span class="voice-status-sub">Gamezeda / Jogos Bolados Teste</span>
+          <span class="voice-status-sub">Gamezeda / Jogos Bolados</span>
         </div>
         <div class="voice-quick-actions">
           <button class="btn-voice-action" id="quick-screenshare-btn" title="Compartilhar Tela HD">
@@ -318,64 +337,115 @@
     </div>
   </div>
 
-  <!-- MODAL DE CONFIGURAÇÕES DE USUÁRIO (DISPOSITIVOS & SUPRESSOR DE RUÍDO) -->
+  <!-- MODAL DE CONFIGURAÇÕES DE USUÁRIO (VOZ, ÁUDIO & CADASTRO) -->
   <div id="settings-modal" class="modal-overlay" style="display: none;">
     <div class="discord-modal settings-card">
       <div class="modal-header-with-close">
         <div style="display: flex; align-items: center; gap: 10px;">
-          <i data-lucide="sliders" style="width: 22px; height: 22px; color: #5865F2;"></i>
-          <h3>Configurações de Voz & Áudio</h3>
+          <i data-lucide="settings" style="width: 22px; height: 22px; color: #5865F2;"></i>
+          <h3 id="settings-modal-title">Configurações</h3>
         </div>
         <button class="btn-close-modal" id="btn-close-settings">&times;</button>
       </div>
 
+      <!-- Abas de Navegação -->
+      <div class="settings-tabs-bar">
+        <button type="button" class="settings-tab-btn active" id="tab-btn-voice">
+          <i data-lucide="sliders" style="width: 16px; height: 16px;"></i>
+          <span>Voz & Áudio</span>
+        </button>
+        <button type="button" class="settings-tab-btn" id="tab-btn-account">
+          <i data-lucide="user-check" style="width: 16px; height: 16px;"></i>
+          <span>Cadastro</span>
+        </button>
+      </div>
+
       <div class="settings-content">
         
-        <!-- Dispositivo de Entrada (Microfone) -->
-        <div class="settings-section">
-          <label class="settings-label" for="setting-audio-input">DISPOSITIVO DE ENTRADA</label>
-          <select id="setting-audio-input" class="settings-select"></select>
-          
-          <div class="mic-test-container">
-            <span style="font-size: 12px; color: #949ba4; font-weight: 600;">TESTE DE MICROFONE</span>
-            <div class="mic-meter-bar">
-              <div id="mic-test-meter" class="mic-meter-fill"></div>
+        <!-- ABA 1: VOZ & ÁUDIO -->
+        <div id="tab-content-voice">
+          <!-- Dispositivo de Entrada (Microfone) -->
+          <div class="settings-section">
+            <label class="settings-label" for="setting-audio-input">DISPOSITIVO DE ENTRADA</label>
+            <select id="setting-audio-input" class="settings-select"></select>
+            
+            <div class="mic-test-container">
+              <span style="font-size: 12px; color: #949ba4; font-weight: 600;">TESTE DE MICROFONE</span>
+              <div class="mic-meter-bar">
+                <div id="mic-test-meter" class="mic-meter-fill"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dispositivo de Saída (Alto-falante / Fone) -->
+          <div class="settings-section">
+            <label class="settings-label" for="setting-audio-output">DISPOSITIVO DE SAÍDA</label>
+            <select id="setting-audio-output" class="settings-select"></select>
+            <button type="button" id="btn-test-output-sound" class="btn-subtle" style="margin-top: 8px;">
+              <i data-lucide="volume-2" style="width: 14px; height: 14px;"></i>
+              <span>Testar Saída de Som</span>
+            </button>
+          </div>
+
+          <div class="context-menu-separator" style="margin: 18px 0;"></div>
+
+          <!-- Supressor de Ruído (Noise Gate) -->
+          <div class="settings-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <div>
+                <div style="font-weight: 700; color: #fff; font-size: 14px;">Supressão de Ruído (Noise Gate)</div>
+                <div style="font-size: 12px; color: #949ba4;">Corta automaticamente ruídos de fundo, ventilador e teclado.</div>
+              </div>
+              <label class="discord-toggle">
+                <input type="checkbox" id="setting-noise-suppression-toggle" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div style="margin-top: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 12px; color: #949ba4; font-weight: 600;">SENSIBILIDADE DO FILTRO</span>
+                <span id="setting-noise-thresh-val" style="font-size: 12px; color: #5865F2; font-weight: 700;">14</span>
+              </div>
+              <input type="range" id="setting-noise-threshold-slider" class="discord-slider" min="5" max="40" value="14">
             </div>
           </div>
         </div>
 
-        <!-- Dispositivo de Saída (Alto-falante / Fone) -->
-        <div class="settings-section">
-          <label class="settings-label" for="setting-audio-output">DISPOSITIVO DE SAÍDA</label>
-          <select id="setting-audio-output" class="settings-select"></select>
-          <button type="button" id="btn-test-output-sound" class="btn-subtle" style="margin-top: 8px;">
-            <i data-lucide="volume-2" style="width: 14px; height: 14px;"></i>
-            <span>Testar Saída de Som</span>
-          </button>
-        </div>
-
-        <div class="context-menu-separator" style="margin: 18px 0;"></div>
-
-        <!-- Supressor de Ruído (Noise Gate) -->
-        <div class="settings-section">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <div>
-              <div style="font-weight: 700; color: #fff; font-size: 14px;">Supressão de Ruído (Noise Gate)</div>
-              <div style="font-size: 12px; color: #949ba4;">Corta automaticamente ruídos de fundo, ventilador e teclado.</div>
+        <!-- ABA 2: CADASTRO -->
+        <div id="tab-content-account" style="display: none;">
+          <div class="account-profile-card">
+            <img id="account-avatar-img" class="account-avatar" src="" alt="Avatar">
+            <div class="account-profile-info">
+              <div id="account-username-text" class="account-username">Carregando...</div>
+              <div id="account-status-badge" class="account-status-badge pending">
+                <span>⚠️ Cadastro Pendente (Sem Senha)</span>
+              </div>
             </div>
-            <label class="discord-toggle">
-              <input type="checkbox" id="setting-noise-suppression-toggle" checked>
-              <span class="toggle-slider"></span>
-            </label>
           </div>
 
-          <div style="margin-top: 12px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <span style="font-size: 12px; color: #949ba4; font-weight: 600;">SENSIBILIDADE DO FILTRO</span>
-              <span id="setting-noise-thresh-val" style="font-size: 12px; color: #5865F2; font-weight: 700;">14</span>
+          <div class="account-info-box">
+            <div id="account-info-text">
+              Cadastre uma senha abaixo para <strong>finalizar seu cadastro</strong>. Ao finalizar, seu nick fica protegido e você poderá utilizá-lo para se conectar em outros computadores ou celulares digitando essa senha.
             </div>
-            <input type="range" id="setting-noise-threshold-slider" class="discord-slider" min="5" max="40" value="14">
           </div>
+
+          <form id="account-password-form" class="account-form">
+            <div class="form-group" style="margin-bottom: 12px;">
+              <label class="settings-label" for="account-new-password">DEFINIR SENHA</label>
+              <input type="password" id="account-new-password" class="form-input" placeholder="Digite uma senha (mínimo 4 caracteres)..." required minlength="4">
+            </div>
+            <div class="form-group" style="margin-bottom: 14px;">
+              <label class="settings-label" for="account-confirm-password">CONFIRMAR SENHA</label>
+              <input type="password" id="account-confirm-password" class="form-input" placeholder="Repita a senha digitada..." required minlength="4">
+            </div>
+
+            <div id="account-form-alert" class="account-alert" style="display: none;"></div>
+
+            <button type="submit" id="btn-save-account-password" class="btn-enter" style="width: 100%;">
+              Finalizar Cadastro e Salvar Senha
+            </button>
+          </form>
         </div>
 
       </div>
@@ -474,7 +544,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261004_v6"></script>
+  <script type="module" src="app.js?v=20261005_v8"></script>
 
 </body>
 </html>

@@ -30,6 +30,17 @@ window.addEventListener('unhandledrejection', (e) => {
   } catch(err) {}
 });
 
+// Identificador persistente deste dispositivo/navegador no cliente
+function getOrCreateDeviceId() {
+  let devId = localStorage.getItem('gamezeda_device_id');
+  if (!devId) {
+    devId = 'dev_' + Math.random().toString(36).substring(2, 12) + '_' + Date.now().toString(36);
+    localStorage.setItem('gamezeda_device_id', devId);
+  }
+  return devId;
+}
+const localDeviceId = getOrCreateDeviceId();
+
 // ==========================================
 // ELEMENTOS DO DOM
 // ==========================================
@@ -38,6 +49,13 @@ const loginModal = document.getElementById('login-modal');
 const loginForm = document.getElementById('login-form');
 const usernameInput = document.getElementById('username-input');
 const avatarPreview = document.getElementById('avatar-preview');
+const loginStepUsername = document.getElementById('login-step-username');
+const loginStepPassword = document.getElementById('login-step-password');
+const loginPasswordInput = document.getElementById('login-password-input');
+const btnLoginConfirmPassword = document.getElementById('btn-login-confirm-password');
+const btnLoginBackUsername = document.getElementById('btn-login-back-username');
+const loginAuthAlert = document.getElementById('login-auth-alert');
+const btnLoginSubmit = document.getElementById('btn-login-submit');
 
 // Perfil Local
 const myAvatarImg = document.getElementById('my-avatar');
@@ -117,6 +135,21 @@ const btnTestOutputSound = document.getElementById('btn-test-output-sound');
 const settingNoiseSuppressionToggle = document.getElementById('setting-noise-suppression-toggle');
 const settingNoiseThresholdSlider = document.getElementById('setting-noise-threshold-slider');
 const settingNoiseThreshVal = document.getElementById('setting-noise-thresh-val');
+
+// Configurações - Abas e Cadastro
+const tabBtnVoice = document.getElementById('tab-btn-voice');
+const tabBtnAccount = document.getElementById('tab-btn-account');
+const tabContentVoice = document.getElementById('tab-content-voice');
+const tabContentAccount = document.getElementById('tab-content-account');
+const accountAvatarImg = document.getElementById('account-avatar-img');
+const accountUsernameText = document.getElementById('account-username-text');
+const accountStatusBadge = document.getElementById('account-status-badge');
+const accountInfoText = document.getElementById('account-info-text');
+const accountPasswordForm = document.getElementById('account-password-form');
+const accountNewPassword = document.getElementById('account-new-password');
+const accountConfirmPassword = document.getElementById('account-confirm-password');
+const accountFormAlert = document.getElementById('account-form-alert');
+const btnSaveAccountPassword = document.getElementById('btn-save-account-password');
 
 // Modal de Soundboard
 const soundboardModal = document.getElementById('soundboard-modal');
@@ -436,16 +469,24 @@ function renderStreamSwitcherBar() {
 // ==========================================
 // LOGIN & SOCKET INITIALIZATION
 // ==========================================
-usernameInput.addEventListener('input', (e) => {
-  const val = e.target.value.trim();
-  avatarPreview.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(val || 'Gamezeda')}`;
-});
+let pendingLoginName = '';
 
-loginForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const name = usernameInput.value.trim();
-  if (!name) return;
+function showLoginAlert(msg, isError = true) {
+  if (!loginAuthAlert) return;
+  loginAuthAlert.textContent = msg;
+  loginAuthAlert.style.display = 'block';
+  loginAuthAlert.style.borderColor = isError ? '#ed4245' : '#23a55a';
+  loginAuthAlert.style.color = isError ? '#f38688' : '#57f287';
+  loginAuthAlert.style.background = isError ? 'rgba(237, 66, 69, 0.1)' : 'rgba(35, 165, 90, 0.1)';
+}
 
+function hideLoginAlert() {
+  if (loginAuthAlert) {
+    loginAuthAlert.style.display = 'none';
+  }
+}
+
+function enterServer(name) {
   const avatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`;
   currentUser = { name, avatar };
 
@@ -454,9 +495,104 @@ loginForm.addEventListener('submit', (e) => {
   cardMyAvatar.src = avatar;
   cardMyName.textContent = `${name} (Você)`;
 
-  socket.emit('join:server', { name });
+  socket.emit('join:server', { name, deviceId: localDeviceId });
   loginModal.style.display = 'none';
   sounds.playJoin();
+}
+
+usernameInput.addEventListener('input', (e) => {
+  const val = e.target.value.trim();
+  avatarPreview.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(val || 'Gamezeda')}`;
+  hideLoginAlert();
+});
+
+loginForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = usernameInput.value.trim();
+  if (!name) return;
+
+  hideLoginAlert();
+  pendingLoginName = name;
+  if (btnLoginSubmit) {
+    btnLoginSubmit.disabled = true;
+    btnLoginSubmit.textContent = 'Verificando...';
+  }
+
+  socket.emit('auth:check-user', { name, deviceId: localDeviceId });
+});
+
+socket.on('auth:check-result', ({ status, message, hasPassword }) => {
+  if (btnLoginSubmit) {
+    btnLoginSubmit.disabled = false;
+    btnLoginSubmit.textContent = 'Entrar no Servidor';
+  }
+
+  if (status === 'ALLOWED') {
+    enterServer(pendingLoginName);
+  } else if (status === 'PASSWORD_REQUIRED') {
+    if (loginStepUsername) loginStepUsername.style.display = 'none';
+    if (loginStepPassword) loginStepPassword.style.display = 'block';
+    if (loginPasswordInput) {
+      loginPasswordInput.value = '';
+      loginPasswordInput.focus();
+    }
+    showLoginAlert(message || 'Este nick possui cadastro com senha. Digite sua senha para entrar neste computador:', false);
+  } else if (status === 'NAME_IN_USE') {
+    showLoginAlert(message || 'Já existe alguém conectado com este nome no servidor no momento.', true);
+  } else {
+    showLoginAlert(message || 'Erro ao validar cadastro. Tente novamente.', true);
+  }
+});
+
+if (btnLoginConfirmPassword) {
+  btnLoginConfirmPassword.addEventListener('click', () => {
+    const password = loginPasswordInput ? loginPasswordInput.value : '';
+    if (!password) {
+      showLoginAlert('Por favor, digite a sua senha.', true);
+      return;
+    }
+
+    btnLoginConfirmPassword.disabled = true;
+    btnLoginConfirmPassword.textContent = 'Autenticando...';
+    socket.emit('auth:verify-password', {
+      name: pendingLoginName,
+      password,
+      deviceId: localDeviceId
+    });
+  });
+}
+
+if (loginPasswordInput) {
+  loginPasswordInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (btnLoginConfirmPassword) btnLoginConfirmPassword.click();
+    }
+  });
+}
+
+if (btnLoginBackUsername) {
+  btnLoginBackUsername.addEventListener('click', () => {
+    if (loginStepPassword) loginStepPassword.style.display = 'none';
+    if (loginStepUsername) loginStepUsername.style.display = 'block';
+    if (loginPasswordInput) loginPasswordInput.value = '';
+    hideLoginAlert();
+    usernameInput.focus();
+  });
+}
+
+socket.on('auth:verify-result', ({ success, message }) => {
+  if (btnLoginConfirmPassword) {
+    btnLoginConfirmPassword.disabled = false;
+    btnLoginConfirmPassword.textContent = 'Confirmar Senha e Entrar';
+  }
+
+  if (success) {
+    enterServer(pendingLoginName);
+  } else {
+    showLoginAlert(message || 'Senha incorreta. Verifique e tente novamente.', true);
+    if (loginPasswordInput) loginPasswordInput.focus();
+  }
 });
 
 socket.on('init:state', (data) => {
@@ -949,10 +1085,122 @@ btnToggleDeaf.addEventListener('click', () => {
 });
 
 // ==========================================
-// MODAL DE CONFIGURAÇÕES DE DISPOSITIVOS E ÁUDIO
+// MODAL DE CONFIGURAÇÕES DE DISPOSITIVOS E CADASTRO
 // ==========================================
+function switchSettingsTab(tabName) {
+  if (tabName === 'voice') {
+    if (tabBtnVoice) tabBtnVoice.classList.add('active');
+    if (tabBtnAccount) tabBtnAccount.classList.remove('active');
+    if (tabContentVoice) tabContentVoice.style.display = 'block';
+    if (tabContentAccount) tabContentAccount.style.display = 'none';
+  } else if (tabName === 'account') {
+    if (tabBtnAccount) tabBtnAccount.classList.add('active');
+    if (tabBtnVoice) tabBtnVoice.classList.remove('active');
+    if (tabContentVoice) tabContentVoice.style.display = 'none';
+    if (tabContentAccount) tabContentAccount.style.display = 'block';
+    if (accountFormAlert) accountFormAlert.style.display = 'none';
+
+    if (currentUser) {
+      if (accountUsernameText) accountUsernameText.textContent = currentUser.name;
+      if (accountAvatarImg) accountAvatarImg.src = currentUser.avatar;
+    }
+    socket.emit('auth:get-status');
+  }
+}
+
+if (tabBtnVoice) {
+  tabBtnVoice.addEventListener('click', () => switchSettingsTab('voice'));
+}
+
+if (tabBtnAccount) {
+  tabBtnAccount.addEventListener('click', () => switchSettingsTab('account'));
+}
+
+socket.on('auth:status', ({ username, hasPassword }) => {
+  if (accountUsernameText && username) {
+    accountUsernameText.textContent = username;
+  }
+  if (accountAvatarImg && currentUser) {
+    accountAvatarImg.src = currentUser.avatar;
+  }
+
+  if (hasPassword) {
+    if (accountStatusBadge) {
+      accountStatusBadge.className = 'account-status-badge verified';
+      accountStatusBadge.innerHTML = '<span>✓ Cadastro Finalizado (Nick Protegido)</span>';
+    }
+    if (accountInfoText) {
+      accountInfoText.innerHTML = 'Seu nick está <strong>protegido com senha</strong>! Você já pode utilizá-lo em qualquer dispositivo ou computador digitando essa senha. Caso deseje alterar sua senha, preencha os campos abaixo:';
+    }
+    if (btnSaveAccountPassword) {
+      btnSaveAccountPassword.textContent = 'Atualizar Senha do Cadastro';
+    }
+  } else {
+    if (accountStatusBadge) {
+      accountStatusBadge.className = 'account-status-badge pending';
+      accountStatusBadge.innerHTML = '<span>⚠️ Cadastro Pendente (Sem Senha)</span>';
+    }
+    if (accountInfoText) {
+      accountInfoText.innerHTML = 'Cadastre uma senha abaixo para <strong>finalizar seu cadastro</strong>. Ao finalizar, seu nick fica protegido e você poderá utilizá-lo para se conectar em outros computadores ou celulares digitando essa senha.';
+    }
+    if (btnSaveAccountPassword) {
+      btnSaveAccountPassword.textContent = 'Finalizar Cadastro e Salvar Senha';
+    }
+  }
+});
+
+function showAccountAlert(msg, isError = true) {
+  if (!accountFormAlert) return;
+  accountFormAlert.textContent = msg;
+  accountFormAlert.style.display = 'block';
+  accountFormAlert.className = `account-alert ${isError ? 'error' : 'success'}`;
+}
+
+if (accountPasswordForm) {
+  accountPasswordForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const p1 = accountNewPassword ? accountNewPassword.value.trim() : '';
+    const p2 = accountConfirmPassword ? accountConfirmPassword.value.trim() : '';
+
+    if (!p1 || p1.length < 4) {
+      showAccountAlert('A senha deve conter no mínimo 4 caracteres.', true);
+      return;
+    }
+
+    if (p1 !== p2) {
+      showAccountAlert('As senhas digitadas não coincidem. Digite novamente.', true);
+      return;
+    }
+
+    if (btnSaveAccountPassword) {
+      btnSaveAccountPassword.disabled = true;
+      btnSaveAccountPassword.textContent = 'Salvando...';
+    }
+
+    socket.emit('auth:set-password', {
+      password: p1,
+      deviceId: localDeviceId
+    });
+  });
+}
+
+socket.on('auth:set-password-result', ({ success, message }) => {
+  if (btnSaveAccountPassword) {
+    btnSaveAccountPassword.disabled = false;
+  }
+
+  showAccountAlert(message, !success);
+
+  if (success) {
+    if (accountNewPassword) accountNewPassword.value = '';
+    if (accountConfirmPassword) accountConfirmPassword.value = '';
+    socket.emit('auth:get-status');
+  }
+});
+
 async function openSettingsModal() {
   settingsModal.style.display = 'flex';
+  switchSettingsTab('voice');
   await populateDeviceSelectors();
 
   // Sincroniza toggle e slider de supressão de ruído

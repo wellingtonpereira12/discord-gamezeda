@@ -1404,3 +1404,138 @@ body {
   margin-top: 4px;
 }
 
+/* ==========================================
+   ABAS DE CONFIGURAÇÃO E ABA CADASTRO
+========================================== */
+.settings-tabs-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 6px;
+}
+
+.settings-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 4px;
+  color: #949ba4;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.settings-tab-btn:hover {
+  color: #dbdee1;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.settings-tab-btn.active {
+  color: #fff;
+  background: #35373c;
+  border-bottom: 2px solid #5865F2;
+}
+
+.account-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #1e1f22;
+  padding: 14px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.account-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #2b2d31;
+}
+
+.account-profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.account-username {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.account-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+  width: fit-content;
+}
+
+.account-status-badge.pending {
+  background: rgba(240, 178, 50, 0.15);
+  color: #f0b232;
+  border: 1px solid rgba(240, 178, 50, 0.35);
+}
+
+.account-status-badge.verified {
+  background: rgba(35, 165, 90, 0.15);
+  color: #23a55a;
+  border: 1px solid rgba(35, 165, 90, 0.35);
+}
+
+.account-info-box {
+  background: rgba(88, 101, 242, 0.1);
+  border: 1px solid rgba(88, 101, 242, 0.25);
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 13px;
+  color: #dbdee1;
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+
+.account-alert {
+  padding: 10px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+
+.account-alert.error {
+  background: rgba(237, 66, 69, 0.15);
+  border: 1px solid rgba(237, 66, 69, 0.4);
+  color: #f23f43;
+}
+
+.account-alert.success {
+  background: rgba(35, 165, 90, 0.15);
+  border: 1px solid rgba(35, 165, 90, 0.4);
+  color: #23a55a;
+}
+
+/* Alertas de Autenticação */
+.login-alert-box {
+  background: rgba(237, 66, 69, 0.15);
+  border: 1px solid rgba(237, 66, 69, 0.35);
+  color: #f23f43;
+  padding: 12px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+

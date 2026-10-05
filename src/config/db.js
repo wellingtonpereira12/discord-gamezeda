@@ -1,4 +1,5 @@
 import mysql from 'mysql2/promise';
+import crypto from 'crypto';
 
 const DB_HOST = process.env.DB_HOST || 'host.docker.internal';
 const DB_PORT = parseInt(process.env.DB_PORT || '3306', 10);
@@ -11,6 +12,7 @@ let isConnected = false;
 
 // Fallback em memória caso o banco esteja indisponível
 const memoryStore = {
+  users: {}, // username_lower -> { id, username, password_hash, avatar, devices: [] }
   channels: [
     'geral', 'links', 'meme-imagem-videos', 'musicas',
     'novo-video-youtube', 'clips-twitch', 'blogger',
@@ -99,6 +101,18 @@ export async function initDatabase() {
         file_url VARCHAR(255) NOT NULL,
         created_by VARCHAR(64) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id VARCHAR(64) PRIMARY KEY,
+        username VARCHAR(64) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NULL,
+        avatar VARCHAR(255) NULL,
+        devices JSON NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
@@ -228,4 +242,144 @@ export async function addSoundboardSound({ id, name, emoji, file_url, created_by
     }
   }
   return sound;
+}
+
+// ==========================================
+// MÉTODOS DE USUÁRIOS E AUTENTICAÇÃO
+// ==========================================
+export function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+  return `${salt}:${hash}`;
+}
+
+export function verifyPassword(password, storedHash) {
+  if (!storedHash) return false;
+  const parts = storedHash.split(':');
+  if (parts.length !== 2) return false;
+  const [salt, originalHash] = parts;
+  const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+  return hash === originalHash;
+}
+
+export async function findUser(username) {
+  const clean = (username || '').trim();
+  const lower = clean.toLowerCase();
+
+  if (isConnected && pool) {
+    try {
+      const [rows] = await pool.query(
+        'SELECT id, username, password_hash, avatar, devices, created_at FROM users WHERE LOWER(username) = ? LIMIT 1',
+        [lower]
+      );
+      if (rows.length > 0) {
+        const u = rows[0];
+        let devicesArr = [];
+        try {
+          devicesArr = typeof u.devices === 'string' ? JSON.parse(u.devices || '[]') : (u.devices || []);
+        } catch (e) {
+          devicesArr = [];
+        }
+        return {
+          id: u.id,
+          username: u.username,
+          password_hash: u.password_hash,
+          avatar: u.avatar,
+          devices: Array.isArray(devicesArr) ? devicesArr : []
+        };
+      }
+    } catch (e) {
+      console.warn('Erro ao buscar usuário no MariaDB:', e.message);
+    }
+  }
+
+  return memoryStore.users[lower] || null;
+}
+
+export async function saveUser({ id, username, password_hash = null, avatar = '', deviceId = null }) {
+  const clean = (username || '').trim();
+  const lower = clean.toLowerCase();
+  const userId = id || `usr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  const devices = deviceId ? [deviceId] : [];
+
+  const userObj = {
+    id: userId,
+    username: clean,
+    password_hash,
+    avatar,
+    devices
+  };
+
+  memoryStore.users[lower] = userObj;
+
+  if (isConnected && pool) {
+    try {
+      await pool.query(
+        `INSERT INTO users (id, username, password_hash, avatar, devices)
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           avatar = VALUES(avatar),
+           devices = VALUES(devices)`,
+        [userId, clean, password_hash, avatar, JSON.stringify(devices)]
+      );
+    } catch (e) {
+      console.warn('Erro ao salvar usuário no MariaDB:', e.message);
+    }
+  }
+
+  return userObj;
+}
+
+export async function setUserPassword(username, passwordHash, deviceId = null) {
+  const clean = (username || '').trim();
+  const lower = clean.toLowerCase();
+  let user = await findUser(clean);
+
+  if (!user) {
+    user = await saveUser({ username: clean, password_hash: passwordHash, deviceId });
+    return user;
+  }
+
+  user.password_hash = passwordHash;
+  if (deviceId && !user.devices.includes(deviceId)) {
+    user.devices.push(deviceId);
+  }
+  memoryStore.users[lower] = user;
+
+  if (isConnected && pool) {
+    try {
+      await pool.query(
+        'UPDATE users SET password_hash = ?, devices = ? WHERE LOWER(username) = ?',
+        [passwordHash, JSON.stringify(user.devices), lower]
+      );
+    } catch (e) {
+      console.warn('Erro ao atualizar senha no MariaDB:', e.message);
+    }
+  }
+
+  return user;
+}
+
+export async function addAuthorizedDevice(username, deviceId) {
+  if (!deviceId) return;
+  const clean = (username || '').trim();
+  const lower = clean.toLowerCase();
+  const user = await findUser(clean);
+  if (!user) return;
+
+  if (!user.devices.includes(deviceId)) {
+    user.devices.push(deviceId);
+    memoryStore.users[lower] = user;
+
+    if (isConnected && pool) {
+      try {
+        await pool.query(
+          'UPDATE users SET devices = ? WHERE LOWER(username) = ?',
+          [JSON.stringify(user.devices), lower]
+        );
+      } catch (e) {
+        console.warn('Erro ao registrar dispositivo no MariaDB:', e.message);
+      }
+    }
+  }
 }
