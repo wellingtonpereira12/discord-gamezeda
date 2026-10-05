@@ -130,6 +130,15 @@ const deleteModalAlert = document.getElementById('delete-modal-alert');
 const btnCancelDelete = document.getElementById('btn-cancel-delete');
 const btnConfirmDelete = document.getElementById('btn-confirm-delete');
 
+// Modal Troca de Canal de Voz (Você tem certeza?)
+let pendingSwitchVoiceChannel = null;
+const modalSwitchVoice = document.getElementById('modal-switch-voice');
+const switchVoiceTargetName = document.getElementById('switch-voice-target-name');
+const checkDontAskSwitchVoice = document.getElementById('check-dont-ask-switch-voice');
+const btnCancelSwitchVoice = document.getElementById('btn-cancel-switch-voice');
+const btnConfirmSwitchVoice = document.getElementById('btn-confirm-switch-voice');
+const btnCloseSwitchVoice = document.getElementById('btn-close-switch-voice');
+
 // Membros e Palco
 const membersListContent = document.getElementById('members-list-content');
 const dynamicVoiceCards = document.getElementById('dynamic-voice-cards');
@@ -1515,7 +1524,7 @@ btnEmojiTrigger.addEventListener('click', () => {
 // ==========================================
 // CONEXÃO DE VOZ & TELA HD (MULTI-SALA)
 // ==========================================
-async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda') {
+async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda', forceDirect = false) {
   if (inVoice && currentVoiceChannelId === roomId) {
     videoStage.style.display = 'flex';
     messagesContainer.style.display = 'none';
@@ -1530,8 +1539,16 @@ async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda')
     return;
   }
 
+  // Se já estiver em outro canal de voz e não for confirmação direta:
+  // Abre o modal "Você tem certeza?" estilo Discord (a menos que o usuário tenha marcado 'Não perguntar de novo')
+  const dontAsk = localStorage.getItem('discord_dont_ask_switch_voice') === 'true';
+  if (inVoice && currentVoiceChannelId && currentVoiceChannelId !== roomId && !forceDirect && !dontAsk) {
+    openSwitchVoiceModal(roomId, roomName);
+    return;
+  }
+
   if (inVoice) {
-    leaveVoice(false);
+    leaveVoice(false, false);
   }
 
   currentVoiceChannelId = roomId;
@@ -1604,7 +1621,7 @@ async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda')
   });
 }
 
-function leaveVoice(playAudio = true) {
+function leaveVoice(playAudio = true, switchChat = true) {
   try {
     if (playAudio && inVoice) sounds.playLeave();
   } catch (e) {}
@@ -1631,11 +1648,13 @@ function leaveVoice(playAudio = true) {
     btnVoiceCamera.style.color = '';
   }
 
-  // Oculta o palco de voz e garante a reabertura do chat de mensagens
-  if (videoStage) videoStage.style.display = 'none';
-  if (messagesContainer) messagesContainer.style.display = 'flex';
-  const wrapper = document.querySelector('.chat-input-wrapper');
-  if (wrapper) wrapper.style.display = 'block';
+  // Oculta o palco de voz e garante a reabertura do chat de mensagens se switchChat for true
+  if (switchChat) {
+    if (videoStage) videoStage.style.display = 'none';
+    if (messagesContainer) messagesContainer.style.display = 'flex';
+    const wrapper = document.querySelector('.chat-input-wrapper');
+    if (wrapper) wrapper.style.display = 'block';
+  }
 
   if (btnStageScreen) btnStageScreen.classList.remove('active-stream');
   if (btnStageScreenText) btnStageScreenText.textContent = 'Compartilhar Tela HD';
@@ -1678,8 +1697,10 @@ function leaveVoice(playAudio = true) {
   }
 
   // 4. Retorna IMEDIATAMENTE para o chat de texto que está selecionado (padrão Discord, ex: #geral)
-  const targetChannel = currentTextChannel || 'geral';
-  switchTextChannel(targetChannel);
+  if (switchChat) {
+    const targetChannel = currentTextChannel || 'geral';
+    switchTextChannel(targetChannel);
+  }
 
   // 5. Re-renderiza IMEDIATAMENTE a interface completa (canais, membros, cards)
   renderSidebarChannels();
@@ -1700,6 +1721,63 @@ if (voiceStatusInfo) {
       messagesContainer.style.display = 'none';
       const wrapper = document.querySelector('.chat-input-wrapper');
       if (wrapper) wrapper.style.display = 'none';
+    }
+  });
+}
+
+// ==========================================
+// MODAL: CONFIRMAR TROCA DE CANAL DE VOZ
+// ==========================================
+function openSwitchVoiceModal(roomId, roomName) {
+  pendingSwitchVoiceChannel = { id: roomId, name: roomName };
+  if (switchVoiceTargetName) {
+    switchVoiceTargetName.textContent = roomName;
+  }
+  if (checkDontAskSwitchVoice) {
+    checkDontAskSwitchVoice.checked = false;
+  }
+  if (modalSwitchVoice) {
+    modalSwitchVoice.style.display = 'flex';
+  }
+}
+
+function closeSwitchVoiceModal() {
+  pendingSwitchVoiceChannel = null;
+  if (modalSwitchVoice) {
+    modalSwitchVoice.style.display = 'none';
+  }
+}
+
+if (btnCancelSwitchVoice) {
+  btnCancelSwitchVoice.addEventListener('click', closeSwitchVoiceModal);
+}
+
+if (btnCloseSwitchVoice) {
+  btnCloseSwitchVoice.addEventListener('click', closeSwitchVoiceModal);
+}
+
+if (btnConfirmSwitchVoice) {
+  btnConfirmSwitchVoice.addEventListener('click', async () => {
+    if (!pendingSwitchVoiceChannel) {
+      closeSwitchVoiceModal();
+      return;
+    }
+
+    if (checkDontAskSwitchVoice && checkDontAskSwitchVoice.checked) {
+      localStorage.setItem('discord_dont_ask_switch_voice', 'true');
+    }
+
+    const { id, name } = pendingSwitchVoiceChannel;
+    closeSwitchVoiceModal();
+    // Efetua a troca para a nova sala de voz
+    await connectToVoiceChannel(id, name, true);
+  });
+}
+
+if (modalSwitchVoice) {
+  modalSwitchVoice.addEventListener('click', (e) => {
+    if (e.target === modalSwitchVoice) {
+      closeSwitchVoiceModal();
     }
   });
 }
@@ -2496,6 +2574,7 @@ document.addEventListener('keydown', (e) => {
     closeCreateChannelModal();
     closeCreateCategoryModal();
     closeDeleteModal();
+    closeSwitchVoiceModal();
     addSoundModal.style.display = 'none';
   }
 });
