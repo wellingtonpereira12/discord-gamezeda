@@ -738,6 +738,16 @@ socket.on('init:state', (data) => {
 
 socket.on('members:update', (usersList) => {
   allOnlineUsers = usersList;
+  if (!inVoice && currentUser) {
+    const myId = socket ? socket.id : null;
+    const myName = currentUser.name.toLowerCase();
+    allOnlineUsers.forEach(u => {
+      if ((myId && u.id === myId) || (u.name && u.name.toLowerCase() === myName)) {
+        u.inVoice = false;
+        u.currentVoiceRoom = null;
+      }
+    });
+  }
   renderMembersSidebar();
 });
 
@@ -746,6 +756,26 @@ socket.on('voice:update', (data = {}) => {
     allVoiceRoomsState = data.rooms;
   }
   allVoiceUsers = data.users || (currentVoiceChannelId && allVoiceRoomsState[currentVoiceChannelId]) || [];
+
+  if (!inVoice) {
+    const myId = socket ? socket.id : null;
+    const myName = currentUser ? currentUser.name.toLowerCase() : null;
+    for (const rId in allVoiceRoomsState) {
+      if (Array.isArray(allVoiceRoomsState[rId])) {
+        allVoiceRoomsState[rId] = allVoiceRoomsState[rId].filter(u => {
+          if (myId && u.id === myId) return false;
+          if (myName && u.name && u.name.toLowerCase() === myName) return false;
+          return true;
+        });
+      }
+    }
+    allVoiceUsers = allVoiceUsers.filter(u => {
+      if (myId && u.id === myId) return false;
+      if (myName && u.name && u.name.toLowerCase() === myName) return false;
+      return true;
+    });
+  }
+
   renderSidebarChannels();
   renderVoiceStageCards();
   renderMembersSidebar();
@@ -1345,10 +1375,8 @@ async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda')
 }
 
 function leaveVoice(playAudio = true) {
-  if (!inVoice) return;
-
-  if (playAudio) sounds.playLeave();
-  webrtc.leaveVoice();
+  if (playAudio && inVoice) sounds.playLeave();
+  if (webrtc) webrtc.leaveVoice();
 
   inVoice = false;
   isScreenSharing = false;
@@ -1356,18 +1384,56 @@ function leaveVoice(playAudio = true) {
 
   unregisterStream('local');
 
-  voiceStatusBox.style.display = 'none';
-  videoStage.style.display = 'none';
-  messagesContainer.style.display = 'flex';
+  if (voiceStatusBox) voiceStatusBox.style.display = 'none';
+  if (videoStage) videoStage.style.display = 'none';
+  if (messagesContainer) messagesContainer.style.display = 'flex';
   const wrapper = document.querySelector('.chat-input-wrapper');
   if (wrapper) wrapper.style.display = 'block';
 
-  btnStageScreen.classList.remove('active-stream');
-  btnStageScreenText.textContent = 'Compartilhar Tela HD';
+  if (btnStageScreen) btnStageScreen.classList.remove('active-stream');
+  if (btnStageScreenText) btnStageScreenText.textContent = 'Compartilhar Tela HD';
 
-  myUserStatusEl.textContent = 'Online';
-  socket.emit('voice:leave');
+  if (myUserStatusEl) myUserStatusEl.textContent = 'Online';
+
+  // 1. Remove imediatamente o usuário local de todas as salas de voz no estado do cliente
+  const myId = socket ? socket.id : null;
+  const myName = currentUser ? currentUser.name.toLowerCase() : null;
+
+  for (const roomId in allVoiceRoomsState) {
+    if (Array.isArray(allVoiceRoomsState[roomId])) {
+      allVoiceRoomsState[roomId] = allVoiceRoomsState[roomId].filter(u => {
+        if (myId && u.id === myId) return false;
+        if (myName && u.name && u.name.toLowerCase() === myName) return false;
+        return true;
+      });
+    }
+  }
+
+  allVoiceUsers = allVoiceUsers.filter(u => {
+    if (myId && u.id === myId) return false;
+    if (myName && u.name && u.name.toLowerCase() === myName) return false;
+    return true;
+  });
+
+  // 2. Atualiza imediatamente o status do usuário local na lista de membros (barra da direita)
+  if (currentUser) {
+    allOnlineUsers.forEach(u => {
+      if ((myId && u.id === myId) || (myName && u.name && u.name.toLowerCase() === myName)) {
+        u.inVoice = false;
+        u.currentVoiceRoom = null;
+      }
+    });
+  }
+
+  // 3. Notifica o servidor
+  if (socket && socket.connected) {
+    socket.emit('voice:leave');
+  }
+
+  // 4. Re-renderiza IMEDIATAMENTE a interface completa (canais, membros, cards)
   renderSidebarChannels();
+  renderMembersSidebar();
+  renderVoiceStageCards();
 }
 
 quickDisconnectBtn.addEventListener('click', () => leaveVoice(true));

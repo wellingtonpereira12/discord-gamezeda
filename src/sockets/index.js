@@ -36,7 +36,16 @@ export function setupSockets(io) {
   function broadcastVoiceState() {
     const roomsState = {};
     for (const [roomId, socketIds] of Object.entries(voiceRooms)) {
-      roomsState[roomId] = Array.from(socketIds).map(id => users.get(id)).filter(Boolean);
+      const activeInRoom = [];
+      for (const sId of Array.from(socketIds)) {
+        const u = users.get(sId);
+        if (u && u.inVoice && u.currentVoiceRoom === roomId) {
+          activeInRoom.push(u);
+        } else {
+          socketIds.delete(sId);
+        }
+      }
+      roomsState[roomId] = activeInRoom;
     }
     io.emit('voice:update', {
       rooms: roomsState,
@@ -57,11 +66,9 @@ export function setupSockets(io) {
       for (const [existingSocketId, existingUser] of users.entries()) {
         if (existingUser.name.toLowerCase() === cleanName.toLowerCase() && existingSocketId !== socket.id) {
           console.log(`[!] Removendo sessão duplicada de ${cleanName} (${existingSocketId})`);
-          if (existingUser.inVoice) {
-            leaveVoiceRoom(io, socket, existingUser, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
-          }
-          users.delete(existingSocketId);
           const oldSocket = io.sockets.sockets.get(existingSocketId);
+          leaveVoiceRoom(io, oldSocket, existingUser, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
+          users.delete(existingSocketId);
           if (oldSocket) {
             oldSocket.emit('session:replaced', {
               message: 'Você foi desconectado pois sua conta foi acessada em outro local.'
@@ -156,9 +163,7 @@ export function setupSockets(io) {
       const user = users.get(socket.id);
       if (user) {
         console.log(`[-] Usuário deslogou: ${user.name} (${socket.id})`);
-        if (user.inVoice) {
-          leaveVoiceRoom(io, socket, user, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
-        }
+        leaveVoiceRoom(io, socket, user, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
         users.delete(socket.id);
         broadcastOnlineMembers();
 
@@ -179,9 +184,7 @@ export function setupSockets(io) {
       const user = users.get(socket.id);
       if (user) {
         console.log(`[-] Usuário desconectado: ${user.name}`);
-        if (user.inVoice) {
-          leaveVoiceRoom(io, socket, user, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
-        }
+        leaveVoiceRoom(io, socket, user, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
         users.delete(socket.id);
         broadcastOnlineMembers();
       }

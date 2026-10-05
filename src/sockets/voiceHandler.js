@@ -45,7 +45,6 @@ export function registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVo
   // Sair da voz
   socket.on('voice:leave', () => {
     const user = users.get(socket.id);
-    if (!user || !user.inVoice) return;
     leaveVoiceRoom(io, socket, user, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
   });
 
@@ -103,24 +102,44 @@ export function registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVo
 }
 
 export function leaveVoiceRoom(io, socket, user, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers) {
-  if (!user || !user.inVoice) return;
-  const roomId = user.currentVoiceRoom || 'gamezeda';
-  user.inVoice = false;
-  user.isScreenSharing = false;
-  user.isSpeaking = false;
-  user.currentVoiceRoom = null;
+  const targetUser = user || (socket ? users.get(socket.id) : null);
+  const targetSocketId = (socket && socket.id) || (targetUser ? targetUser.id : null);
 
-  if (voiceRooms[roomId]) {
-    voiceRooms[roomId].delete(socket.id);
+  if (targetUser) {
+    targetUser.inVoice = false;
+    targetUser.isScreenSharing = false;
+    targetUser.isSpeaking = false;
+    targetUser.currentVoiceRoom = null;
   }
-  socket.leave(roomId);
 
-  socket.to(roomId).emit('voice:peer-left', {
-    peerId: socket.id,
-    user,
-    roomId
-  });
+  // Remove o socket de TODAS as salas de voz
+  if (voiceRooms) {
+    for (const [rId, socketSet] of Object.entries(voiceRooms)) {
+      if (targetSocketId && socketSet.has(targetSocketId)) {
+        socketSet.delete(targetSocketId);
+        if (io) {
+          io.to(rId).emit('voice:peer-left', {
+            peerId: targetSocketId,
+            user: targetUser,
+            roomId: rId
+          });
+        }
+      }
+    }
+  }
 
-  broadcastVoiceState();
-  broadcastOnlineMembers();
+  if (socket && typeof socket.leave === 'function' && voiceRooms) {
+    for (const rId of Object.keys(voiceRooms)) {
+      try {
+        socket.leave(rId);
+      } catch (e) {}
+    }
+  }
+
+  if (typeof broadcastVoiceState === 'function') {
+    broadcastVoiceState();
+  }
+  if (typeof broadcastOnlineMembers === 'function') {
+    broadcastOnlineMembers();
+  }
 }

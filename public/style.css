@@ -468,6 +468,11 @@ body {
   background: rgba(242, 63, 67, 0.2);
 }
 
+.btn-voice-action svg,
+.btn-voice-action i {
+  pointer-events: none;
+}
+
 /* BARRA DO USUÁRIO LOGADO */
 .user-panel {
   position: relative;
@@ -863,6 +868,11 @@ body {
 
 .stage-btn.danger:hover {
   background: #d83a3e;
+}
+
+.stage-btn svg,
+.stage-btn i {
+  pointer-events: none;
 }
 
 /* FEED DE CHAT */
