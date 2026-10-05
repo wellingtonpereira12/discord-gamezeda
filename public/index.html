@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Discord - Jogos Bolados / Gamezeda</title>
-  <link rel="stylesheet" href="style.css?v=20261005_v8">
+  <link rel="stylesheet" href="style.css?v=20261005_v9">
   <link rel="icon" href="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -172,7 +172,26 @@
 
       <!-- Barra do Usuário Logado (Perfil) -->
       <div class="user-panel">
-        <div class="user-info">
+        <!-- Pop-up flutuante ao clicar com o botão esquerdo no usuário -->
+        <div id="user-profile-popover" class="user-profile-popover" style="display: none;">
+          <div class="user-popover-header">
+            <div class="user-avatar-wrap">
+              <img id="popover-avatar" class="user-avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=Gamezeda" alt="Avatar">
+              <div class="status-dot"></div>
+            </div>
+            <div class="user-popover-meta">
+              <span id="popover-name" class="user-popover-username">Você</span>
+              <span class="user-popover-badge">● Online</span>
+            </div>
+          </div>
+          <div class="user-popover-separator"></div>
+          <button type="button" id="btn-popover-logout" class="user-popover-item danger">
+            <i data-lucide="log-out" style="width: 16px; height: 16px;"></i>
+            <span>Sair da Conta (Logout)</span>
+          </button>
+        </div>
+
+        <div class="user-info" id="btn-current-user-profile" title="Clique para opções de conta">
           <div class="user-avatar-wrap">
             <img id="my-avatar" class="user-avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=Gamezeda" alt="User">
             <div class="status-dot"></div>
@@ -442,8 +461,9 @@
 
             <div id="account-form-alert" class="account-alert" style="display: none;"></div>
 
-            <button type="submit" id="btn-save-account-password" class="btn-enter" style="width: 100%;">
-              Finalizar Cadastro e Salvar Senha
+            <button type="submit" id="btn-save-account-password" class="btn-account-submit">
+              <i data-lucide="shield-check" style="width: 16px; height: 16px;"></i>
+              <span>Finalizar Cadastro</span>
             </button>
           </form>
         </div>
@@ -451,7 +471,7 @@
       </div>
 
       <div class="modal-footer">
-        <button class="btn-enter" id="btn-save-settings">Pronto</button>
+        <button type="button" class="btn-modal-done" id="btn-save-settings">Pronto</button>
       </div>
     </div>
   </div>
@@ -544,7 +564,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261005_v8"></script>
+  <script type="module" src="app.js?v=20261005_v9"></script>
 
 </body>
 </html>

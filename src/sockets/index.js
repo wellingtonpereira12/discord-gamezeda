@@ -91,6 +91,19 @@ export function setupSockets(io) {
     registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
     registerSoundboardHandlers(io, socket, users, voiceRooms);
 
+    // Logout voluntário do usuário
+    socket.on('logout', () => {
+      const user = users.get(socket.id);
+      if (user) {
+        console.log(`[-] Usuário deslogou: ${user.name} (${socket.id})`);
+        if (user.inVoice) {
+          leaveVoiceRoom(io, socket, user, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
+        }
+        users.delete(socket.id);
+        broadcastOnlineMembers();
+      }
+    });
+
     // Desconexão total
     socket.on('disconnect', () => {
       const user = users.get(socket.id);

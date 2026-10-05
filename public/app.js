@@ -65,6 +65,13 @@ const cardMyAvatar = document.getElementById('card-my-avatar');
 const cardMyName = document.getElementById('card-my-name');
 const cardLocalUser = document.getElementById('card-local-user');
 
+// Popover de Perfil / Logout
+const btnCurrentUserProfile = document.getElementById('btn-current-user-profile');
+const userProfilePopover = document.getElementById('user-profile-popover');
+const popoverAvatar = document.getElementById('popover-avatar');
+const popoverName = document.getElementById('popover-name');
+const btnPopoverLogout = document.getElementById('btn-popover-logout');
+
 // Status de Voz e Ações Rápidas
 const voiceStatusBox = document.getElementById('voice-status-box');
 const quickDisconnectBtn = document.getElementById('quick-disconnect-btn');
@@ -494,6 +501,8 @@ function enterServer(name) {
   myUsernameEl.textContent = name;
   cardMyAvatar.src = avatar;
   cardMyName.textContent = `${name} (Você)`;
+  if (popoverAvatar) popoverAvatar.src = avatar;
+  if (popoverName) popoverName.textContent = name;
 
   socket.emit('join:server', { name, deviceId: localDeviceId });
   loginModal.style.display = 'none';
@@ -1133,7 +1142,7 @@ socket.on('auth:status', ({ username, hasPassword }) => {
       accountInfoText.innerHTML = 'Seu nick está <strong>protegido com senha</strong>! Você já pode utilizá-lo em qualquer dispositivo ou computador digitando essa senha. Caso deseje alterar sua senha, preencha os campos abaixo:';
     }
     if (btnSaveAccountPassword) {
-      btnSaveAccountPassword.textContent = 'Atualizar Senha do Cadastro';
+      btnSaveAccountPassword.innerHTML = '<i data-lucide="shield-check" style="width: 16px; height: 16px;"></i><span>Atualizar Senha</span>';
     }
   } else {
     if (accountStatusBadge) {
@@ -1144,9 +1153,10 @@ socket.on('auth:status', ({ username, hasPassword }) => {
       accountInfoText.innerHTML = 'Cadastre uma senha abaixo para <strong>finalizar seu cadastro</strong>. Ao finalizar, seu nick fica protegido e você poderá utilizá-lo para se conectar em outros computadores ou celulares digitando essa senha.';
     }
     if (btnSaveAccountPassword) {
-      btnSaveAccountPassword.textContent = 'Finalizar Cadastro e Salvar Senha';
+      btnSaveAccountPassword.innerHTML = '<i data-lucide="shield-check" style="width: 16px; height: 16px;"></i><span>Finalizar Cadastro</span>';
     }
   }
+  if (window.lucide) window.lucide.createIcons();
 });
 
 function showAccountAlert(msg, isError = true) {
@@ -1453,18 +1463,88 @@ function openContextMenu(e, peerId, peerName) {
   userContextMenu.style.top = `${posY}px`;
 }
 
-function closeContextMenu() {
-  if (userContextMenu) userContextMenu.style.display = 'none';
-  currentContextPeerId = null;
+// ==========================================
+// POPOVER DO USUÁRIO & LOGOUT
+// ==========================================
+function toggleUserPopover(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  if (!currentUser) return;
+
+  const isVisible = userProfilePopover && userProfilePopover.style.display === 'flex';
+  if (isVisible) {
+    closeUserPopover();
+  } else {
+    openUserPopover();
+  }
+}
+
+function openUserPopover() {
+  if (!userProfilePopover || !currentUser) return;
+  if (popoverAvatar) popoverAvatar.src = currentUser.avatar;
+  if (popoverName) popoverName.textContent = currentUser.name;
+  userProfilePopover.style.display = 'flex';
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function closeUserPopover() {
+  if (userProfilePopover) {
+    userProfilePopover.style.display = 'none';
+  }
+}
+
+function performLogout() {
+  if (inVoice) {
+    leaveVoice();
+  }
+
+  socket.emit('logout');
+
+  closeUserPopover();
+  closeSettingsModal();
+  closeSoundboardModal();
+  closeAudioDriverFallbackModal();
+
+  currentUser = null;
+
+  if (loginStepPassword) loginStepPassword.style.display = 'none';
+  if (loginStepUsername) loginStepUsername.style.display = 'block';
+  if (loginPasswordInput) loginPasswordInput.value = '';
+  if (usernameInput) {
+    usernameInput.value = '';
+    avatarPreview.src = 'https://api.dicebear.com/7.x/bottts/svg?seed=Gamezeda';
+  }
+  hideLoginAlert();
+
+  loginModal.style.display = 'flex';
+  setTimeout(() => {
+    if (usernameInput) usernameInput.focus();
+  }, 100);
+}
+
+if (btnCurrentUserProfile) {
+  btnCurrentUserProfile.addEventListener('click', toggleUserPopover);
+}
+
+if (btnPopoverLogout) {
+  btnPopoverLogout.addEventListener('click', performLogout);
 }
 
 document.addEventListener('click', (e) => {
   if (userContextMenu && !userContextMenu.contains(e.target)) closeContextMenu();
+  if (userProfilePopover && userProfilePopover.style.display === 'flex') {
+    if (!userProfilePopover.contains(e.target) && !btnCurrentUserProfile.contains(e.target)) {
+      closeUserPopover();
+    }
+  }
 });
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeContextMenu();
+    closeUserPopover();
     closeSettingsModal();
     closeSoundboardModal();
     closeAudioDriverFallbackModal();
