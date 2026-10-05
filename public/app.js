@@ -898,10 +898,23 @@ function renderMembersSidebar() {
   });
 }
 
+// SVGs brancos estilo Discord para microfone mutado e fone cortado (áudio desativado)
+function getMuteIconSvg(size = 14, color = '#ffffff') {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="voice-status-icon icon-muted" title="Microfone mutado"><line x1="2" y1="2" x2="22" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" y1="19" x2="12" y2="22"/></svg>`;
+}
+
+function getDeafenIconSvg(size = 14, color = '#ffffff') {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="voice-status-icon icon-deafened" title="Áudio desativado"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 14.8-6.9"/><path d="M21 15v4a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/><path d="M21 11a9 9 0 0 0-3.3-6.9"/><line x1="2" y1="2" x2="22" y2="22"/></svg>`;
+}
+
 function createMemberItem(user, isVoice) {
   const div = document.createElement('div');
   div.className = 'member-item';
   div.setAttribute('data-member-id', user.id);
+
+  const isLocal = user.id === socket.id;
+  const userIsMuted = isLocal ? isMuted : !!user.isMuted;
+  const userIsDeafened = isLocal ? isDeafened : !!user.isDeafened;
 
   div.innerHTML = `
     <div class="member-avatar-wrap">
@@ -909,14 +922,22 @@ function createMemberItem(user, isVoice) {
       <div class="status-dot"></div>
     </div>
     <div class="member-info">
-      <span class="member-name">${escapeHtml(user.name)}${user.id === socket.id ? ' (Você)' : ''}</span>
+      <div style="display: flex; align-items: center; gap: 4px;">
+        <span class="member-name">${escapeHtml(user.name)}${isLocal ? ' (Você)' : ''}</span>
+        ${isVoice && (userIsMuted || userIsDeafened) ? `
+          <div class="voice-user-status-icons">
+            ${userIsMuted ? getMuteIconSvg(12) : ''}
+            ${userIsDeafened ? getDeafenIconSvg(12) : ''}
+          </div>
+        ` : ''}
+      </div>
       <span class="member-activity" style="${isVoice ? 'color: #23a55a;' : ''}">
         ${isVoice ? '🔊 Em voz' : 'Online'}
       </span>
     </div>
   `;
 
-  if (user.id !== socket.id) {
+  if (!isLocal) {
     div.addEventListener('contextmenu', (e) => openContextMenu(e, user.id, user.name));
   }
   return div;
@@ -1088,6 +1109,9 @@ function renderSidebarChannels() {
             const streamKey = isLocal ? 'local' : user.id;
             const isSharing = user.isScreenSharing || activeStreams.has(streamKey);
 
+            const userIsMuted = isLocal ? isMuted : !!user.isMuted;
+            const userIsDeafened = isLocal ? isDeafened : !!user.isDeafened;
+
             const pill = document.createElement('div');
             pill.className = 'voice-user-pill';
             pill.setAttribute('data-user-id', user.id);
@@ -1095,6 +1119,12 @@ function renderSidebarChannels() {
               <img src="${user.avatar}" alt="${user.name}">
               <span class="pill-name" style="flex: 1;">${escapeHtml(user.name)}${isLocal ? ' (Você)' : ''}</span>
               ${isSharing ? '<span class="live-indicator" style="font-size: 10px; margin-left: 6px; padding: 2px 5px; cursor: pointer;">🔴 AO VIVO</span>' : ''}
+              ${(userIsMuted || userIsDeafened) ? `
+                <div class="voice-user-status-icons">
+                  ${userIsMuted ? getMuteIconSvg(14) : ''}
+                  ${userIsDeafened ? getDeafenIconSvg(14) : ''}
+                </div>
+              ` : ''}
             `;
 
             pill.addEventListener('click', (e) => {
@@ -1134,6 +1164,18 @@ function renderVoiceStageCards() {
     cardLocalUser.onclick = () => {
       if (activeStreams.has('local')) viewStream('local');
     };
+    const cardMyName = document.getElementById('card-my-name');
+    if (cardMyName) {
+      cardMyName.innerHTML = `
+        <span>${currentUser ? escapeHtml(currentUser.name) : 'Você'}</span>
+        ${(isMuted || isDeafened) ? `
+          <div class="voice-user-status-icons">
+            ${isMuted ? getMuteIconSvg(13) : ''}
+            ${isDeafened ? getDeafenIconSvg(13) : ''}
+          </div>
+        ` : ''}
+      `;
+    }
   }
 
   // Participantes da sala de voz em que estamos
@@ -1149,7 +1191,15 @@ function renderVoiceStageCards() {
     card.id = `voice-card-${user.id}`;
     card.innerHTML = `
       <img src="${user.avatar}" alt="${user.name}">
-      <div class="card-name">${escapeHtml(user.name)}</div>
+      <div class="card-name">
+        <span>${escapeHtml(user.name)}</span>
+        ${(user.isMuted || user.isDeafened) ? `
+          <div class="voice-user-status-icons">
+            ${user.isMuted ? getMuteIconSvg(13) : ''}
+            ${user.isDeafened ? getDeafenIconSvg(13) : ''}
+          </div>
+        ` : ''}
+      </div>
     `;
 
     card.addEventListener('click', () => {
@@ -1394,16 +1444,28 @@ async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda')
         name: currentUser.name,
         avatar: currentUser.avatar,
         inVoice: true,
-        currentVoiceRoom: roomId
+        currentVoiceRoom: roomId,
+        isMuted: !!isMuted,
+        isDeafened: !!isDeafened
       });
+    } else {
+      const me = allVoiceRoomsState[roomId].find(u => (myId && u.id === myId) || (u.name && u.name.toLowerCase() === currentUser.name.toLowerCase()));
+      if (me) {
+        me.isMuted = !!isMuted;
+        me.isDeafened = !!isDeafened;
+      }
     }
   }
 
   renderSidebarChannels();
   renderVoiceStageCards();
 
-  // Emite entrada no socket IMEDIATAMENTE (sem esperar microfone)
-  socket.emit('voice:join', { roomId });
+  // Emite entrada no socket IMEDIATAMENTE (sem esperar microfone) com o status atual de mute/deaf
+  socket.emit('voice:join', {
+    roomId,
+    isMuted: !!isMuted,
+    isDeafened: !!isDeafened
+  });
 
   webrtc.ensureAudioContext();
   sounds.playJoin();
@@ -1559,6 +1621,29 @@ btnFullscreenScreen.addEventListener('click', () => {
   }
 });
 
+function syncMuteStatusToServer() {
+  if (inVoice) {
+    socket.emit('voice:mute-status', {
+      isMuted: !!isMuted,
+      isDeafened: !!isDeafened
+    });
+  }
+
+  // Atualização otimista imediata na sala de voz atual
+  if (currentUser && currentVoiceChannelId && allVoiceRoomsState[currentVoiceChannelId]) {
+    const myId = socket ? socket.id : null;
+    const me = allVoiceRoomsState[currentVoiceChannelId].find(u => (myId && u.id === myId) || (u.name && u.name.toLowerCase() === currentUser.name.toLowerCase()));
+    if (me) {
+      me.isMuted = !!isMuted;
+      me.isDeafened = !!isDeafened;
+    }
+  }
+
+  renderSidebarChannels();
+  renderVoiceStageCards();
+  renderMembersSidebar();
+}
+
 btnToggleMic.addEventListener('click', () => {
   isMuted = webrtc.toggleMute();
   if (isMuted) {
@@ -1570,6 +1655,7 @@ btnToggleMic.addEventListener('click', () => {
     btnToggleMic.classList.remove('active-muted');
     btnStageMic.classList.remove('active-muted');
   }
+  syncMuteStatusToServer();
 });
 btnStageMic.addEventListener('click', () => btnToggleMic.click());
 
@@ -1579,6 +1665,7 @@ btnToggleDeaf.addEventListener('click', () => {
   document.querySelectorAll('audio').forEach(a => {
     a.muted = isDeafened;
   });
+  syncMuteStatusToServer();
 });
 
 // ==========================================

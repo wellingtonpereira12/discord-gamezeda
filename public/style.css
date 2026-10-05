@@ -427,6 +427,29 @@ body {
   font-weight: 500;
 }
 
+.voice-user-status-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+.voice-status-icon {
+  width: 14px;
+  height: 14px;
+  color: #ffffff;
+  stroke: #ffffff;
+  opacity: 0.95;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.card-name .voice-user-status-icons {
+  margin-left: 6px;
+}
+
 /* PAINEL DE CONEXÃO DE VOZ (QUANDO CONECTADO) */
 .voice-connection-status {
   background: rgba(35, 165, 90, 0.1);

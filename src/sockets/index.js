@@ -86,7 +86,8 @@ export function setupSockets(io) {
         currentVoiceRoom: null,
         isSpeaking: false,
         isScreenSharing: false,
-        isMuted: false
+        isMuted: false,
+        isDeafened: false
       };
 
       users.set(socket.id, user);

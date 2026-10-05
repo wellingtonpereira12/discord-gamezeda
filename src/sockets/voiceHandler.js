@@ -17,6 +17,8 @@ export function registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVo
 
     user.inVoice = true;
     user.currentVoiceRoom = roomId;
+    user.isMuted = payload.isMuted !== undefined ? !!payload.isMuted : false;
+    user.isDeafened = payload.isDeafened !== undefined ? !!payload.isDeafened : false;
     voiceRooms[roomId].add(socket.id);
     socket.join(roomId);
 
@@ -99,6 +101,15 @@ export function registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVo
     });
     broadcastVoiceState();
   });
+
+  // Status de microfone mutado e fone desativado (mute / deafen)
+  socket.on('voice:mute-status', (payload = {}) => {
+    const user = users.get(socket.id);
+    if (!user || !user.inVoice) return;
+    user.isMuted = !!payload.isMuted;
+    user.isDeafened = !!payload.isDeafened;
+    broadcastVoiceState();
+  });
 }
 
 export function leaveVoiceRoom(io, socket, user, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers) {
@@ -109,6 +120,8 @@ export function leaveVoiceRoom(io, socket, user, users, voiceRooms, broadcastVoi
     targetUser.inVoice = false;
     targetUser.isScreenSharing = false;
     targetUser.isSpeaking = false;
+    targetUser.isMuted = false;
+    targetUser.isDeafened = false;
     targetUser.currentVoiceRoom = null;
   }
 
