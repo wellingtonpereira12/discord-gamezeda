@@ -590,13 +590,47 @@ export class WebRTCManager {
   }
 
   // Compartilhamento de Tela 100% Compatível e Robusto (W3C Standard)
-  async startScreenShare() {
+  async startScreenShare(forceVideoOnly = false) {
     try {
-      console.log('[WebRTC] Solicitando getDisplayMedia({ video: true, audio: true })...');
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: true
-      });
+      let stream;
+      if (forceVideoOnly) {
+        console.log('[WebRTC] Solicitando getDisplayMedia forçado sem áudio ({ video: true, audio: false })...');
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: false
+        });
+      } else {
+        console.log('[WebRTC] Solicitando getDisplayMedia({ video: true, audio: true })...');
+        try {
+          stream = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+            audio: true
+          });
+        } catch (mediaErr) {
+          console.warn('[WebRTC] Tentativa inicial com áudio falhou:', mediaErr);
+          const isAudioError = mediaErr.name === 'NotReadableError' ||
+                               (mediaErr.message && mediaErr.message.toLowerCase().includes('audio'));
+          if (isAudioError) {
+            console.warn('[WebRTC] Driver de som do Windows bloqueou a captura (NotReadableError). Tentando fallback imediato para vídeo...');
+            try {
+              stream = await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+                audio: false
+              });
+              console.log('[WebRTC] Fallback para vídeo concluído com sucesso!');
+            } catch (fallbackErr) {
+              console.warn('[WebRTC] Fallback imediato rejeitado (novo gesto necessário):', fallbackErr);
+              const customErr = new Error('O driver de áudio do sistema bloqueou a captura (Could not start audio source).');
+              customErr.name = 'AudioDriverBlockedError';
+              customErr.isAudioDriverBlock = true;
+              customErr.originalError = mediaErr;
+              throw customErr;
+            }
+          } else {
+            throw mediaErr;
+          }
+        }
+      }
 
       if (!stream) {
         return null;
@@ -684,11 +718,12 @@ export class WebRTCManager {
           action: 'startScreenShare',
           message: err.message || String(err),
           name: err.name,
-          stack: err.stack
+          stack: err.stack,
+          isAudioDriverBlock: !!err.isAudioDriverBlock
         });
       } catch (e) {}
       this.isScreenSharing = false;
-      return null;
+      throw err;
     }
   }
 

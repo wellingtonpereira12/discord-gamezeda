@@ -233,7 +233,7 @@
               </button>
             </div>
 
-            <video id="shared-screen-video" autoplay playsinline></video>
+            <video id="shared-screen-video" autoplay playsinline muted></video>
           </div>
 
           <div class="user-voice-card" id="card-local-user">
@@ -452,8 +452,33 @@
   <!-- Toast de Notificação do Soundboard -->
   <div id="sound-toast" class="sound-toast" style="display: none;"></div>
 
+  <!-- MODAL DE FALLBACK DE DRIVER DE ÁUDIO DO WINDOWS -->
+  <div id="audio-fallback-modal" class="modal-overlay" style="display: none; z-index: 10002;">
+    <div class="discord-modal" style="max-width: 500px; text-align: center; border: 1px solid #5865F2;">
+      <div style="font-size: 44px; margin-bottom: 12px;">🎧</div>
+      <h3 style="color: #fff; font-size: 19px; font-weight: 700; margin-bottom: 8px;">Som Surround 7.1 Ativo no Headset</h3>
+      <p style="color: #dbdee1; font-size: 13px; line-height: 1.5; margin-bottom: 14px;">
+        O Google Chrome possui uma limitação do Windows e não consegue capturar o som da tela inteira quando o fone está operando em <b>Surround 7.1 (8 canais)</b> como no <b>Logitech G HUB</b> (<code style="color: #ed4245; background: #1e1f22; padding: 2px 6px; border-radius: 4px;">Could not start audio source</code>).
+      </p>
+      <div style="background: #2b2d31; border-radius: 8px; padding: 12px; text-align: left; font-size: 12px; color: #b5bac1; margin-bottom: 18px; line-height: 1.6;">
+        <strong style="color: #5865F2;">💡 Como resolver de vez:</strong><br>
+        1. <b>Para som de jogos/vídeos na tela inteira:</b> Abra o <b>Logitech G HUB</b> &rarr; seu G733 &rarr; Acústica &rarr; <b>Desative "Habilitar Som Surround"</b> (mudar para Estéreo). O Chrome capturará o áudio imediatamente!<br>
+        2. <b>Para vídeos do navegador/YouTube:</b> Compartilhe a aba em <b>"Guia do Chrome"</b> (o som funciona 100% nativo).<br>
+        3. <b>Para transmitir sua tela em HD agora:</b> Clique no botão abaixo!
+      </div>
+      <div style="display: flex; gap: 10px; justify-content: center;">
+        <button id="btn-fallback-share-screen" class="btn-enter" style="margin-top: 0; padding: 10px 18px; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <span>🖥️ Compartilhar Tela Agora</span>
+        </button>
+        <button id="btn-close-audio-fallback" class="btn-cancel" style="background: #4e5058; color: #fff; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; font-size: 13px;">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261004_v4"></script>
+  <script type="module" src="app.js?v=20261004_v6"></script>
 
 </body>
 </html>

@@ -1,5 +1,5 @@
-import { sounds } from './sounds.js?v=20261004_v4';
-import { WebRTCManager } from './webrtc.js?v=20261004_v4';
+import { sounds } from './sounds.js?v=20261004_v6';
+import { WebRTCManager } from './webrtc.js?v=20261004_v6';
 
 if (window.lucide) {
   window.lucide.createIcons();
@@ -848,7 +848,7 @@ quickDisconnectBtn.addEventListener('click', leaveVoice);
 btnStageDisconnect.addEventListener('click', leaveVoice);
 
 // Compartilhar Tela em HD
-async function toggleScreenShare() {
+async function toggleScreenShare(forceVideoOnly = false) {
   if (!inVoice) {
     channelGamezeda.click();
   }
@@ -861,7 +861,7 @@ async function toggleScreenShare() {
     btnStageScreenText.textContent = 'Compartilhar Tela HD';
   } else {
     try {
-      const stream = await webrtc.startScreenShare();
+      const stream = await webrtc.startScreenShare(forceVideoOnly);
       if (stream) {
         isScreenSharing = true;
         registerStream('local', stream, `${currentUser ? currentUser.name : 'Você'} (Sua Tela HD)`, currentUser ? currentUser.avatar : '', true);
@@ -871,19 +871,52 @@ async function toggleScreenShare() {
         if (hasAudio) {
           showSoundToast('🔊 Transmitindo tela com som do sistema!');
         } else {
-          showSoundToast('📺 Transmitindo tela!');
+          showSoundToast('📺 Transmitindo tela em HD (1080p60fps)!');
         }
       }
     } catch (err) {
       console.error('Erro em toggleScreenShare:', err);
-      showSoundToast('❌ Falha ao iniciar transmissão: ' + (err.message || 'Erro'));
+      if (err.isAudioDriverBlock || err.name === 'AudioDriverBlockedError') {
+        showAudioDriverFallbackModal();
+      } else if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
+        console.log('Compartilhamento cancelado pelo usuário.');
+      } else {
+        showSoundToast('❌ Falha ao iniciar transmissão: ' + (err.message || 'Erro'));
+      }
     }
   }
 }
 
-quickScreenShareBtn.addEventListener('click', toggleScreenShare);
-btnStageScreen.addEventListener('click', toggleScreenShare);
-btnStopScreenTile.addEventListener('click', toggleScreenShare);
+quickScreenShareBtn.addEventListener('click', () => toggleScreenShare(false));
+btnStageScreen.addEventListener('click', () => toggleScreenShare(false));
+btnStopScreenTile.addEventListener('click', () => toggleScreenShare(false));
+
+const audioFallbackModal = document.getElementById('audio-fallback-modal');
+const btnFallbackShareScreen = document.getElementById('btn-fallback-share-screen');
+const btnCloseAudioFallback = document.getElementById('btn-close-audio-fallback');
+
+function showAudioDriverFallbackModal() {
+  if (audioFallbackModal) {
+    audioFallbackModal.style.display = 'flex';
+  }
+}
+
+function closeAudioDriverFallbackModal() {
+  if (audioFallbackModal) {
+    audioFallbackModal.style.display = 'none';
+  }
+}
+
+if (btnFallbackShareScreen) {
+  btnFallbackShareScreen.addEventListener('click', () => {
+    closeAudioDriverFallbackModal();
+    toggleScreenShare(true);
+  });
+}
+
+if (btnCloseAudioFallback) {
+  btnCloseAudioFallback.addEventListener('click', closeAudioDriverFallbackModal);
+}
 
 btnFullscreenScreen.addEventListener('click', () => {
   if (sharedScreenVideo.requestFullscreen) {
@@ -1186,6 +1219,7 @@ document.addEventListener('keydown', (e) => {
     closeContextMenu();
     closeSettingsModal();
     closeSoundboardModal();
+    closeAudioDriverFallbackModal();
     addSoundModal.style.display = 'none';
   }
 });
