@@ -1085,3 +1085,322 @@ body {
   font-weight: 800;
   line-height: 1;
 }
+
+/* ==========================================
+   MODAIS MODERNIZADOS (SETTINGS & SOUNDBOARD)
+   ========================================== */
+.discord-modal {
+  background: #313338;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  width: 90%;
+  max-width: 520px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  animation: modalFadeIn 0.15s ease-out;
+}
+
+.modal-header-with-close {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.modal-header-with-close h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.btn-close-modal {
+  background: none;
+  border: none;
+  color: #949ba4;
+  font-size: 26px;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.12s;
+}
+
+.btn-close-modal:hover {
+  color: #fff;
+}
+
+/* Settings Elements */
+.settings-section {
+  margin-bottom: 18px;
+}
+
+.settings-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #b5bac1;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
+.settings-select {
+  width: 100%;
+  padding: 10px 12px;
+  background: #1e1f22;
+  border: 1px solid #111214;
+  border-radius: 4px;
+  color: #dbdee1;
+  font-size: 14px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.settings-select:focus {
+  border-color: #5865F2;
+}
+
+.mic-test-container {
+  margin-top: 10px;
+}
+
+.mic-meter-bar {
+  width: 100%;
+  height: 8px;
+  background: #1e1f22;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.mic-meter-fill {
+  height: 100%;
+  width: 0%;
+  background: #23a55a;
+  transition: width 0.08s ease;
+}
+
+.btn-subtle {
+  background: #2b2d31;
+  border: 1px solid #383a40;
+  color: #dbdee1;
+  padding: 7px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s;
+}
+
+.btn-subtle:hover {
+  background: #35373c;
+  color: #fff;
+}
+
+/* Toggle Switch */
+.discord-toggle {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+}
+
+.discord-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #4e5058;
+  transition: 0.2s;
+  border-radius: 22px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.2s;
+  border-radius: 50%;
+}
+
+.discord-toggle input:checked + .toggle-slider {
+  background-color: #23a55a;
+}
+
+.discord-toggle input:checked + .toggle-slider:before {
+  transform: translateX(18px);
+}
+
+/* ==========================================
+   SOUNDBOARD STYLES
+   ========================================== */
+.soundboard-card {
+  max-width: 600px;
+  height: 520px;
+}
+
+.soundboard-top-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.soundboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 4px;
+  flex: 1;
+}
+
+.soundboard-tile {
+  background: #2b2d31;
+  border: 1px solid #383a40;
+  border-radius: 8px;
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.15s, border-color 0.15s;
+  user-select: none;
+}
+
+.soundboard-tile:hover {
+  background: #35373c;
+  border-color: #5865F2;
+  transform: translateY(-2px);
+}
+
+.soundboard-tile:active {
+  transform: scale(0.96);
+}
+
+.soundboard-tile-emoji {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+
+.soundboard-tile-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #dbdee1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.sound-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #111214;
+  border: 1px solid #5865F2;
+  border-radius: 8px;
+  padding: 10px 16px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  z-index: 10002;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Search Box & Header Icons */
+.header-icon-btn {
+  background: none;
+  border: none;
+  color: #b5bac1;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.12s, background 0.12s;
+}
+
+.header-icon-btn:hover {
+  color: #fff;
+  background: #35373c;
+}
+
+.search-box-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-box-wrapper input {
+  background: #1e1f22;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 28px 4px 8px;
+  color: #dbdee1;
+  font-size: 13px;
+  width: 140px;
+  transition: width 0.2s ease;
+  outline: none;
+}
+
+.search-box-wrapper input:focus {
+  width: 200px;
+}
+
+.search-box-wrapper i {
+  position: absolute;
+  right: 8px;
+  color: #949ba4;
+  pointer-events: none;
+}
+
+/* Chat Attachments */
+.message-attachment {
+  margin-top: 8px;
+  max-width: 400px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.message-attachment img {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 6px;
+  display: block;
+}
+
+.message-attachment audio {
+  width: 100%;
+  margin-top: 4px;
+}
+
