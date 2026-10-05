@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Discord - Jogos Bolados / Gamezeda</title>
-  <link rel="stylesheet" href="style.css?v=20261005_v15">
+  <link rel="stylesheet" href="style.css?v=20261005_v16">
   <link rel="icon" href="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -429,28 +429,23 @@
     </div>
   </div>
 
-  <!-- MODAL DO SOUNDBOARD (EFEITOS SONOROS DO SERVIDOR) -->
-  <div id="soundboard-modal" class="modal-overlay" style="display: none;">
-    <div class="discord-modal soundboard-card">
-      <div class="modal-header-with-close">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span style="font-size: 24px;">🔊</span>
-          <div>
-            <h3 style="margin: 0;">Soundboard do Servidor</h3>
-            <span style="font-size: 12px; color: #949ba4;">Toque efeitos sonoros para todos na chamada</span>
-          </div>
-        </div>
-        <button class="btn-close-modal" id="btn-close-soundboard">&times;</button>
+  <!-- FLUTUANTE DO SOUNDBOARD (ESTILO DISCORD) -->
+  <div id="soundboard-modal" class="soundboard-popover" style="display: none;">
+    <div class="soundboard-popover-header">
+      <div class="soundboard-search-box">
+        <i data-lucide="search" class="soundboard-search-icon"></i>
+        <input type="text" id="soundboard-search-input" placeholder="Encontre o som perfeito">
       </div>
+      <button type="button" class="soundboard-header-btn" id="btn-open-add-sound-modal" title="Adicionar Som">
+        <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+      </button>
+      <button type="button" class="soundboard-header-btn" id="btn-close-soundboard" title="Fechar">
+        <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+      </button>
+    </div>
 
-      <div class="soundboard-top-controls">
-        <input type="text" id="soundboard-search-input" class="form-input" placeholder="Buscar sons...">
-        <button class="btn-enter" id="btn-open-add-sound-modal" style="width: auto; padding: 0 16px; font-size: 13px;">
-          + Adicionar Som
-        </button>
-      </div>
-
-      <!-- Grid de Sons -->
+    <div class="soundboard-popover-body">
+      <!-- Grid de Sons (um do lado do outro, estilo Discord) -->
       <div class="soundboard-grid" id="soundboard-grid">
         <div style="color: #949ba4; padding: 20px; text-align: center; grid-column: 1 / -1;">
           Carregando sons...
@@ -618,7 +613,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261005_v15"></script>
+  <script type="module" src="app.js?v=20261005_v16"></script>
 
 </body>
 </html>

@@ -1728,25 +1728,38 @@ settingNoiseThresholdSlider.addEventListener('input', (e) => {
 });
 
 // ==========================================
-// SOUNDBOARD DO SERVIDOR
+// SOUNDBOARD DO SERVIDOR (POPOVER ESTILO DISCORD)
 // ==========================================
-async function openSoundboardModal() {
+async function openSoundboardModal(e) {
+  if (e) e.stopPropagation();
+  if (!soundboardModal) return;
+
+  if (soundboardModal.style.display === 'flex') {
+    closeSoundboardModal();
+    return;
+  }
+
   soundboardModal.style.display = 'flex';
+  if (soundboardSearchInput) {
+    soundboardSearchInput.value = '';
+    setTimeout(() => soundboardSearchInput.focus(), 60);
+  }
   await loadSoundboardSounds();
 }
 
 function closeSoundboardModal() {
-  soundboardModal.style.display = 'none';
+  if (soundboardModal) soundboardModal.style.display = 'none';
 }
 
 async function loadSoundboardSounds() {
-  soundboardGrid.innerHTML = '<div style="color: #949ba4; padding: 20px; text-align: center; grid-column: 1 / -1;">Carregando...</div>';
+  if (!soundboardGrid) return;
+  soundboardGrid.innerHTML = '<div style="color: #949ba4; padding: 20px; text-align: center; grid-column: 1 / -1;">Carregando sons...</div>';
   try {
     const res = await fetch('/api/soundboard');
     const data = await res.json();
     if (data.success) {
-      availableSounds = data.sounds;
-      renderSoundboardGrid();
+      availableSounds = data.sounds || [];
+      renderSoundboardGrid(soundboardSearchInput ? soundboardSearchInput.value.trim() : '');
     }
   } catch (err) {
     soundboardGrid.innerHTML = '<div style="color: #ed4245; padding: 20px; text-align: center; grid-column: 1 / -1;">Erro ao carregar sons.</div>';
@@ -1754,39 +1767,75 @@ async function loadSoundboardSounds() {
 }
 
 function renderSoundboardGrid(filterText = '') {
+  if (!soundboardGrid) return;
   soundboardGrid.innerHTML = '';
   let filtered = availableSounds;
   if (filterText) {
     const q = filterText.toLowerCase();
-    filtered = filtered.filter(s => s.name.toLowerCase().includes(q) || s.emoji.includes(q));
-  }
-
-  if (filtered.length === 0) {
-    soundboardGrid.innerHTML = '<div style="color: #949ba4; padding: 20px; text-align: center; grid-column: 1 / -1;">Nenhum som encontrado.</div>';
-    return;
+    filtered = filtered.filter(s => s.name.toLowerCase().includes(q) || (s.emoji && s.emoji.includes(q)));
   }
 
   filtered.forEach(sound => {
     const tile = document.createElement('div');
     tile.className = 'soundboard-tile';
+    tile.setAttribute('data-sound-id', sound.id);
+
     tile.innerHTML = `
-      <div class="soundboard-tile-emoji">${sound.emoji}</div>
-      <div class="soundboard-tile-name" title="${escapeHtml(sound.name)}">${escapeHtml(sound.name)}</div>
+      <div class="soundboard-tile-main" title="Tocar na chamada: ${escapeHtml(sound.name)}">
+        <span class="soundboard-tile-emoji">${sound.emoji || '🔊'}</span>
+        <span class="soundboard-tile-name">${escapeHtml(sound.name)}</span>
+      </div>
+      <button type="button" class="soundboard-tile-preview" title="Ouvir prévia (somente para você)">
+        <i data-lucide="volume-2" style="width: 14px; height: 14px;"></i>
+      </button>
     `;
 
-    tile.addEventListener('click', () => {
+    // Clicar em cima (na área principal) -> toca na chamada (play geral)
+    tile.querySelector('.soundboard-tile-main').addEventListener('click', () => {
       playSoundLocally(sound.file_url);
-      socket.emit('soundboard:play', {
-        soundId: sound.id,
-        soundUrl: sound.file_url,
-        soundName: sound.name,
-        emoji: sound.emoji
-      });
-      showSoundToast(`Você tocou: ${sound.emoji} ${sound.name}`);
+      if (inVoice) {
+        socket.emit('soundboard:play', {
+          soundId: sound.id,
+          soundUrl: sound.file_url,
+          soundName: sound.name,
+          emoji: sound.emoji
+        });
+        showSoundToast(`Você tocou: ${sound.emoji} ${sound.name}`);
+      } else {
+        showSoundToast(`Som: ${sound.emoji} ${sound.name} (conecte-se à voz para os outros ouvirem)`);
+      }
     });
+
+    // Clicar no botão do lado -> ouve apenas a prévia local!
+    const btnPreview = tile.querySelector('.soundboard-tile-preview');
+    if (btnPreview) {
+      btnPreview.addEventListener('click', (e) => {
+        e.stopPropagation();
+        playSoundLocally(sound.file_url);
+        showSoundToast(`Prévia: ${sound.emoji} ${sound.name}`);
+      });
+    }
 
     soundboardGrid.appendChild(tile);
   });
+
+  // Botão "+ Adicionar som" estilo quadradinho no final da grade
+  const addTile = document.createElement('div');
+  addTile.className = 'soundboard-tile soundboard-add-tile';
+  addTile.title = 'Adicionar novo som ao servidor';
+  addTile.innerHTML = `
+    <i data-lucide="plus" style="width: 15px; height: 15px;"></i>
+    <span class="soundboard-tile-name">Adicionar som</span>
+  `;
+  addTile.addEventListener('click', (e) => {
+    e.stopPropagation();
+    addSoundModal.style.display = 'flex';
+  });
+  soundboardGrid.appendChild(addTile);
+
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
 }
 
 function playSoundLocally(url) {
@@ -1811,14 +1860,19 @@ socket.on('soundboard:played', ({ soundUrl, soundName, emoji, playedBy, playedBy
   }
 });
 
-btnVoiceSoundboard.addEventListener('click', openSoundboardModal);
-btnStageSoundboard.addEventListener('click', openSoundboardModal);
-btnOpenSoundboardHeader.addEventListener('click', openSoundboardModal);
-btnCloseSoundboard.addEventListener('click', closeSoundboardModal);
-
-soundboardSearchInput.addEventListener('input', (e) => {
-  renderSoundboardGrid(e.target.value.trim());
+if (btnVoiceSoundboard) btnVoiceSoundboard.addEventListener('click', openSoundboardModal);
+if (btnStageSoundboard) btnStageSoundboard.addEventListener('click', openSoundboardModal);
+if (btnOpenSoundboardHeader) btnOpenSoundboardHeader.addEventListener('click', openSoundboardModal);
+if (btnCloseSoundboard) btnCloseSoundboard.addEventListener('click', (e) => {
+  e.stopPropagation();
+  closeSoundboardModal();
 });
+
+if (soundboardSearchInput) {
+  soundboardSearchInput.addEventListener('input', (e) => {
+    renderSoundboardGrid(e.target.value.trim());
+  });
+}
 
 // Adicionar Som (Upload)
 btnOpenAddSoundModal.addEventListener('click', () => {
@@ -1998,6 +2052,17 @@ document.addEventListener('click', (e) => {
   if (serverDropdownMenu && serverDropdownMenu.style.display === 'flex') {
     if (!serverDropdownMenu.contains(e.target) && !serverHeaderBtn.contains(e.target)) {
       closeServerDropdown();
+    }
+  }
+  if (soundboardModal && soundboardModal.style.display === 'flex') {
+    const clickedInsideSoundboard = soundboardModal.contains(e.target);
+    const clickedVoiceBtn = btnVoiceSoundboard && btnVoiceSoundboard.contains(e.target);
+    const clickedStageBtn = btnStageSoundboard && btnStageSoundboard.contains(e.target);
+    const clickedHeaderBtn = btnOpenSoundboardHeader && btnOpenSoundboardHeader.contains(e.target);
+    const clickedAddModal = addSoundModal && addSoundModal.contains(e.target);
+
+    if (!clickedInsideSoundboard && !clickedVoiceBtn && !clickedStageBtn && !clickedHeaderBtn && !clickedAddModal) {
+      closeSoundboardModal();
     }
   }
 });
