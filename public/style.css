@@ -941,6 +941,55 @@ body {
   background: rgba(0, 0, 0, 0.9);
 }
 
+/* CONTROLE DE VOLUME DA TRANSMISSÃO NO QUADRO DE TELA */
+.screen-volume-control-box {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  border-radius: 4px;
+  padding: 0 8px 0 0;
+  gap: 6px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.screen-volume-control-box:hover {
+  background: rgba(0, 0, 0, 0.88);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.screen-volume-control-box .screen-btn {
+  background: transparent;
+  border-radius: 4px 0 0 4px;
+}
+
+.screen-volume-control-box .screen-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.screen-volume-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.screen-volume-slider {
+  width: 76px;
+  height: 5px;
+  cursor: pointer;
+}
+
+.screen-volume-val {
+  font-size: 11px;
+  font-weight: 700;
+  color: #dbdee1;
+  min-width: 34px;
+  font-family: Consolas, monospace;
+  text-align: right;
+  user-select: none;
+}
+
 /* QUADRO DE USUÁRIO DE VOZ NA GRADE */
 .user-voice-card {
   width: 220px;

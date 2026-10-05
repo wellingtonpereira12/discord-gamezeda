@@ -146,6 +146,9 @@ const btnFullscreenScreen = document.getElementById('btn-fullscreen-screen');
 const btnStopScreenTile = document.getElementById('btn-stop-screen-tile');
 const btnToggleScreenSound = document.getElementById('btn-toggle-screen-sound');
 const screenSoundIcon = document.getElementById('screen-sound-icon');
+const screenVolumeControlBox = document.getElementById('screen-volume-control-box');
+const screenTileVolumeSlider = document.getElementById('screen-tile-volume-slider');
+const screenTileVolumeVal = document.getElementById('screen-tile-volume-val');
 const screenAudioMeter = document.getElementById('screen-audio-meter');
 
 // Controles do Palco
@@ -169,6 +172,8 @@ const btnEmojiTrigger = document.getElementById('btn-emoji-trigger');
 const userContextMenu = document.getElementById('user-context-menu');
 const ctxVolumeSlider = document.getElementById('ctx-volume-slider');
 const ctxVolumeVal = document.getElementById('ctx-volume-val');
+const ctxScreenVolumeSlider = document.getElementById('ctx-screen-volume-slider');
+const ctxScreenVolumeVal = document.getElementById('ctx-screen-volume-val');
 const ctxItemMute = document.getElementById('ctx-item-mute');
 const ctxCheckMute = document.getElementById('ctx-check-mute');
 const ctxItemSfx = document.getElementById('ctx-item-sfx');
@@ -233,11 +238,16 @@ function getUserConfig(peerId) {
     userConfigs.set(peerId, {
       volume: 100,
       muted: false,
+      screenVolume: 100,
+      lastScreenVolume: 100,
       sfxMuted: false,
       videoDisabled: false
     });
   }
-  return userConfigs.get(peerId);
+  const cfg = userConfigs.get(peerId);
+  if (cfg.screenVolume === undefined) cfg.screenVolume = 100;
+  if (cfg.lastScreenVolume === undefined) cfg.lastScreenVolume = 100;
+  return cfg;
 }
 
 // Transmissões simultâneas
@@ -424,51 +434,151 @@ function updateScreenAudioMeter(stream) {
   }
 }
 
-function updateScreenSoundButtonState() {
+function updateScreenSoundControlsState() {
   if (!btnToggleScreenSound) return;
-  let isMuted = false;
+
   if (!currentViewedStreamId) {
-    isMuted = true;
+    if (screenVolumeControlBox) screenVolumeControlBox.style.display = 'none';
+    return;
+  }
+
+  const streamData = activeStreams.get(currentViewedStreamId);
+  if (!streamData) {
+    if (screenVolumeControlBox) screenVolumeControlBox.style.display = 'none';
+    return;
+  }
+
+  if (screenVolumeControlBox) screenVolumeControlBox.style.display = 'flex';
+
+  if (streamData.isLocal) {
+    const isMuted = sharedScreenVideo.muted;
+    btnToggleScreenSound.title = isMuted ? "Ouvir preview local" : "Silenciar preview local";
+    btnToggleScreenSound.innerHTML = isMuted
+      ? `<i data-lucide="volume-x" id="screen-sound-icon" style="width: 16px; height: 16px; color: #ed4245;"></i>`
+      : `<i data-lucide="volume-2" id="screen-sound-icon" style="width: 16px; height: 16px; color: #23a55a;"></i>`;
+
+    if (screenTileVolumeSlider) {
+      screenTileVolumeSlider.value = isMuted ? 0 : 100;
+      updateSliderBackground(screenTileVolumeSlider, isMuted ? 0 : 100, 200);
+    }
+    if (screenTileVolumeVal) {
+      screenTileVolumeVal.textContent = isMuted ? '0%' : '100%';
+    }
   } else {
-    const streamData = activeStreams.get(currentViewedStreamId);
-    if (streamData && streamData.isLocal) {
-      isMuted = sharedScreenVideo.muted;
-    } else if (currentViewedStreamId) {
-      isMuted = webrtc.isPeerScreenAudioMuted(currentViewedStreamId);
+    const config = getUserConfig(currentViewedStreamId);
+    const isMuted = config.sfxMuted || config.screenVolume === 0;
+    const currentVol = isMuted ? 0 : config.screenVolume;
+
+    btnToggleScreenSound.title = isMuted ? "Desmutar transmissão" : "Silenciar transmissão";
+    btnToggleScreenSound.innerHTML = isMuted
+      ? `<i data-lucide="volume-x" id="screen-sound-icon" style="width: 16px; height: 16px; color: #ed4245;"></i>`
+      : `<i data-lucide="volume-2" id="screen-sound-icon" style="width: 16px; height: 16px; color: #23a55a;"></i>`;
+
+    if (screenTileVolumeSlider) {
+      screenTileVolumeSlider.value = currentVol;
+      updateSliderBackground(screenTileVolumeSlider, currentVol, 200);
+    }
+    if (screenTileVolumeVal) {
+      screenTileVolumeVal.textContent = `${currentVol}%`;
     }
   }
 
-  btnToggleScreenSound.title = isMuted ? "Ativar som da tela" : "Silenciar som da tela";
-  btnToggleScreenSound.innerHTML = isMuted
-    ? `<i data-lucide="volume-x" style="width: 16px; height: 16px; color: #ed4245;"></i>`
-    : `<i data-lucide="volume-2" style="width: 16px; height: 16px; color: #23a55a;"></i>`;
   if (window.lucide) window.lucide.createIcons();
 }
 
-if (btnToggleScreenSound) {
-  btnToggleScreenSound.addEventListener('click', () => {
+// Deslizar o volume da transmissão (Muta no mínimo 0% e ajusta o volume em tempo real)
+if (screenTileVolumeSlider) {
+  screenTileVolumeSlider.addEventListener('input', (e) => {
+    const val = parseInt(e.target.value, 10);
     if (!currentViewedStreamId) return;
 
     const streamData = activeStreams.get(currentViewedStreamId);
     if (!streamData) return;
 
-    const hasAudio = streamData.stream && streamData.stream.getAudioTracks && streamData.stream.getAudioTracks().length > 0;
-    if (!hasAudio && !streamData.isLocal) {
-      showSoundToast('ℹ️ Esta transmissão não possui áudio do sistema.');
+    if (streamData.isLocal) {
+      sharedScreenVideo.muted = (val === 0);
+      updateScreenSoundControlsState();
       return;
     }
 
+    const config = getUserConfig(currentViewedStreamId);
+    if (val === 0) {
+      // Ao deixar no mínimo o áudio, deve mutar!
+      config.sfxMuted = true;
+      config.screenVolume = 0;
+      webrtc.setUserScreenAudioMuted(currentViewedStreamId, true);
+      webrtc.setUserScreenVolume(currentViewedStreamId, 0);
+    } else {
+      // Ajuste de volume e desmute automático ao aumentar
+      config.sfxMuted = false;
+      config.screenVolume = val;
+      config.lastScreenVolume = val;
+      webrtc.setUserScreenAudioMuted(currentViewedStreamId, false);
+      webrtc.setUserScreenVolume(currentViewedStreamId, val);
+    }
+
+    if (currentContextPeerId === currentViewedStreamId) {
+      if (ctxScreenVolumeSlider) {
+        ctxScreenVolumeSlider.value = val;
+        if (ctxScreenVolumeVal) ctxScreenVolumeVal.textContent = `${val}%`;
+        updateSliderBackground(ctxScreenVolumeSlider, val, 200);
+      }
+      if (ctxCheckSfx) ctxCheckSfx.classList.toggle('checked', config.sfxMuted);
+    }
+
+    updateScreenSoundControlsState();
+  });
+
+  screenTileVolumeSlider.addEventListener('click', (e) => e.stopPropagation());
+}
+
+// Botão de Áudio da Transmissão (Se clicar muta, e se clicar novamente desmuta)
+if (btnToggleScreenSound) {
+  btnToggleScreenSound.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!currentViewedStreamId) return;
+
+    const streamData = activeStreams.get(currentViewedStreamId);
+    if (!streamData) return;
+
     if (streamData.isLocal) {
       sharedScreenVideo.muted = !sharedScreenVideo.muted;
-      updateScreenSoundButtonState();
+      updateScreenSoundControlsState();
       showSoundToast(sharedScreenVideo.muted ? '🔇 Preview do som desativado' : '🔊 Ouvindo preview do som no fone!');
-    } else {
-      const isMuted = webrtc.togglePeerScreenAudio(currentViewedStreamId);
-      const config = getUserConfig(currentViewedStreamId);
-      config.sfxMuted = isMuted;
-      updateScreenSoundButtonState();
-      showSoundToast(isMuted ? '🔇 Som da transmissão silenciado' : '🔊 Som da transmissão ativado!');
+      return;
     }
+
+    const config = getUserConfig(currentViewedStreamId);
+    const isMuted = config.sfxMuted || config.screenVolume === 0;
+
+    if (isMuted) {
+      // Clicou novamente -> DESMUTA e restaura o volume anterior salvo
+      config.sfxMuted = false;
+      const restoreVol = (config.lastScreenVolume && config.lastScreenVolume > 0) ? config.lastScreenVolume : 100;
+      config.screenVolume = restoreVol;
+      webrtc.setUserScreenAudioMuted(currentViewedStreamId, false);
+      webrtc.setUserScreenVolume(currentViewedStreamId, restoreVol);
+      showSoundToast(`🔊 Som da transmissão desmutado (${restoreVol}%)`);
+    } else {
+      // Clicou -> MUTA e salva o volume atual para restauração
+      config.lastScreenVolume = config.screenVolume > 0 ? config.screenVolume : 100;
+      config.sfxMuted = true;
+      config.screenVolume = 0;
+      webrtc.setUserScreenAudioMuted(currentViewedStreamId, true);
+      webrtc.setUserScreenVolume(currentViewedStreamId, 0);
+      showSoundToast('🔇 Som da transmissão mutado');
+    }
+
+    if (currentContextPeerId === currentViewedStreamId) {
+      if (ctxScreenVolumeSlider) {
+        ctxScreenVolumeSlider.value = config.screenVolume;
+        if (ctxScreenVolumeVal) ctxScreenVolumeVal.textContent = `${config.screenVolume}%`;
+        updateSliderBackground(ctxScreenVolumeSlider, config.screenVolume, 200);
+      }
+      if (ctxCheckSfx) ctxCheckSfx.classList.toggle('checked', config.sfxMuted);
+    }
+
+    updateScreenSoundControlsState();
   });
 }
 
@@ -486,7 +596,7 @@ function viewStream(id) {
   // evitando duplicidade/eco e funcionando mesmo ao trocar de canais.
   sharedScreenVideo.muted = true;
 
-  updateScreenSoundButtonState();
+  updateScreenSoundControlsState();
 
   const playPromise = sharedScreenVideo.play();
   if (playPromise !== undefined) {
@@ -2197,17 +2307,26 @@ function openContextMenu(e, peerId, peerName) {
   currentContextPeerId = peerId;
   const config = getUserConfig(peerId);
 
+  // 1. Volume do Usuário (Microfone / Voz)
   ctxVolumeSlider.value = config.volume;
   ctxVolumeVal.textContent = `${config.volume}%`;
   updateSliderBackground(ctxVolumeSlider, config.volume, 200);
+
+  // 2. Volume da Transmissão (Tela / Áudio do Jogo)
+  if (ctxScreenVolumeSlider) {
+    const sVol = config.sfxMuted ? 0 : (config.screenVolume !== undefined ? config.screenVolume : 100);
+    ctxScreenVolumeSlider.value = sVol;
+    if (ctxScreenVolumeVal) ctxScreenVolumeVal.textContent = `${sVol}%`;
+    updateSliderBackground(ctxScreenVolumeSlider, sVol, 200);
+  }
 
   ctxCheckMute.classList.toggle('checked', config.muted);
   ctxCheckSfx.classList.toggle('checked', config.sfxMuted);
   ctxCheckVideo.classList.toggle('checked', config.videoDisabled);
 
   userContextMenu.style.display = 'flex';
-  const menuWidth = 230;
-  const menuHeight = 175;
+  const menuWidth = 240;
+  const menuHeight = 235;
   let posX = e.clientX;
   let posY = e.clientY;
 
@@ -2360,6 +2479,36 @@ ctxVolumeSlider.addEventListener('input', (e) => {
 });
 ctxVolumeSlider.addEventListener('click', (e) => e.stopPropagation());
 
+if (ctxScreenVolumeSlider) {
+  ctxScreenVolumeSlider.addEventListener('input', (e) => {
+    const vol = parseInt(e.target.value, 10);
+    if (ctxScreenVolumeVal) ctxScreenVolumeVal.textContent = `${vol}%`;
+    updateSliderBackground(ctxScreenVolumeSlider, vol, 200);
+
+    if (currentContextPeerId) {
+      const config = getUserConfig(currentContextPeerId);
+      if (vol === 0) {
+        config.sfxMuted = true;
+        config.screenVolume = 0;
+        webrtc.setUserScreenAudioMuted(currentContextPeerId, true);
+        webrtc.setUserScreenVolume(currentContextPeerId, 0);
+      } else {
+        config.sfxMuted = false;
+        config.screenVolume = vol;
+        config.lastScreenVolume = vol;
+        webrtc.setUserScreenAudioMuted(currentContextPeerId, false);
+        webrtc.setUserScreenVolume(currentContextPeerId, vol);
+      }
+      if (ctxCheckSfx) ctxCheckSfx.classList.toggle('checked', config.sfxMuted);
+
+      if (currentViewedStreamId === currentContextPeerId) {
+        updateScreenSoundControlsState();
+      }
+    }
+  });
+  ctxScreenVolumeSlider.addEventListener('click', (e) => e.stopPropagation());
+}
+
 ctxItemMute.addEventListener('click', (e) => {
   e.stopPropagation();
   if (!currentContextPeerId) return;
@@ -2374,8 +2523,26 @@ ctxItemSfx.addEventListener('click', (e) => {
   if (!currentContextPeerId) return;
   const config = getUserConfig(currentContextPeerId);
   config.sfxMuted = !config.sfxMuted;
+  if (config.sfxMuted) {
+    config.lastScreenVolume = config.screenVolume > 0 ? config.screenVolume : 100;
+    config.screenVolume = 0;
+    webrtc.setUserScreenAudioMuted(currentContextPeerId, true);
+    webrtc.setUserScreenVolume(currentContextPeerId, 0);
+  } else {
+    const restoreVol = (config.lastScreenVolume && config.lastScreenVolume > 0) ? config.lastScreenVolume : 100;
+    config.screenVolume = restoreVol;
+    webrtc.setUserScreenAudioMuted(currentContextPeerId, false);
+    webrtc.setUserScreenVolume(currentContextPeerId, restoreVol);
+  }
   ctxCheckSfx.classList.toggle('checked', config.sfxMuted);
-  webrtc.setUserScreenAudioMuted(currentContextPeerId, config.sfxMuted);
+  if (ctxScreenVolumeSlider) {
+    ctxScreenVolumeSlider.value = config.screenVolume;
+    if (ctxScreenVolumeVal) ctxScreenVolumeVal.textContent = `${config.screenVolume}%`;
+    updateSliderBackground(ctxScreenVolumeSlider, config.screenVolume, 200);
+  }
+  if (currentViewedStreamId === currentContextPeerId) {
+    updateScreenSoundControlsState();
+  }
 });
 
 ctxItemVideo.addEventListener('click', (e) => {

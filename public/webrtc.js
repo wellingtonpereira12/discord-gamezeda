@@ -41,8 +41,9 @@ export class WebRTCManager {
     this.remoteScreenAudios = new Map(); // peerId -> HTMLAudioElement (Som de tela/jogo)
     this.screenAudioNodes = new Map();   // peerId -> { sourceNode, gainNode, stream } (Web Audio API anti-ducking)
 
-    // Configurações individuais de volume
-    this.userVolumes = new Map();
+    // Configurações individuais de volume (Voz e Transmissão 100% Separadas)
+    this.userVolumes = new Map();         // peerId -> volumePercent voz/microfone
+    this.userScreenVolumes = new Map();   // peerId -> volumePercent transmissão de tela
     this.userMutes = new Map();
     this.userScreenAudioMutes = new Map();
 
@@ -482,7 +483,7 @@ export class WebRTCManager {
   }
 
   updatePeerScreenAudioGain(peerId) {
-    const volPercent = this.userVolumes.has(peerId) ? this.userVolumes.get(peerId) : 100;
+    const volPercent = this.userScreenVolumes.has(peerId) ? this.userScreenVolumes.get(peerId) : 100;
     const isSfxMuted = this.userScreenAudioMutes.get(peerId) || false;
     const gainVal = isSfxMuted ? 0.0 : (volPercent / 100);
 
@@ -988,6 +989,10 @@ export class WebRTCManager {
     this.peerSenders.delete(peerId);
     this.peerScreenStreamIds.delete(peerId);
     this.peerScreenAudioTrackIds.delete(peerId);
+    this.userVolumes.delete(peerId);
+    this.userScreenVolumes.delete(peerId);
+    this.userMutes.delete(peerId);
+    this.userScreenAudioMutes.delete(peerId);
 
     const nodeData = this.screenAudioNodes.get(peerId);
     if (nodeData) {
@@ -1044,15 +1049,32 @@ export class WebRTCManager {
     this.peerScreenAudioTrackIds.clear();
     this.remoteVoiceAudios.clear();
     this.remoteScreenAudios.clear();
+    this.userVolumes.clear();
+    this.userScreenVolumes.clear();
+    this.userMutes.clear();
+    this.userScreenAudioMutes.clear();
   }
 
+  // Volume do Microfone/Voz do Usuário (100% independente da transmissão)
   setUserVolume(peerId, volumePercent) {
     this.userVolumes.set(peerId, volumePercent);
     const vol = Math.max(0, Math.min(2.0, volumePercent / 100));
     const voiceAudio = this.remoteVoiceAudios.get(peerId);
     if (voiceAudio) voiceAudio.volume = Math.min(1.0, vol);
+  }
 
+  getUserVolume(peerId) {
+    return this.userVolumes.has(peerId) ? this.userVolumes.get(peerId) : 100;
+  }
+
+  // Volume da Transmissão de Tela/Jogo (100% independente da voz)
+  setUserScreenVolume(peerId, volumePercent) {
+    this.userScreenVolumes.set(peerId, volumePercent);
     this.updatePeerScreenAudioGain(peerId);
+  }
+
+  getUserScreenVolume(peerId) {
+    return this.userScreenVolumes.has(peerId) ? this.userScreenVolumes.get(peerId) : 100;
   }
 
   setUserMuted(peerId, isMuted) {

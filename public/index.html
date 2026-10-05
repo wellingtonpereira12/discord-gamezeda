@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Discord - Jogos Bolados / Gamezeda</title>
-  <link rel="stylesheet" href="style.css?v=20261005_v20">
+  <link rel="stylesheet" href="style.css?v=20261005_v23">
   <link rel="icon" href="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -262,6 +262,17 @@
             </div>
 
             <div class="screen-tile-controls">
+              <!-- Controle de Volume da Transmissão (Botão Mute/Desmute + Slider com Auto-Mute no Mínimo) -->
+              <div class="screen-volume-control-box" id="screen-volume-control-box" title="Volume da Transmissão">
+                <button class="screen-btn" id="btn-toggle-screen-sound" title="Silenciar / Desmutar som da transmissão">
+                  <i data-lucide="volume-2" id="screen-sound-icon" style="width: 16px; height: 16px;"></i>
+                </button>
+                <div class="screen-volume-slider-wrap">
+                  <input type="range" id="screen-tile-volume-slider" class="discord-slider screen-volume-slider" min="0" max="200" value="100" title="Ajustar volume da transmissão">
+                  <span id="screen-tile-volume-val" class="screen-volume-val">100%</span>
+                </div>
+              </div>
+
               <button class="screen-btn" id="btn-fullscreen-screen" title="Tela Cheia">
                 <i data-lucide="maximize" style="width: 16px; height: 16px;"></i>
               </button>
@@ -337,6 +348,7 @@
 
   <!-- MENU DE CONTEXTO DO USUÁRIO (DISCORD BOTÃO DIREITO) -->
   <div id="user-context-menu" class="discord-context-menu" style="display: none;">
+    <!-- Volume da Voz do Usuário -->
     <div class="context-menu-slider-group">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <span class="context-menu-label">Volume do usuário</span>
@@ -344,13 +356,23 @@
       </div>
       <input type="range" id="ctx-volume-slider" class="discord-slider" min="0" max="200" value="100">
     </div>
+
+    <!-- Volume da Transmissão (Tela / Transmissão do Usuário) -->
+    <div class="context-menu-slider-group" id="ctx-screen-volume-group">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span class="context-menu-label">Volume da transmissão</span>
+        <span id="ctx-screen-volume-val" style="font-size: 11px; color: #949ba4; font-weight: 700;">100%</span>
+      </div>
+      <input type="range" id="ctx-screen-volume-slider" class="discord-slider" min="0" max="200" value="100">
+    </div>
+
     <div class="context-menu-separator"></div>
     <div class="context-menu-item" id="ctx-item-mute">
-      <span>Silenciar</span>
+      <span>Silenciar microfone</span>
       <div class="context-menu-checkbox" id="ctx-check-mute"></div>
     </div>
     <div class="context-menu-item" id="ctx-item-sfx">
-      <span>Silenciar efeitos sonoros</span>
+      <span>Silenciar transmissão</span>
       <div class="context-menu-checkbox" id="ctx-check-sfx"></div>
     </div>
     <div class="context-menu-item" id="ctx-item-video">
@@ -671,7 +693,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261005_v21"></script>
+  <script type="module" src="app.js?v=20261005_v23"></script>
 
 </body>
 </html>
