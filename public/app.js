@@ -2562,6 +2562,24 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// =========================================================================
+// DESABILITAR MENU DE CONTEXTO PADRÃO DO NAVEGADOR EM TODO O SITE (DISCORD)
+// =========================================================================
+document.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  const isCustomTrigger = e.target.closest('.voice-user-pill') ||
+                          e.target.closest('.user-voice-card') ||
+                          e.target.closest('.member-item') ||
+                          e.target.closest('#main-screen-tile');
+  if (!isCustomTrigger && userContextMenu) {
+    closeContextMenu();
+  }
+}, false);
+
+window.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+}, false);
+
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeContextMenu();
