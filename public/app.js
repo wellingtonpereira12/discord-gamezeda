@@ -985,7 +985,8 @@ function renderSidebarChannels() {
           </div>
         `;
 
-        item.querySelector('.channel-item-left').addEventListener('click', () => {
+        item.addEventListener('click', (e) => {
+          if (e.target.closest('.btn-channel-delete')) return;
           switchTextChannel(channel.id);
         });
 
@@ -1030,7 +1031,8 @@ function renderSidebarChannels() {
           </div>
         `;
 
-        item.querySelector('.channel-item-left').addEventListener('click', () => {
+        item.addEventListener('click', (e) => {
+          if (e.target.closest('.btn-channel-delete')) return;
           connectToVoiceChannel(channel.id, channel.name);
         });
 
@@ -2286,6 +2288,19 @@ if (btnConfirmDelete) {
     });
   });
 }
+
+// Fechar modais ao clicar no fundo escuro (backdrop)
+[modalCreateChannel, modalCreateCategory, modalConfirmDelete].forEach(modal => {
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        if (modal === modalCreateChannel) closeCreateChannelModal();
+        else if (modal === modalCreateCategory) closeCreateCategoryModal();
+        else if (modal === modalConfirmDelete) closeDeleteModal();
+      }
+    });
+  }
+});
 
 // Renderização inicial imediata dos canais da barra lateral
 renderSidebarChannels();

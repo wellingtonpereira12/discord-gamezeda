@@ -243,7 +243,8 @@ body {
   transition: opacity 0.15s ease;
 }
 
-.channel-category:hover .category-actions {
+.channel-category:hover .category-actions,
+.channel-category:focus-within .category-actions {
   opacity: 1;
 }
 
@@ -252,13 +253,20 @@ body {
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 2px;
-  border-radius: 3px;
+  padding: 3px;
+  min-width: 22px;
+  min-height: 22px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
   transition: color 0.15s, background 0.15s;
+}
+
+.btn-cat-action svg,
+.btn-cat-action i {
+  pointer-events: none;
 }
 
 .btn-cat-action:hover {
@@ -323,7 +331,9 @@ body {
   transition: opacity 0.15s ease;
 }
 
-.channel-item:hover .channel-item-actions {
+.channel-item:hover .channel-item-actions,
+.channel-item:focus-within .channel-item-actions,
+.channel-item.active .channel-item-actions {
   opacity: 1;
 }
 
@@ -332,12 +342,19 @@ body {
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 3px;
+  padding: 3px;
+  min-width: 22px;
+  min-height: 22px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: color 0.15s, background 0.15s;
+}
+
+.btn-channel-delete svg,
+.btn-channel-delete i {
+  pointer-events: none;
 }
 
 .btn-channel-delete:hover {

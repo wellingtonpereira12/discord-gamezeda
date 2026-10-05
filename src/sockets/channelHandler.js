@@ -6,10 +6,18 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
   socket.on('category:create', async ({ name }, callback) => {
     try {
       const user = users.get(socket.id);
-      if (!user) return;
+      const userName = user ? user.name : 'Usuário';
 
-      const newCat = await createCategory({ name });
-      console.log(`[+] Categoria criada por ${user.name}: ${newCat.name} (${newCat.id})`);
+      const cleanName = (name || '').trim();
+      if (!cleanName) {
+        if (typeof callback === 'function') {
+          callback({ success: false, message: 'Nome da categoria inválido.' });
+        }
+        return;
+      }
+
+      const newCat = await createCategory({ name: cleanName });
+      console.log(`[+] Categoria criada por ${userName}: ${newCat.name} (${newCat.id})`);
       io.emit('category:created', newCat);
 
       if (typeof callback === 'function') {
@@ -27,10 +35,24 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
   socket.on('category:delete', async ({ categoryId }, callback) => {
     try {
       const user = users.get(socket.id);
-      if (!user) return;
+      const userName = user ? user.name : 'Usuário';
+
+      if (!categoryId) {
+        if (typeof callback === 'function') {
+          callback({ success: false, message: 'ID da categoria não fornecido.' });
+        }
+        return;
+      }
+
+      if (categoryId === 'cat-text' || categoryId === 'cat-voice') {
+        if (typeof callback === 'function') {
+          callback({ success: false, message: 'Esta categoria padrão não pode ser excluída.' });
+        }
+        return;
+      }
 
       await deleteCategory(categoryId);
-      console.log(`[-] Categoria excluída por ${user.name}: ${categoryId}`);
+      console.log(`[-] Categoria excluída por ${userName}: ${categoryId}`);
       io.emit('category:deleted', { categoryId });
 
       if (typeof callback === 'function') {
@@ -48,10 +70,20 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
   socket.on('channel:create', async ({ name, type, categoryId }, callback) => {
     try {
       const user = users.get(socket.id);
-      if (!user) return;
+      const userName = user ? user.name : 'Usuário';
 
-      const newChannel = await createChannel({ name, type, categoryId });
-      console.log(`[+] Canal criado por ${user.name}: #${newChannel.name} [${newChannel.type}] (${newChannel.id})`);
+      const cleanName = (name || '').trim();
+      if (!cleanName) {
+        if (typeof callback === 'function') {
+          callback({ success: false, message: 'Nome do canal inválido.' });
+        }
+        return;
+      }
+
+      const channelType = (type === 'voice') ? 'voice' : 'text';
+
+      const newChannel = await createChannel({ name: cleanName, type: channelType, categoryId });
+      console.log(`[+] Canal criado por ${userName}: #${newChannel.name} [${newChannel.type}] (${newChannel.id})`);
       io.emit('channel:created', newChannel);
 
       if (typeof callback === 'function') {
@@ -69,7 +101,14 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
   socket.on('channel:delete', async ({ channelId }, callback) => {
     try {
       const user = users.get(socket.id);
-      if (!user) return;
+      const userName = user ? user.name : 'Usuário';
+
+      if (!channelId) {
+        if (typeof callback === 'function') {
+          callback({ success: false, message: 'ID do canal não fornecido.' });
+        }
+        return;
+      }
 
       if (channelId === 'geral') {
         if (typeof callback === 'function') {
@@ -91,7 +130,7 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
       }
 
       await deleteChannel(channelId);
-      console.log(`[-] Canal excluído por ${user.name}: ${channelId}`);
+      console.log(`[-] Canal excluído por ${userName}: ${channelId}`);
       io.emit('channel:deleted', { channelId });
 
       if (typeof callback === 'function') {
