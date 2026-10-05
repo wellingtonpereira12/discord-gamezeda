@@ -383,3 +383,29 @@ export async function addAuthorizedDevice(username, deviceId) {
     }
   }
 }
+
+export async function removeAuthorizedDevice(username, deviceId) {
+  if (!deviceId) return;
+  const clean = (username || '').trim();
+  const lower = clean.toLowerCase();
+  const user = await findUser(clean);
+  if (!user || !user.devices) return;
+
+  if (user.devices.includes(deviceId)) {
+    user.devices = user.devices.filter(d => d !== deviceId);
+    if (memoryStore.users[lower]) {
+      memoryStore.users[lower].devices = user.devices;
+    }
+
+    if (isConnected && pool) {
+      try {
+        await pool.query(
+          'UPDATE users SET devices = ? WHERE LOWER(username) = ?',
+          [JSON.stringify(user.devices), lower]
+        );
+      } catch (e) {
+        console.warn('Erro ao desautorizar dispositivo no MariaDB:', e.message);
+      }
+    }
+  }
+}

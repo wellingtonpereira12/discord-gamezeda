@@ -2,7 +2,7 @@ import { registerChatHandlers } from './chatHandler.js';
 import { registerVoiceHandlers, leaveVoiceRoom } from './voiceHandler.js';
 import { registerSoundboardHandlers } from './soundboardHandler.js';
 import { registerAuthHandlers } from './authHandler.js';
-import { getAllMessagesByChannel, saveMessage, findUser, saveUser, addAuthorizedDevice } from '../config/db.js';
+import { getAllMessagesByChannel, saveMessage, findUser, saveUser, addAuthorizedDevice, removeAuthorizedDevice } from '../config/db.js';
 
 export function setupSockets(io) {
   const users = new Map(); // socketId -> user
@@ -128,7 +128,7 @@ export function setupSockets(io) {
     registerSoundboardHandlers(io, socket, users, voiceRooms);
 
     // Logout voluntário do usuário
-    socket.on('logout', () => {
+    socket.on('logout', async (data = {}) => {
       const user = users.get(socket.id);
       if (user) {
         console.log(`[-] Usuário deslogou: ${user.name} (${socket.id})`);
@@ -137,6 +137,16 @@ export function setupSockets(io) {
         }
         users.delete(socket.id);
         broadcastOnlineMembers();
+
+        const devId = (data && data.deviceId) || null;
+        if (devId) {
+          try {
+            await removeAuthorizedDevice(user.name, devId);
+            console.log(`[x] Dispositivo ${devId} desautorizado para ${user.name}`);
+          } catch (err) {
+            console.warn('Erro ao desautorizar dispositivo no logout:', err.message);
+          }
+        }
       }
     });
 

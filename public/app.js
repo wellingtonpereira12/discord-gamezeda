@@ -39,7 +39,14 @@ function getOrCreateDeviceId() {
   }
   return devId;
 }
-const localDeviceId = getOrCreateDeviceId();
+let localDeviceId = getOrCreateDeviceId();
+
+function regenerateDeviceId() {
+  const newDeviceId = 'dev_' + Math.random().toString(36).substring(2, 12) + '_' + Date.now().toString(36);
+  localStorage.setItem('gamezeda_device_id', newDeviceId);
+  localDeviceId = newDeviceId;
+  return newDeviceId;
+}
 
 // ==========================================
 // ELEMENTOS DO DOM
@@ -694,6 +701,7 @@ socket.on('session:replaced', ({ message }) => {
   }
   currentUser = null;
   localStorage.removeItem('gamezeda_saved_username');
+  regenerateDeviceId();
   if (loginStepPassword) loginStepPassword.style.display = 'none';
   if (loginStepUsername) loginStepUsername.style.display = 'block';
   if (loginModal) loginModal.style.display = 'flex';
@@ -1577,7 +1585,10 @@ function performLogout() {
   hasAttemptedAutoLogin = false;
   isAutoLoginAttempt = false;
 
-  socket.emit('logout');
+  const oldDeviceId = localDeviceId;
+  regenerateDeviceId();
+
+  socket.emit('logout', { deviceId: oldDeviceId });
 
   closeUserPopover();
   closeSettingsModal();
