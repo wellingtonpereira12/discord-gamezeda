@@ -14,15 +14,17 @@ export function registerAuthHandlers(io, socket, users) {
         u => u.name.toLowerCase() === cleanName.toLowerCase() && u.id !== socket.id
       );
 
+      // REGRA UNIVERSAL DE CONSISTÊNCIA: Se já existe alguém conectado com este nome no servidor,
+      // bloqueia a entrada de uma segunda sessão idêntica.
+      if (currentlyOnline) {
+        return socket.emit('auth:check-result', {
+          status: 'NAME_IN_USE',
+          message: 'Já existe um usuário conectado com este apelido no servidor no momento.'
+        });
+      }
+
       // CASO 1: Usuário não existe OU ainda não cadastrou senha (cadastro não finalizado)
       if (!userRecord || !userRecord.password_hash) {
-        if (currentlyOnline) {
-          return socket.emit('auth:check-result', {
-            status: 'NAME_IN_USE',
-            message: 'Já existe uma pessoa conectada com este nome no servidor no momento.'
-          });
-        }
-
         // Permite entrar normalmente sem senha em qualquer dispositivo
         return socket.emit('auth:check-result', {
           status: 'ALLOWED',
@@ -48,7 +50,7 @@ export function registerAuthHandlers(io, socket, users) {
       });
     } catch (err) {
       console.error('Erro em auth:check-user:', err);
-      socket.emit('auth:check-result', { status: 'ALLOWED', hasPassword: false });
+      socket.emit('auth:check-result', { status: 'ERROR', message: 'Erro interno ao verificar usuário.' });
     }
   });
 
@@ -57,6 +59,17 @@ export function registerAuthHandlers(io, socket, users) {
     try {
       const cleanName = (name || '').trim();
       const userRecord = await findUser(cleanName);
+
+      const currentlyOnline = Array.from(users.values()).some(
+        u => u.name.toLowerCase() === cleanName.toLowerCase() && u.id !== socket.id
+      );
+
+      if (currentlyOnline) {
+        return socket.emit('auth:verify-result', {
+          success: false,
+          message: 'Já existe um usuário conectado com este apelido no servidor no momento.'
+        });
+      }
 
       if (!userRecord || !userRecord.password_hash) {
         return socket.emit('auth:verify-result', {

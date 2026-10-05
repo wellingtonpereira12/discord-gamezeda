@@ -688,6 +688,18 @@ socket.on('voice:peer-screen-status', ({ peerId, isSharing }) => {
   if (!isSharing) unregisterStream(peerId);
 });
 
+socket.on('session:replaced', ({ message }) => {
+  if (inVoice) {
+    leaveVoice();
+  }
+  currentUser = null;
+  localStorage.removeItem('gamezeda_saved_username');
+  if (loginStepPassword) loginStepPassword.style.display = 'none';
+  if (loginStepUsername) loginStepUsername.style.display = 'block';
+  if (loginModal) loginModal.style.display = 'flex';
+  showLoginAlert(message || 'Você foi desconectado pois sua conta entrou em outro local.', true);
+});
+
 // ==========================================
 // RENDERIZAÇÃO DE MEMBROS
 // ==========================================
@@ -695,8 +707,18 @@ function renderMembersSidebar() {
   if (!membersListContent) return;
   membersListContent.innerHTML = '';
 
-  const voiceMembers = allOnlineUsers.filter(u => u.inVoice);
-  const otherMembers = allOnlineUsers.filter(u => !u.inVoice);
+  const seenMemberNames = new Set();
+  const voiceMembers = [];
+  const otherMembers = [];
+
+  allOnlineUsers.forEach(user => {
+    const lower = (user.name || '').toLowerCase();
+    if (seenMemberNames.has(lower)) return;
+    seenMemberNames.add(lower);
+
+    if (user.inVoice) voiceMembers.push(user);
+    else otherMembers.push(user);
+  });
 
   if (voiceMembers.length > 0) {
     const catVoice = document.createElement('div');

@@ -11,8 +11,16 @@ export function setupSockets(io) {
   };
 
   function broadcastOnlineMembers() {
-    const memberList = Array.from(users.values());
-    io.emit('members:update', memberList);
+    const seen = new Set();
+    const uniqueList = [];
+    for (const u of users.values()) {
+      const lower = u.name.toLowerCase();
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        uniqueList.push(u);
+      }
+    }
+    io.emit('members:update', uniqueList);
   }
 
   function broadcastVoiceState() {
@@ -32,6 +40,24 @@ export function setupSockets(io) {
     socket.on('join:server', async ({ name, deviceId }) => {
       const cleanName = (name || '').trim();
       if (!cleanName) return;
+
+      // Garante consistência absoluta: nunca permite duas conexões ativas com o mesmo nome
+      for (const [existingSocketId, existingUser] of users.entries()) {
+        if (existingUser.name.toLowerCase() === cleanName.toLowerCase() && existingSocketId !== socket.id) {
+          console.log(`[!] Removendo sessão duplicada de ${cleanName} (${existingSocketId})`);
+          if (existingUser.inVoice) {
+            leaveVoiceRoom(io, socket, existingUser, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
+          }
+          users.delete(existingSocketId);
+          const oldSocket = io.sockets.sockets.get(existingSocketId);
+          if (oldSocket) {
+            oldSocket.emit('session:replaced', {
+              message: 'Você foi desconectado pois sua conta foi acessada em outro local.'
+            });
+            oldSocket.disconnect(true);
+          }
+        }
+      }
 
       const user = {
         id: socket.id,
@@ -74,9 +100,19 @@ export function setupSockets(io) {
       // Carrega todo o histórico inicial do banco
       const chatMessages = await getAllMessagesByChannel();
 
+      const seen = new Set();
+      const uniqueOnline = [];
+      for (const u of users.values()) {
+        const lower = u.name.toLowerCase();
+        if (!seen.has(lower)) {
+          seen.add(lower);
+          uniqueOnline.push(u);
+        }
+      }
+
       socket.emit('init:state', {
         currentUser: user,
-        onlineUsers: Array.from(users.values()),
+        onlineUsers: uniqueOnline,
         voiceUsers: Array.from(voiceRooms['gamezeda']).map(id => users.get(id)).filter(Boolean),
         chatMessages
       });
