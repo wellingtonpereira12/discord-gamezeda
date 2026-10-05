@@ -13,11 +13,23 @@ let isConnected = false;
 // Fallback em memória caso o banco esteja indisponível
 const memoryStore = {
   users: {}, // username_lower -> { id, username, password_hash, avatar, devices: [] }
+  categories: [
+    { id: 'cat-text', name: 'Canais de Texto', position: 0 },
+    { id: 'cat-voice', name: 'Canais de Voz', position: 1 }
+  ],
   channels: [
-    'geral', 'links', 'meme-imagem-videos', 'musicas',
-    'novo-video-youtube', 'clips-twitch', 'blogger',
-    'informacoes-eventos-regras', 'nova-live', 'vendo-mousepad',
-    'to-sem-mic'
+    { id: 'geral', name: 'geral', type: 'text', categoryId: 'cat-text', position: 0 },
+    { id: 'links', name: 'links', type: 'text', categoryId: 'cat-text', position: 1 },
+    { id: 'meme-imagem-videos', name: 'meme-imagem-videos', type: 'text', categoryId: 'cat-text', position: 2 },
+    { id: 'musicas', name: 'musicas', type: 'text', categoryId: 'cat-text', position: 3 },
+    { id: 'novo-video-youtube', name: 'novo-video-youtube', type: 'text', categoryId: 'cat-text', position: 4 },
+    { id: 'clips-twitch', name: 'clips twitch', type: 'text', categoryId: 'cat-text', position: 5 },
+    { id: 'blogger', name: 'blogger', type: 'text', categoryId: 'cat-text', position: 6 },
+    { id: 'informacoes-eventos-regras', name: 'informações-eventos-regras', type: 'text', categoryId: 'cat-text', position: 7 },
+    { id: 'nova-live', name: 'nova-live', type: 'text', categoryId: 'cat-text', position: 8 },
+    { id: 'vendo-mousepad', name: 'vendo-mousepad', type: 'text', categoryId: 'cat-text', position: 9 },
+    { id: 'to-sem-mic', name: 'to-sem-mic', type: 'text', categoryId: 'cat-text', position: 10 },
+    { id: 'gamezeda', name: 'Gamezeda', type: 'voice', categoryId: 'cat-voice', position: 0 }
   ],
   messages: {},
   soundboard: [
@@ -46,7 +58,9 @@ const memoryStore = {
 };
 
 memoryStore.channels.forEach(ch => {
-  memoryStore.messages[ch] = [];
+  if (ch.type === 'text') {
+    memoryStore.messages[ch.id] = [];
+  }
 });
 
 export async function initDatabase() {
@@ -70,13 +84,32 @@ export async function initDatabase() {
 
     // Criação das tabelas
     await conn.query(`
+      CREATE TABLE IF NOT EXISTS categories (
+        id VARCHAR(64) PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        position INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS channels (
         id VARCHAR(64) PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
         type VARCHAR(20) DEFAULT 'text',
+        category_id VARCHAR(64) DEFAULT 'cat-text',
+        position INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
+
+    // Migração de colunas caso a tabela channels já existisse previamente
+    try {
+      await conn.query(`ALTER TABLE channels ADD COLUMN IF NOT EXISTS category_id VARCHAR(64) DEFAULT 'cat-text'`);
+      await conn.query(`ALTER TABLE channels ADD COLUMN IF NOT EXISTS position INT DEFAULT 0`);
+    } catch (e) {
+      // Ignora caso já existam ou versão antiga de engine
+    }
 
     await conn.query(`
       CREATE TABLE IF NOT EXISTS messages (
@@ -116,13 +149,32 @@ export async function initDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
+    // Semeia categorias se a tabela estiver vazia
+    const [catRows] = await conn.query('SELECT COUNT(*) as count FROM categories');
+    if (catRows[0].count === 0) {
+      console.log('[*] Populando categorias padrão no MariaDB...');
+      for (const cat of memoryStore.categories) {
+        await conn.query(
+          'INSERT IGNORE INTO categories (id, name, position) VALUES (?, ?, ?)',
+          [cat.id, cat.name, cat.position]
+        );
+      }
+    }
+
     // Semeia canais iniciais se a tabela estiver vazia
     const [rows] = await conn.query('SELECT COUNT(*) as count FROM channels');
     if (rows[0].count === 0) {
       console.log('[*] Populando canais padrão no MariaDB...');
       for (const ch of memoryStore.channels) {
-        await conn.query('INSERT IGNORE INTO channels (id, name, type) VALUES (?, ?, ?)', [ch, ch, 'text']);
+        await conn.query(
+          'INSERT IGNORE INTO channels (id, name, type, category_id, position) VALUES (?, ?, ?, ?, ?)',
+          [ch.id, ch.name, ch.type, ch.categoryId, ch.position]
+        );
       }
+    } else {
+      // Garante integridade de dados e canal oficial de voz
+      await conn.query("UPDATE channels SET category_id = 'cat-text' WHERE category_id IS NULL OR category_id = ''");
+      await conn.query("INSERT IGNORE INTO channels (id, name, type, category_id, position) VALUES ('gamezeda', 'Gamezeda', 'voice', 'cat-voice', 0)");
     }
 
     // Semeia sons iniciais no Soundboard se vazio
@@ -145,14 +197,133 @@ export async function initDatabase() {
   }
 }
 
-export async function getChannels() {
-  if (!isConnected || !pool) return memoryStore.channels;
-  try {
-    const [rows] = await pool.query('SELECT id FROM channels ORDER BY created_at ASC');
-    return rows.map(r => r.id);
-  } catch (e) {
-    return memoryStore.channels;
+// ==========================================
+// CATEGORIAS & CANAIS
+// ==========================================
+export async function getCategories() {
+  if (isConnected && pool) {
+    try {
+      const [rows] = await pool.query('SELECT id, name, position FROM categories ORDER BY position ASC, created_at ASC');
+      if (rows && rows.length > 0) return rows;
+    } catch (e) {
+      console.warn('Erro ao obter categorias do MariaDB:', e.message);
+    }
   }
+  return [...memoryStore.categories];
+}
+
+export async function createCategory({ name }) {
+  const cleanName = (name || '').trim();
+  if (!cleanName) throw new Error('Nome da categoria é obrigatório.');
+
+  let slug = cleanName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  if (!slug) slug = 'cat-' + Date.now().toString(36);
+  const id = `cat-${slug}-${Date.now().toString(36).substring(2, 6)}`;
+  const position = memoryStore.categories.length;
+
+  const catObj = { id, name: cleanName, position };
+  memoryStore.categories.push(catObj);
+
+  if (isConnected && pool) {
+    try {
+      await pool.query('INSERT INTO categories (id, name, position) VALUES (?, ?, ?)', [id, cleanName, position]);
+    } catch (e) {
+      console.warn('Erro ao salvar categoria no MariaDB:', e.message);
+    }
+  }
+  return catObj;
+}
+
+export async function deleteCategory(categoryId) {
+  memoryStore.categories = memoryStore.categories.filter(c => c.id !== categoryId);
+  // Reatribui canais órfãos para cat-text
+  memoryStore.channels.forEach(ch => {
+    if (ch.categoryId === categoryId) {
+      ch.categoryId = 'cat-text';
+    }
+  });
+
+  if (isConnected && pool) {
+    try {
+      await pool.query("UPDATE channels SET category_id = 'cat-text' WHERE category_id = ?", [categoryId]);
+      await pool.query('DELETE FROM categories WHERE id = ?', [categoryId]);
+    } catch (e) {
+      console.warn('Erro ao excluir categoria do MariaDB:', e.message);
+    }
+  }
+  return true;
+}
+
+export async function getChannelsFull() {
+  if (isConnected && pool) {
+    try {
+      const [rows] = await pool.query('SELECT id, name, type, category_id as categoryId, position FROM channels ORDER BY position ASC, created_at ASC');
+      if (rows && rows.length > 0) return rows;
+    } catch (e) {
+      console.warn('Erro ao obter canais completos do MariaDB:', e.message);
+    }
+  }
+  return [...memoryStore.channels];
+}
+
+export async function getChannels() {
+  const full = await getChannelsFull();
+  return full.filter(c => c.type === 'text').map(c => c.id);
+}
+
+export async function createChannel({ name, type = 'text', categoryId }) {
+  const cleanName = (name || '').trim();
+  if (!cleanName) throw new Error('Nome do canal é obrigatório.');
+  const cleanType = type === 'voice' ? 'voice' : 'text';
+  const defaultCat = cleanType === 'voice' ? 'cat-voice' : 'cat-text';
+  const targetCat = categoryId || defaultCat;
+
+  // Slug identificador
+  let slug = cleanName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  if (!slug) slug = `canal-${Date.now().toString(36)}`;
+
+  // Evita duplicatas de id
+  const existing = memoryStore.channels.find(c => c.id === slug);
+  const id = existing ? `${slug}-${Date.now().toString(36).substring(2, 6)}` : slug;
+
+  const position = memoryStore.channels.filter(c => c.categoryId === targetCat).length;
+  const chObj = { id, name: cleanName, type: cleanType, categoryId: targetCat, position };
+
+  memoryStore.channels.push(chObj);
+  if (cleanType === 'text') {
+    memoryStore.messages[id] = [];
+  }
+
+  if (isConnected && pool) {
+    try {
+      await pool.query(
+        'INSERT INTO channels (id, name, type, category_id, position) VALUES (?, ?, ?, ?, ?)',
+        [id, cleanName, cleanType, targetCat, position]
+      );
+    } catch (e) {
+      console.warn('Erro ao salvar canal no MariaDB:', e.message);
+    }
+  }
+  return chObj;
+}
+
+export async function deleteChannel(channelId) {
+  if (channelId === 'geral') {
+    throw new Error('O canal geral não pode ser excluído.');
+  }
+
+  memoryStore.channels = memoryStore.channels.filter(c => c.id !== channelId);
+  delete memoryStore.messages[channelId];
+
+  if (isConnected && pool) {
+    try {
+      await pool.query('DELETE FROM messages WHERE channel_id = ?', [channelId]);
+      await pool.query('DELETE FROM channels WHERE id = ?', [channelId]);
+    } catch (e) {
+      console.warn('Erro ao excluir canal no MariaDB:', e.message);
+    }
+  }
+  return true;
 }
 
 export async function saveMessage({ id, channelId, sender, avatar, isSystem, text, attachmentUrl, timestamp }) {

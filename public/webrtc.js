@@ -849,6 +849,10 @@ export class WebRTCManager {
   leaveVoice() {
     this.stopScreenShare();
 
+    for (const [peerId, pc] of this.peers.entries()) {
+      try { pc.close(); } catch (e) {}
+    }
+
     if (this.localAudioStream) {
       this.localAudioStream.getTracks().forEach(t => t.stop());
       this.localAudioStream = null;

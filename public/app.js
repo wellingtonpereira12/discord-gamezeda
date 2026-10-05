@@ -90,9 +90,39 @@ const btnToggleMic = document.getElementById('btn-toggle-mic');
 const btnToggleDeaf = document.getElementById('btn-toggle-deaf');
 const btnUserSettings = document.getElementById('btn-user-settings');
 
-// Canais e Membros
-const channelGamezeda = document.getElementById('btn-channel-gamezeda');
-const voiceUsersContainer = document.getElementById('voice-users-container');
+// Canais, Servidor e Modais
+const serverHeaderBtn = document.getElementById('server-header-btn');
+const serverDropdownMenu = document.getElementById('server-dropdown-menu');
+const btnMenuCreateChannel = document.getElementById('btn-menu-create-channel');
+const btnMenuCreateCategory = document.getElementById('btn-menu-create-category');
+const channelsScrollContainer = document.getElementById('channels-scroll-container');
+
+// Modais de Criação e Exclusão
+const modalCreateChannel = document.getElementById('modal-create-channel');
+const optionTypeText = document.getElementById('option-type-text');
+const optionTypeVoice = document.getElementById('option-type-voice');
+const inputNewChannelName = document.getElementById('input-new-channel-name');
+const channelNamePrefix = document.getElementById('channel-name-prefix');
+const channelNameHelp = document.getElementById('channel-name-help');
+const selectChannelCategory = document.getElementById('select-channel-category');
+const createChannelAlert = document.getElementById('create-channel-alert');
+const btnCancelCreateChannel = document.getElementById('btn-cancel-create-channel');
+const btnConfirmCreateChannel = document.getElementById('btn-confirm-create-channel');
+
+const modalCreateCategory = document.getElementById('modal-create-category');
+const inputNewCategoryName = document.getElementById('input-new-category-name');
+const createCategoryAlert = document.getElementById('create-category-alert');
+const btnCancelCreateCategory = document.getElementById('btn-cancel-create-category');
+const btnConfirmCreateCategory = document.getElementById('btn-confirm-create-category');
+
+const modalConfirmDelete = document.getElementById('modal-confirm-delete');
+const deleteModalTitle = document.getElementById('delete-modal-title');
+const deleteModalDesc = document.getElementById('delete-modal-desc');
+const deleteModalAlert = document.getElementById('delete-modal-alert');
+const btnCancelDelete = document.getElementById('btn-cancel-delete');
+const btnConfirmDelete = document.getElementById('btn-confirm-delete');
+
+// Membros e Palco
 const membersListContent = document.getElementById('members-list-content');
 const dynamicVoiceCards = document.getElementById('dynamic-voice-cards');
 const membersSidebar = document.getElementById('members-sidebar');
@@ -209,7 +239,33 @@ let currentViewedStreamId = null;
 const channelMessagesStore = {};
 let allOnlineUsers = [];
 let allVoiceUsers = [];
+let allVoiceRoomsState = { 'gamezeda': [] };
 let availableSounds = [];
+
+let allCategories = [
+  { id: 'cat-text', name: 'Canais de Texto', position: 0 },
+  { id: 'cat-voice', name: 'Canais de Voz', position: 1 }
+];
+
+let allChannels = [
+  { id: 'geral', name: 'geral', type: 'text', categoryId: 'cat-text', position: 0 },
+  { id: 'links', name: 'links', type: 'text', categoryId: 'cat-text', position: 1 },
+  { id: 'meme-imagem-videos', name: 'meme-imagem-videos', type: 'text', categoryId: 'cat-text', position: 2 },
+  { id: 'musicas', name: 'musicas', type: 'text', categoryId: 'cat-text', position: 3 },
+  { id: 'novo-video-youtube', name: 'novo-video-youtube', type: 'text', categoryId: 'cat-text', position: 4 },
+  { id: 'clips-twitch', name: 'clips twitch', type: 'text', categoryId: 'cat-text', position: 5 },
+  { id: 'blogger', name: 'blogger', type: 'text', categoryId: 'cat-text', position: 6 },
+  { id: 'informacoes-eventos-regras', name: 'informações-eventos-regras', type: 'text', categoryId: 'cat-text', position: 7 },
+  { id: 'nova-live', name: 'nova-live', type: 'text', categoryId: 'cat-text', position: 8 },
+  { id: 'vendo-mousepad', name: 'vendo-mousepad', type: 'text', categoryId: 'cat-text', position: 9 },
+  { id: 'to-sem-mic', name: 'to-sem-mic', type: 'text', categoryId: 'cat-text', position: 10 },
+  { id: 'gamezeda', name: 'Gamezeda', type: 'voice', categoryId: 'cat-voice', position: 0 }
+];
+
+let collapsedCategories = new Set(JSON.parse(localStorage.getItem('discord_collapsed_cats') || '[]'));
+let currentVoiceChannelId = null;
+let currentVoiceChannelName = 'Gamezeda';
+let deleteTarget = null; // { type: 'channel' | 'category', id, name }
 
 // ==========================================
 // GERENCIADOR WEBRTC HD
@@ -667,8 +723,16 @@ socket.on('init:state', (data) => {
   }
   allOnlineUsers = data.onlineUsers || [];
   allVoiceUsers = data.voiceUsers || [];
+  allVoiceRoomsState = data.voiceRooms || { 'gamezeda': allVoiceUsers };
+  if (data.categories && data.categories.length > 0) {
+    allCategories = data.categories;
+  }
+  if (data.channels && data.channels.length > 0) {
+    allChannels = data.channels;
+  }
+  renderSidebarChannels();
   renderMembersSidebar();
-  renderVoiceChannelUsers();
+  renderVoiceStageCards();
   renderCurrentChannelMessages();
 });
 
@@ -677,11 +741,65 @@ socket.on('members:update', (usersList) => {
   renderMembersSidebar();
 });
 
-socket.on('voice:update', ({ users }) => {
-  allVoiceUsers = users;
-  renderVoiceChannelUsers();
+socket.on('voice:update', (data = {}) => {
+  if (data.rooms) {
+    allVoiceRoomsState = data.rooms;
+  }
+  allVoiceUsers = data.users || (currentVoiceChannelId && allVoiceRoomsState[currentVoiceChannelId]) || [];
+  renderSidebarChannels();
   renderVoiceStageCards();
   renderMembersSidebar();
+});
+
+socket.on('channel:created', (newChannel) => {
+  const existingIdx = allChannels.findIndex(c => c.id === newChannel.id);
+  if (existingIdx >= 0) allChannels[existingIdx] = newChannel;
+  else allChannels.push(newChannel);
+  renderSidebarChannels();
+});
+
+socket.on('channel:deleted', ({ channelId }) => {
+  allChannels = allChannels.filter(c => c.id !== channelId);
+  delete channelMessagesStore[channelId];
+
+  if (currentTextChannel === channelId) {
+    switchTextChannel('geral');
+  }
+  if (currentVoiceChannelId === channelId) {
+    leaveVoice(true);
+    showSoundToast('O canal de voz foi excluído.');
+  }
+
+  renderSidebarChannels();
+});
+
+socket.on('category:created', (newCat) => {
+  const existingIdx = allCategories.findIndex(c => c.id === newCat.id);
+  if (existingIdx >= 0) allCategories[existingIdx] = newCat;
+  else allCategories.push(newCat);
+  renderSidebarChannels();
+});
+
+socket.on('category:deleted', ({ categoryId }) => {
+  allCategories = allCategories.filter(c => c.id !== categoryId);
+  allChannels.forEach(ch => {
+    if (ch.categoryId === categoryId) ch.categoryId = 'cat-text';
+  });
+  renderSidebarChannels();
+});
+
+socket.on('voice:channel-deleted', ({ channelId }) => {
+  if (currentVoiceChannelId === channelId) {
+    leaveVoice(true);
+    showSoundToast('O canal de voz em que você estava foi excluído.');
+  }
+});
+
+socket.on('chat:channel-history', ({ channelId, messages }) => {
+  channelMessagesStore[channelId] = messages;
+  if (channelId === currentTextChannel) {
+    renderCurrentChannelMessages();
+  }
 });
 
 socket.on('voice:peer-speaking', ({ peerId, isSpeaking }) => {
@@ -774,39 +892,203 @@ function createMemberItem(user, isVoice) {
   return div;
 }
 
-function renderVoiceChannelUsers() {
-  if (!voiceUsersContainer) return;
-  voiceUsersContainer.innerHTML = '';
+// ==========================================
+// RENDERIZAÇÃO DINÂMICA DE CANAIS & CATEGORIAS (ESTILO DISCORD)
+// ==========================================
+function renderSidebarChannels() {
+  if (!channelsScrollContainer) return;
+  channelsScrollContainer.innerHTML = '';
 
-  allVoiceUsers.forEach(user => {
-    const isLocal = user.id === socket.id;
-    const streamKey = isLocal ? 'local' : user.id;
-    const isSharing = user.isScreenSharing || activeStreams.has(streamKey);
+  allCategories.forEach(category => {
+    const isCollapsed = collapsedCategories.has(category.id);
+    const catChannels = allChannels.filter(c => c.categoryId === category.id);
 
-    const pill = document.createElement('div');
-    pill.className = 'voice-user-pill';
-    pill.setAttribute('data-user-id', user.id);
-    pill.innerHTML = `
-      <img src="${user.avatar}" alt="${user.name}">
-      <span class="pill-name" style="flex: 1;">${escapeHtml(user.name)}${isLocal ? ' (Você)' : ''}</span>
-      ${isSharing ? '<span class="live-indicator" style="font-size: 10px; margin-left: 6px; padding: 2px 5px; cursor: pointer;">🔴 AO VIVO</span>' : ''}
+    // Cabeçalho da Categoria
+    const catHeader = document.createElement('div');
+    catHeader.className = `channel-category ${isCollapsed ? 'collapsed' : ''}`;
+    catHeader.setAttribute('data-category-id', category.id);
+
+    const isCoreCategory = category.id === 'cat-text' || category.id === 'cat-voice';
+
+    catHeader.innerHTML = `
+      <div class="category-header-left">
+        <i data-lucide="chevron-down" class="category-chevron"></i>
+        <span>${escapeHtml(category.name)}</span>
+      </div>
+      <div class="category-actions">
+        <button type="button" class="btn-cat-action btn-add-channel-cat" title="Criar Canal" data-cat-id="${category.id}">
+          <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+        </button>
+        ${!isCoreCategory ? `
+          <button type="button" class="btn-cat-action btn-delete-cat" title="Excluir Categoria" data-cat-id="${category.id}" data-cat-name="${escapeHtml(category.name)}">
+            <i data-lucide="trash-2" style="width: 13px; height: 13px;"></i>
+          </button>
+        ` : ''}
+      </div>
     `;
 
-    pill.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (activeStreams.has(streamKey)) {
-        viewStream(streamKey);
+    // Toggle de colapso
+    catHeader.querySelector('.category-header-left').addEventListener('click', () => {
+      if (collapsedCategories.has(category.id)) {
+        collapsedCategories.delete(category.id);
       } else {
-        channelGamezeda.click();
+        collapsedCategories.add(category.id);
       }
+      localStorage.setItem('discord_collapsed_cats', JSON.stringify(Array.from(collapsedCategories)));
+      renderSidebarChannels();
     });
 
-    if (!isLocal) {
-      pill.addEventListener('contextmenu', (e) => openContextMenu(e, user.id, user.name));
+    // Botão "+" na categoria
+    const btnAddCh = catHeader.querySelector('.btn-add-channel-cat');
+    if (btnAddCh) {
+      btnAddCh.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openCreateChannelModal(category.id);
+      });
     }
 
-    voiceUsersContainer.appendChild(pill);
+    // Botão de exclusão da categoria
+    const btnDelCat = catHeader.querySelector('.btn-delete-cat');
+    if (btnDelCat) {
+      btnDelCat.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openDeleteModal('category', category.id, category.name);
+      });
+    }
+
+    channelsScrollContainer.appendChild(catHeader);
+
+    // Se a categoria estiver recolhida, não exibe os canais filhos
+    if (isCollapsed) return;
+
+    // Canais da categoria
+    catChannels.forEach(channel => {
+      const isVoice = channel.type === 'voice';
+
+      if (!isVoice) {
+        // Canal de Texto
+        const item = document.createElement('div');
+        item.className = `channel-item ${currentTextChannel === channel.id ? 'active' : ''}`;
+        item.setAttribute('data-channel', channel.id);
+
+        item.innerHTML = `
+          <div class="channel-item-left">
+            <span class="channel-icon">#</span>
+            <span class="channel-item-name">${escapeHtml(channel.name)}</span>
+          </div>
+          <div class="channel-item-actions">
+            ${channel.id !== 'geral' ? `
+              <button type="button" class="btn-channel-delete" title="Excluir Canal" data-channel-id="${channel.id}" data-channel-name="${escapeHtml(channel.name)}">
+                <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+              </button>
+            ` : ''}
+          </div>
+        `;
+
+        item.querySelector('.channel-item-left').addEventListener('click', () => {
+          switchTextChannel(channel.id);
+        });
+
+        const btnDel = item.querySelector('.btn-channel-delete');
+        if (btnDel) {
+          btnDel.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openDeleteModal('channel', channel.id, channel.name);
+          });
+        }
+
+        channelsScrollContainer.appendChild(item);
+      } else {
+        // Canal de Voz
+        const isCurrentVoiceRoom = inVoice && currentVoiceChannelId === channel.id;
+        const voiceUsers = (allVoiceRoomsState && allVoiceRoomsState[channel.id]) || [];
+
+        const item = document.createElement('div');
+        item.className = `channel-item ${isCurrentVoiceRoom ? 'active' : ''}`;
+        item.setAttribute('data-voice', channel.id);
+        if (isCurrentVoiceRoom) {
+          item.style.fontWeight = '700';
+          item.style.color = '#fff';
+        }
+
+        item.innerHTML = `
+          <div class="channel-item-left">
+            <i data-lucide="volume-2" class="channel-icon" style="color: ${isCurrentVoiceRoom ? '#23a55a' : '#949ba4'};"></i>
+            <span class="channel-item-name">${escapeHtml(channel.name)}</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 11px; color: ${isCurrentVoiceRoom ? '#23a55a' : '#949ba4'}; font-family: monospace;">
+              ${isCurrentVoiceRoom ? 'Conectado' : (voiceUsers.length > 0 ? `${voiceUsers.length} online` : 'Conectar')}
+            </span>
+            <div class="channel-item-actions">
+              ${channel.id !== 'gamezeda' ? `
+                <button type="button" class="btn-channel-delete" title="Excluir Canal de Voz" data-channel-id="${channel.id}" data-channel-name="${escapeHtml(channel.name)}">
+                  <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `;
+
+        item.querySelector('.channel-item-left').addEventListener('click', () => {
+          connectToVoiceChannel(channel.id, channel.name);
+        });
+
+        const btnDel = item.querySelector('.btn-channel-delete');
+        if (btnDel) {
+          btnDel.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openDeleteModal('channel', channel.id, channel.name);
+          });
+        }
+
+        channelsScrollContainer.appendChild(item);
+
+        // Lista de participantes conectados nesta sala de voz
+        if (voiceUsers.length > 0) {
+          const usersListEl = document.createElement('div');
+          usersListEl.className = 'voice-users-list';
+          usersListEl.id = `voice-users-${channel.id}`;
+
+          voiceUsers.forEach(user => {
+            const isLocal = user.id === socket.id;
+            const streamKey = isLocal ? 'local' : user.id;
+            const isSharing = user.isScreenSharing || activeStreams.has(streamKey);
+
+            const pill = document.createElement('div');
+            pill.className = 'voice-user-pill';
+            pill.setAttribute('data-user-id', user.id);
+            pill.innerHTML = `
+              <img src="${user.avatar}" alt="${user.name}">
+              <span class="pill-name" style="flex: 1;">${escapeHtml(user.name)}${isLocal ? ' (Você)' : ''}</span>
+              ${isSharing ? '<span class="live-indicator" style="font-size: 10px; margin-left: 6px; padding: 2px 5px; cursor: pointer;">🔴 AO VIVO</span>' : ''}
+            `;
+
+            pill.addEventListener('click', (e) => {
+              e.stopPropagation();
+              if (activeStreams.has(streamKey)) {
+                viewStream(streamKey);
+              } else {
+                connectToVoiceChannel(channel.id, channel.name);
+              }
+            });
+
+            if (!isLocal) {
+              pill.addEventListener('contextmenu', (e) => openContextMenu(e, user.id, user.name));
+            }
+
+            usersListEl.appendChild(pill);
+          });
+
+          channelsScrollContainer.appendChild(usersListEl);
+        }
+      }
+    });
   });
+
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
 }
 
 function renderVoiceStageCards() {
@@ -821,7 +1103,12 @@ function renderVoiceStageCards() {
     };
   }
 
-  const otherVoiceUsers = allVoiceUsers.filter(u => u.id !== socket.id);
+  // Participantes da sala de voz em que estamos
+  const currentRoomUsers = currentVoiceChannelId && allVoiceRoomsState[currentVoiceChannelId]
+    ? allVoiceRoomsState[currentVoiceChannelId]
+    : allVoiceUsers;
+
+  const otherVoiceUsers = currentRoomUsers.filter(u => u.id !== socket.id);
   otherVoiceUsers.forEach(user => {
     const hasStream = activeStreams.has(user.id);
     const card = document.createElement('div');
@@ -841,16 +1128,6 @@ function renderVoiceStageCards() {
   });
 }
 
-// ==========================================
-// CHAT & CANAIS DE TEXTO
-// ==========================================
-document.querySelectorAll('[data-channel]').forEach(el => {
-  el.addEventListener('click', () => {
-    const chName = el.getAttribute('data-channel');
-    switchTextChannel(chName);
-  });
-});
-
 function switchTextChannel(chName) {
   currentTextChannel = chName;
 
@@ -865,6 +1142,10 @@ function switchTextChannel(chName) {
     videoStage.style.display = 'none';
     messagesContainer.style.display = 'flex';
     document.querySelector('.chat-input-wrapper').style.display = 'block';
+  }
+
+  if (!channelMessagesStore[chName]) {
+    socket.emit('chat:get-channel', { channelId: chName });
   }
 
   renderCurrentChannelMessages();
@@ -1018,15 +1299,23 @@ btnEmojiTrigger.addEventListener('click', () => {
 });
 
 // ==========================================
-// CONEXÃO DE VOZ & TELA HD
+// CONEXÃO DE VOZ & TELA HD (MULTI-SALA)
 // ==========================================
-channelGamezeda.addEventListener('click', async () => {
-  if (inVoice) {
+async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda') {
+  if (inVoice && currentVoiceChannelId === roomId) {
     videoStage.style.display = 'flex';
     messagesContainer.style.display = 'none';
-    document.querySelector('.chat-input-wrapper').style.display = 'none';
+    const wrapper = document.querySelector('.chat-input-wrapper');
+    if (wrapper) wrapper.style.display = 'none';
     return;
   }
+
+  if (inVoice) {
+    leaveVoice(false);
+  }
+
+  currentVoiceChannelId = roomId;
+  currentVoiceChannelName = roomName;
 
   webrtc.ensureAudioContext();
   sounds.playJoin();
@@ -1037,45 +1326,56 @@ channelGamezeda.addEventListener('click', async () => {
   btnStageMic.classList.remove('active-muted');
 
   voiceStatusBox.style.display = 'flex';
+  const voiceSubEl = voiceStatusBox.querySelector('.voice-status-sub');
+  if (voiceSubEl) {
+    voiceSubEl.textContent = `${roomName} / Jogos Bolados`;
+  }
+
   videoStage.style.display = 'flex';
   messagesContainer.style.display = 'none';
-  document.querySelector('.chat-input-wrapper').style.display = 'none';
+  const wrapper = document.querySelector('.chat-input-wrapper');
+  if (wrapper) wrapper.style.display = 'none';
   myUserStatusEl.textContent = '🔊 Em voz';
 
   await webrtc.startAudio();
-  socket.emit('voice:join');
-});
+  socket.emit('voice:join', { roomId });
+  renderSidebarChannels();
+}
 
-function leaveVoice() {
+function leaveVoice(playAudio = true) {
   if (!inVoice) return;
 
-  sounds.playLeave();
+  if (playAudio) sounds.playLeave();
   webrtc.leaveVoice();
 
   inVoice = false;
   isScreenSharing = false;
+  currentVoiceChannelId = null;
 
   unregisterStream('local');
 
   voiceStatusBox.style.display = 'none';
   videoStage.style.display = 'none';
   messagesContainer.style.display = 'flex';
-  document.querySelector('.chat-input-wrapper').style.display = 'block';
+  const wrapper = document.querySelector('.chat-input-wrapper');
+  if (wrapper) wrapper.style.display = 'block';
 
   btnStageScreen.classList.remove('active-stream');
   btnStageScreenText.textContent = 'Compartilhar Tela HD';
 
   myUserStatusEl.textContent = 'Online';
   socket.emit('voice:leave');
+  renderSidebarChannels();
 }
 
-quickDisconnectBtn.addEventListener('click', leaveVoice);
-btnStageDisconnect.addEventListener('click', leaveVoice);
+quickDisconnectBtn.addEventListener('click', () => leaveVoice(true));
+btnStageDisconnect.addEventListener('click', () => leaveVoice(true));
 
 // Compartilhar Tela em HD
 async function toggleScreenShare(forceVideoOnly = false) {
   if (!inVoice) {
-    channelGamezeda.click();
+    const firstVoice = allChannels.find(c => c.type === 'voice') || { id: 'gamezeda', name: 'Gamezeda' };
+    await connectToVoiceChannel(firstVoice.id, firstVoice.name);
   }
 
   if (isScreenSharing) {
@@ -1627,15 +1927,24 @@ document.addEventListener('click', (e) => {
       closeUserPopover();
     }
   }
+  if (serverDropdownMenu && serverDropdownMenu.style.display === 'flex') {
+    if (!serverDropdownMenu.contains(e.target) && !serverHeaderBtn.contains(e.target)) {
+      closeServerDropdown();
+    }
+  }
 });
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeContextMenu();
     closeUserPopover();
+    closeServerDropdown();
     closeSettingsModal();
     closeSoundboardModal();
     closeAudioDriverFallbackModal();
+    closeCreateChannelModal();
+    closeCreateCategoryModal();
+    closeDeleteModal();
     addSoundModal.style.display = 'none';
   }
 });
@@ -1697,6 +2006,289 @@ function escapeHtml(text) {
   div.textContent = text;
   return div.innerHTML;
 }
+
+// ==========================================
+// CONTROLE DE MENUS E MODAIS DE CANAIS/CATEGORIAS
+// ==========================================
+function closeServerDropdown() {
+  if (serverDropdownMenu) {
+    serverDropdownMenu.style.display = 'none';
+  }
+}
+
+if (serverHeaderBtn) {
+  serverHeaderBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (serverDropdownMenu) {
+      const isVisible = serverDropdownMenu.style.display === 'flex';
+      serverDropdownMenu.style.display = isVisible ? 'none' : 'flex';
+      if (!isVisible && window.lucide) window.lucide.createIcons();
+    }
+  });
+}
+
+if (btnMenuCreateChannel) {
+  btnMenuCreateChannel.addEventListener('click', () => {
+    closeServerDropdown();
+    openCreateChannelModal();
+  });
+}
+
+if (btnMenuCreateCategory) {
+  btnMenuCreateCategory.addEventListener('click', () => {
+    closeServerDropdown();
+    openCreateCategoryModal();
+  });
+}
+
+// Modal Criar Canal
+function openCreateChannelModal(preselectedCatId = null) {
+  if (!modalCreateChannel) return;
+  if (inputNewChannelName) inputNewChannelName.value = '';
+  hideCreateChannelAlert();
+
+  setChannelTypeSelection('text');
+
+  if (selectChannelCategory) {
+    selectChannelCategory.innerHTML = '';
+    allCategories.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat.id;
+      opt.textContent = cat.name;
+      if (preselectedCatId && cat.id === preselectedCatId) {
+        opt.selected = true;
+      }
+      selectChannelCategory.appendChild(opt);
+    });
+  }
+
+  modalCreateChannel.style.display = 'flex';
+  setTimeout(() => {
+    if (inputNewChannelName) inputNewChannelName.focus();
+  }, 50);
+}
+
+function closeCreateChannelModal() {
+  if (modalCreateChannel) modalCreateChannel.style.display = 'none';
+  hideCreateChannelAlert();
+}
+
+function showCreateChannelAlert(msg) {
+  if (createChannelAlert) {
+    createChannelAlert.textContent = msg;
+    createChannelAlert.style.display = 'block';
+  }
+}
+
+function hideCreateChannelAlert() {
+  if (createChannelAlert) {
+    createChannelAlert.style.display = 'none';
+  }
+}
+
+function setChannelTypeSelection(type) {
+  const isVoice = type === 'voice';
+  if (optionTypeText) optionTypeText.classList.toggle('active', !isVoice);
+  if (optionTypeVoice) optionTypeVoice.classList.toggle('active', isVoice);
+
+  if (channelNamePrefix) {
+    channelNamePrefix.textContent = isVoice ? '🔊' : '#';
+  }
+  if (channelNameHelp) {
+    channelNameHelp.textContent = isVoice
+      ? 'No Discord, canais de voz podem ter espaços e letras maiúsculas.'
+      : 'No Discord, canais de texto usam letras minúsculas e traços.';
+  }
+  if (inputNewChannelName) {
+    inputNewChannelName.placeholder = isVoice ? 'Sala de Jogos' : 'novo-canal';
+  }
+}
+
+if (optionTypeText) {
+  optionTypeText.addEventListener('click', () => setChannelTypeSelection('text'));
+}
+
+if (optionTypeVoice) {
+  optionTypeVoice.addEventListener('click', () => setChannelTypeSelection('voice'));
+}
+
+if (inputNewChannelName) {
+  inputNewChannelName.addEventListener('input', () => {
+    const isText = optionTypeText && optionTypeText.classList.contains('active');
+    if (isText) {
+      inputNewChannelName.value = inputNewChannelName.value.toLowerCase().replace(/\s+/g, '-');
+    }
+    hideCreateChannelAlert();
+  });
+
+  inputNewChannelName.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (btnConfirmCreateChannel) btnConfirmCreateChannel.click();
+    }
+  });
+}
+
+if (btnCancelCreateChannel) {
+  btnCancelCreateChannel.addEventListener('click', closeCreateChannelModal);
+}
+
+if (btnConfirmCreateChannel) {
+  btnConfirmCreateChannel.addEventListener('click', () => {
+    const rawName = (inputNewChannelName ? inputNewChannelName.value : '').trim();
+    if (!rawName) {
+      showCreateChannelAlert('Por favor, informe um nome para o canal.');
+      return;
+    }
+
+    const isVoice = optionTypeVoice && optionTypeVoice.classList.contains('active');
+    const type = isVoice ? 'voice' : 'text';
+    const categoryId = selectChannelCategory ? selectChannelCategory.value : (isVoice ? 'cat-voice' : 'cat-text');
+
+    btnConfirmCreateChannel.disabled = true;
+    btnConfirmCreateChannel.textContent = 'Criando...';
+
+    socket.emit('channel:create', { name: rawName, type, categoryId }, (res) => {
+      btnConfirmCreateChannel.disabled = false;
+      btnConfirmCreateChannel.textContent = 'Criar Canal';
+
+      if (res && res.success) {
+        closeCreateChannelModal();
+        if (res.channel && res.channel.type === 'text') {
+          switchTextChannel(res.channel.id);
+        }
+      } else {
+        showCreateChannelAlert((res && res.message) || 'Erro ao criar canal.');
+      }
+    });
+  });
+}
+
+// Modal Criar Categoria
+function openCreateCategoryModal() {
+  if (!modalCreateCategory) return;
+  if (inputNewCategoryName) inputNewCategoryName.value = '';
+  hideCreateCategoryAlert();
+  modalCreateCategory.style.display = 'flex';
+  setTimeout(() => {
+    if (inputNewCategoryName) inputNewCategoryName.focus();
+  }, 50);
+}
+
+function closeCreateCategoryModal() {
+  if (modalCreateCategory) modalCreateCategory.style.display = 'none';
+  hideCreateCategoryAlert();
+}
+
+function showCreateCategoryAlert(msg) {
+  if (createCategoryAlert) {
+    createCategoryAlert.textContent = msg;
+    createCategoryAlert.style.display = 'block';
+  }
+}
+
+function hideCreateCategoryAlert() {
+  if (createCategoryAlert) {
+    createCategoryAlert.style.display = 'none';
+  }
+}
+
+if (inputNewCategoryName) {
+  inputNewCategoryName.addEventListener('input', hideCreateCategoryAlert);
+  inputNewCategoryName.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (btnConfirmCreateCategory) btnConfirmCreateCategory.click();
+    }
+  });
+}
+
+if (btnCancelCreateCategory) {
+  btnCancelCreateCategory.addEventListener('click', closeCreateCategoryModal);
+}
+
+if (btnConfirmCreateCategory) {
+  btnConfirmCreateCategory.addEventListener('click', () => {
+    const rawName = (inputNewCategoryName ? inputNewCategoryName.value : '').trim();
+    if (!rawName) {
+      showCreateCategoryAlert('Por favor, informe o nome da categoria.');
+      return;
+    }
+
+    btnConfirmCreateCategory.disabled = true;
+    btnConfirmCreateCategory.textContent = 'Criando...';
+
+    socket.emit('category:create', { name: rawName }, (res) => {
+      btnConfirmCreateCategory.disabled = false;
+      btnConfirmCreateCategory.textContent = 'Criar Categoria';
+
+      if (res && res.success) {
+        closeCreateCategoryModal();
+      } else {
+        showCreateCategoryAlert((res && res.message) || 'Erro ao criar categoria.');
+      }
+    });
+  });
+}
+
+// Modal Confirmar Exclusão
+function openDeleteModal(type, id, name) {
+  deleteTarget = { type, id, name };
+  if (!modalConfirmDelete) return;
+
+  if (deleteModalAlert) deleteModalAlert.style.display = 'none';
+
+  if (deleteModalTitle) {
+    deleteModalTitle.textContent = type === 'category' ? 'Excluir Categoria' : 'Excluir Canal';
+  }
+  if (deleteModalDesc) {
+    deleteModalDesc.innerHTML = type === 'category'
+      ? `Tem certeza de que deseja excluir a categoria <strong>${escapeHtml(name)}</strong>? Seus canais serão mantidos e organizados.`
+      : `Tem certeza de que deseja excluir o canal <strong>#${escapeHtml(name)}</strong>? Todas as mensagens serão apagadas permanentemente.`;
+  }
+
+  modalConfirmDelete.style.display = 'flex';
+}
+
+function closeDeleteModal() {
+  if (modalConfirmDelete) modalConfirmDelete.style.display = 'none';
+  deleteTarget = null;
+}
+
+if (btnCancelDelete) {
+  btnCancelDelete.addEventListener('click', closeDeleteModal);
+}
+
+if (btnConfirmDelete) {
+  btnConfirmDelete.addEventListener('click', () => {
+    if (!deleteTarget) return;
+
+    btnConfirmDelete.disabled = true;
+    btnConfirmDelete.textContent = 'Excluindo...';
+
+    const evt = deleteTarget.type === 'category' ? 'category:delete' : 'channel:delete';
+    const payload = deleteTarget.type === 'category'
+      ? { categoryId: deleteTarget.id }
+      : { channelId: deleteTarget.id };
+
+    socket.emit(evt, payload, (res) => {
+      btnConfirmDelete.disabled = false;
+      btnConfirmDelete.textContent = 'Excluir';
+
+      if (res && res.success) {
+        closeDeleteModal();
+      } else {
+        if (deleteModalAlert) {
+          deleteModalAlert.textContent = (res && res.message) || 'Erro ao excluir.';
+          deleteModalAlert.style.display = 'block';
+        }
+      }
+    });
+  });
+}
+
+// Renderização inicial imediata dos canais da barra lateral
+renderSidebarChannels();
 
 if (window.lucide) {
   window.lucide.createIcons();

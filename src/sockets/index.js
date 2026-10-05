@@ -2,7 +2,17 @@ import { registerChatHandlers } from './chatHandler.js';
 import { registerVoiceHandlers, leaveVoiceRoom } from './voiceHandler.js';
 import { registerSoundboardHandlers } from './soundboardHandler.js';
 import { registerAuthHandlers } from './authHandler.js';
-import { getAllMessagesByChannel, saveMessage, findUser, saveUser, addAuthorizedDevice, removeAuthorizedDevice } from '../config/db.js';
+import { registerChannelHandlers } from './channelHandler.js';
+import {
+  getAllMessagesByChannel,
+  saveMessage,
+  findUser,
+  saveUser,
+  addAuthorizedDevice,
+  removeAuthorizedDevice,
+  getCategories,
+  getChannelsFull
+} from '../config/db.js';
 
 export function setupSockets(io) {
   const users = new Map(); // socketId -> user
@@ -24,12 +34,14 @@ export function setupSockets(io) {
   }
 
   function broadcastVoiceState() {
-    const voiceMembers = Array.from(voiceRooms['gamezeda'])
-      .map(id => users.get(id))
-      .filter(Boolean);
+    const roomsState = {};
+    for (const [roomId, socketIds] of Object.entries(voiceRooms)) {
+      roomsState[roomId] = Array.from(socketIds).map(id => users.get(id)).filter(Boolean);
+    }
     io.emit('voice:update', {
+      rooms: roomsState,
       roomId: 'gamezeda',
-      users: voiceMembers
+      users: roomsState['gamezeda'] || []
     });
   }
 
@@ -64,6 +76,7 @@ export function setupSockets(io) {
         name: cleanName,
         avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanName)}`,
         inVoice: false,
+        currentVoiceRoom: null,
         isSpeaking: false,
         isScreenSharing: false,
         isMuted: false
@@ -97,7 +110,9 @@ export function setupSockets(io) {
       };
       await saveMessage(welcomeMsg);
 
-      // Carrega todo o histórico inicial do banco
+      // Carrega categorias, canais e mensagens do banco
+      const categories = await getCategories();
+      const channels = await getChannelsFull();
       const chatMessages = await getAllMessagesByChannel();
 
       const seen = new Set();
@@ -110,10 +125,18 @@ export function setupSockets(io) {
         }
       }
 
+      const roomsState = {};
+      for (const [roomId, socketIds] of Object.entries(voiceRooms)) {
+        roomsState[roomId] = Array.from(socketIds).map(id => users.get(id)).filter(Boolean);
+      }
+
       socket.emit('init:state', {
         currentUser: user,
         onlineUsers: uniqueOnline,
-        voiceUsers: Array.from(voiceRooms['gamezeda']).map(id => users.get(id)).filter(Boolean),
+        voiceUsers: roomsState['gamezeda'] || [],
+        voiceRooms: roomsState,
+        categories,
+        channels,
         chatMessages
       });
 
@@ -126,6 +149,7 @@ export function setupSockets(io) {
     registerChatHandlers(io, socket, users);
     registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
     registerSoundboardHandlers(io, socket, users, voiceRooms);
+    registerChannelHandlers(io, socket, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
 
     // Logout voluntário do usuário
     socket.on('logout', async (data = {}) => {
