@@ -497,6 +497,9 @@ function enterServer(name) {
   const avatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`;
   currentUser = { name, avatar };
 
+  // Memoriza o usuário nesta máquina para pular o login nas próximas visitas
+  localStorage.setItem('gamezeda_saved_username', name);
+
   myAvatarImg.src = avatar;
   myUsernameEl.textContent = name;
   cardMyAvatar.src = avatar;
@@ -507,6 +510,41 @@ function enterServer(name) {
   socket.emit('join:server', { name, deviceId: localDeviceId });
   loginModal.style.display = 'none';
   sounds.playJoin();
+}
+
+let isAutoLoginAttempt = false;
+let hasAttemptedAutoLogin = false;
+
+function tryAutoLogin() {
+  if (hasAttemptedAutoLogin || currentUser) return;
+  const savedName = (localStorage.getItem('gamezeda_saved_username') || '').trim();
+  if (!savedName) {
+    if (loginModal) loginModal.style.display = 'flex';
+    return;
+  }
+
+  hasAttemptedAutoLogin = true;
+  if (loginModal) loginModal.style.display = 'none';
+  pendingLoginName = savedName;
+  isAutoLoginAttempt = true;
+
+  socket.emit('auth:check-user', { name: savedName, deviceId: localDeviceId });
+}
+
+socket.on('connect', () => {
+  if (currentUser) {
+    socket.emit('join:server', { name: currentUser.name, deviceId: localDeviceId });
+  } else {
+    tryAutoLogin();
+  }
+});
+
+if (socket.connected) {
+  if (currentUser) {
+    socket.emit('join:server', { name: currentUser.name, deviceId: localDeviceId });
+  } else {
+    tryAutoLogin();
+  }
 }
 
 usernameInput.addEventListener('input', (e) => {
@@ -537,18 +575,30 @@ socket.on('auth:check-result', ({ status, message, hasPassword }) => {
   }
 
   if (status === 'ALLOWED') {
+    isAutoLoginAttempt = false;
     enterServer(pendingLoginName);
   } else if (status === 'PASSWORD_REQUIRED') {
+    isAutoLoginAttempt = false;
+    if (usernameInput) usernameInput.value = pendingLoginName;
+    if (avatarPreview) avatarPreview.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(pendingLoginName)}`;
     if (loginStepUsername) loginStepUsername.style.display = 'none';
     if (loginStepPassword) loginStepPassword.style.display = 'block';
     if (loginPasswordInput) {
       loginPasswordInput.value = '';
       loginPasswordInput.focus();
     }
+    if (loginModal) loginModal.style.display = 'flex';
     showLoginAlert(message || 'Este nick possui cadastro com senha. Digite sua senha para entrar neste computador:', false);
   } else if (status === 'NAME_IN_USE') {
+    if (isAutoLoginAttempt && usernameInput) {
+      usernameInput.value = pendingLoginName;
+    }
+    isAutoLoginAttempt = false;
+    if (loginModal) loginModal.style.display = 'flex';
     showLoginAlert(message || 'Já existe alguém conectado com este nome no servidor no momento.', true);
   } else {
+    isAutoLoginAttempt = false;
+    if (loginModal) loginModal.style.display = 'flex';
     showLoginAlert(message || 'Erro ao validar cadastro. Tente novamente.', true);
   }
 });
@@ -1499,6 +1549,11 @@ function performLogout() {
   if (inVoice) {
     leaveVoice();
   }
+
+  // Remove o apelido salvo para não fazer auto-login e voltar à tela inicial
+  localStorage.removeItem('gamezeda_saved_username');
+  hasAttemptedAutoLogin = false;
+  isAutoLoginAttempt = false;
 
   socket.emit('logout');
 

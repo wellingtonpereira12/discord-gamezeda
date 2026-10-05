@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Discord - Jogos Bolados / Gamezeda</title>
-  <link rel="stylesheet" href="style.css?v=20261005_v9">
+  <link rel="stylesheet" href="style.css?v=20261005_v10">
   <link rel="icon" href="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -14,7 +14,7 @@
 <body>
 
   <!-- MODAL DE ENTRADA (COM CHECAGEM INTELIGENTE DE CADASTRO/SENHA) -->
-  <div id="login-modal" class="modal-overlay">
+  <div id="login-modal" class="modal-overlay" style="display: none;">
     <div class="welcome-modal">
       <div class="modal-header">
         <img src="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png" width="48" height="38" style="margin-bottom: 12px;" alt="Discord">
@@ -54,6 +54,14 @@
       </form>
     </div>
   </div>
+
+  <script>
+    // Se o usuário nunca entrou ou deslogou, exibe a tela de login sem nenhum atraso visual
+    if (!localStorage.getItem('gamezeda_saved_username')) {
+      const modal = document.getElementById('login-modal');
+      if (modal) modal.style.display = 'flex';
+    }
+  </script>
 
   <!-- AVISO DE CONEXÃO SEGURA PARA MICROFONE -->
   <div id="https-banner" style="display: none; background: #5865F2; color: #fff; text-align: center; padding: 8px 12px; font-size: 13px; font-weight: 600; z-index: 10000; position: fixed; top: 0; left: 0; right: 0;">
@@ -564,7 +572,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261005_v9"></script>
+  <script type="module" src="app.js?v=20261005_v10"></script>
 
 </body>
 </html>
