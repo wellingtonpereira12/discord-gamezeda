@@ -39,6 +39,7 @@ export class WebRTCManager {
     // Elementos de áudio remotos
     this.remoteVoiceAudios = new Map();  // peerId -> HTMLAudioElement (Microfone)
     this.remoteScreenAudios = new Map(); // peerId -> HTMLAudioElement (Som de tela/jogo)
+    this.screenAudioNodes = new Map();   // peerId -> { sourceNode, gainNode, stream } (Web Audio API anti-ducking)
 
     // Configurações individuais de volume
     this.userVolumes = new Map();
@@ -186,6 +187,14 @@ export class WebRTCManager {
       } else {
         this.peerScreenStreamIds.delete(peerId);
         this.peerScreenAudioTrackIds.delete(peerId);
+        const nodeData = this.screenAudioNodes.get(peerId);
+        if (nodeData) {
+          try {
+            nodeData.sourceNode.disconnect();
+            nodeData.gainNode.disconnect();
+          } catch (e) {}
+          this.screenAudioNodes.delete(peerId);
+        }
         const screenAudio = this.remoteScreenAudios.get(peerId);
         if (screenAudio) {
           screenAudio.srcObject = null;
@@ -411,33 +420,85 @@ export class WebRTCManager {
     this.attachRemoteSpeechDetection(peerId, stream);
   }
 
-  // Reproduzir Áudio de Tela com tratamento de Autoplay
+  // Reproduzir Áudio de Tela com isolamento de Ducking (Web Audio API)
   playRemoteScreenAudio(peerId, stream) {
     this.ensureAudioContext();
 
+    // 1. Elemento HTML <audio> com muted=true para manter o WebRTC pull model ativo
+    // sem sofrer ducking de AEC/NLP quando o espectador falar no microfone
     let audio = this.remoteScreenAudios.get(peerId);
     if (!audio) {
       audio = document.createElement('audio');
       audio.autoplay = true;
       audio.playsInline = true;
       audio.id = `screen-audio-${peerId}`;
+      audio.muted = true;
       document.body.appendChild(audio);
       this.remoteScreenAudios.set(peerId, audio);
     }
     audio.srcObject = stream;
-    this.applyOutputDeviceToElement(audio);
+    audio.muted = true;
+    audio.play().catch(() => {});
 
+    // 2. Roteamento via Web Audio API (AudioDestinationNode)
+    // O destino do AudioContext é independente do WebRTC APM NLP, garantindo que o volume
+    // da transmissão NUNCA seja reduzido/abaixado quando o espectador falar na chamada!
+    let nodeData = this.screenAudioNodes.get(peerId);
+    if (!nodeData) {
+      try {
+        const sourceNode = this.audioContext.createMediaStreamSource(stream);
+        const gainNode = this.audioContext.createGain();
+        sourceNode.connect(gainNode);
+        gainNode.connect(this.audioContext.destination);
+
+        nodeData = { sourceNode, gainNode, stream };
+        this.screenAudioNodes.set(peerId, nodeData);
+      } catch (err) {
+        console.warn('[WebRTC] Falha ao rotear tela via AudioContext, fallback para elemento audio:', err);
+        audio.muted = this.userScreenAudioMutes.get(peerId) || false;
+        this.applyOutputDeviceToElement(audio);
+      }
+    } else if (nodeData.stream !== stream) {
+      try {
+        nodeData.sourceNode.disconnect();
+        nodeData.sourceNode = this.audioContext.createMediaStreamSource(stream);
+        nodeData.sourceNode.connect(nodeData.gainNode);
+        nodeData.stream = stream;
+      } catch (err) {
+        console.warn('[WebRTC] Erro ao reconectar stream de tela ao AudioContext:', err);
+      }
+    }
+
+    this.updatePeerScreenAudioGain(peerId);
+
+    // Desbloqueia reprodução caso o AudioContext esteja suspenso
+    if (this.audioContext.state === 'suspended') {
+      const unlock = () => {
+        this.audioContext.resume();
+        document.removeEventListener('click', unlock);
+      };
+      document.addEventListener('click', unlock);
+    }
+  }
+
+  updatePeerScreenAudioGain(peerId) {
     const volPercent = this.userVolumes.has(peerId) ? this.userVolumes.get(peerId) : 100;
     const isSfxMuted = this.userScreenAudioMutes.get(peerId) || false;
-    audio.volume = Math.max(0, Math.min(1.0, volPercent / 100));
-    audio.muted = isSfxMuted;
+    const gainVal = isSfxMuted ? 0.0 : (volPercent / 100);
 
-    const playPromise = audio.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        const unlock = () => { audio.play(); document.removeEventListener('click', unlock); };
-        document.addEventListener('click', unlock);
-      });
+    const nodeData = this.screenAudioNodes.get(peerId);
+    if (nodeData && nodeData.gainNode && this.audioContext) {
+      try {
+        nodeData.gainNode.gain.setValueAtTime(gainVal, this.audioContext.currentTime);
+      } catch (e) {
+        nodeData.gainNode.gain.value = gainVal;
+      }
+    }
+
+    const audio = this.remoteScreenAudios.get(peerId);
+    if (audio && !nodeData) {
+      audio.volume = Math.max(0, Math.min(1.0, gainVal));
+      audio.muted = isSfxMuted;
     }
   }
 
@@ -488,7 +549,12 @@ export class WebRTCManager {
     const audioConstraints = {
       echoCancellation: true,
       noiseSuppression: true,
-      autoGainControl: true,
+      autoGainControl: false,
+      googAutoGainControl: false,
+      googAutoGainControl2: false,
+      googNoiseSuppression: true,
+      googHighpassFilter: true,
+      googDucking: false,
       sampleRate: 48000
     };
 
@@ -572,6 +638,14 @@ export class WebRTCManager {
     this.selectedOutputDeviceId = deviceId;
     localStorage.setItem('discord_output_device', deviceId);
 
+    if (this.audioContext && typeof this.audioContext.setSinkId === 'function') {
+      try {
+        await this.audioContext.setSinkId(deviceId === 'default' ? '' : deviceId);
+      } catch (e) {
+        console.warn('Erro ao setSinkId no AudioContext:', e);
+      }
+    }
+
     this.remoteVoiceAudios.forEach(audio => this.applyOutputDeviceToElement(audio));
     this.remoteScreenAudios.forEach(audio => this.applyOutputDeviceToElement(audio));
     document.querySelectorAll('audio').forEach(audio => this.applyOutputDeviceToElement(audio));
@@ -614,7 +688,16 @@ export class WebRTCManager {
         try {
           stream = await navigator.mediaDevices.getDisplayMedia({
             video: true,
-            audio: true
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+              googEchoCancellation: false,
+              googAutoGainControl: false,
+              googNoiseSuppression: false,
+              googDucking: false,
+              suppressLocalAudioPlayback: false
+            }
           });
         } catch (mediaErr) {
           console.warn('[WebRTC] Tentativa inicial com áudio falhou:', mediaErr);
@@ -906,6 +989,15 @@ export class WebRTCManager {
     this.peerScreenStreamIds.delete(peerId);
     this.peerScreenAudioTrackIds.delete(peerId);
 
+    const nodeData = this.screenAudioNodes.get(peerId);
+    if (nodeData) {
+      try {
+        nodeData.sourceNode.disconnect();
+        nodeData.gainNode.disconnect();
+      } catch (e) {}
+      this.screenAudioNodes.delete(peerId);
+    }
+
     const voiceAudio = this.remoteVoiceAudios.get(peerId);
     if (voiceAudio) {
       voiceAudio.remove();
@@ -929,6 +1021,14 @@ export class WebRTCManager {
       try { pc.close(); } catch (e) {}
     }
 
+    this.screenAudioNodes.forEach(nodeData => {
+      try {
+        nodeData.sourceNode.disconnect();
+        nodeData.gainNode.disconnect();
+      } catch (e) {}
+    });
+    this.screenAudioNodes.clear();
+
     if (this.localAudioStream) {
       this.localAudioStream.getTracks().forEach(t => t.stop());
       this.localAudioStream = null;
@@ -951,8 +1051,8 @@ export class WebRTCManager {
     const vol = Math.max(0, Math.min(2.0, volumePercent / 100));
     const voiceAudio = this.remoteVoiceAudios.get(peerId);
     if (voiceAudio) voiceAudio.volume = Math.min(1.0, vol);
-    const screenAudio = this.remoteScreenAudios.get(peerId);
-    if (screenAudio) screenAudio.volume = Math.min(1.0, vol);
+
+    this.updatePeerScreenAudioGain(peerId);
   }
 
   setUserMuted(peerId, isMuted) {
@@ -963,8 +1063,7 @@ export class WebRTCManager {
 
   setUserScreenAudioMuted(peerId, isMuted) {
     this.userScreenAudioMutes.set(peerId, isMuted);
-    const screenAudio = this.remoteScreenAudios.get(peerId);
-    if (screenAudio) screenAudio.muted = isMuted;
+    this.updatePeerScreenAudioGain(peerId);
   }
 
   togglePeerScreenAudio(peerId) {
