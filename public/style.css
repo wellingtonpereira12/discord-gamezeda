@@ -222,6 +222,11 @@ body {
   gap: 4px;
   flex: 1;
   overflow: hidden;
+  pointer-events: none;
+}
+
+.category-header-left * {
+  pointer-events: none;
 }
 
 .category-chevron {
@@ -229,6 +234,7 @@ body {
   height: 12px;
   transition: transform 0.2s ease;
   flex-shrink: 0;
+  pointer-events: none;
 }
 
 .channel-category.collapsed .category-chevron {
@@ -241,6 +247,7 @@ body {
   gap: 4px;
   opacity: 0;
   transition: opacity 0.15s ease;
+  pointer-events: auto;
 }
 
 .channel-category:hover .category-actions,
@@ -262,6 +269,7 @@ body {
   justify-content: center;
   line-height: 1;
   transition: color 0.15s, background 0.15s;
+  pointer-events: auto;
 }
 
 .btn-cat-action svg,
@@ -287,6 +295,7 @@ body {
   margin-bottom: 2px;
   transition: background 0.1s, color 0.1s;
   position: relative;
+  user-select: none;
 }
 
 .channel-item:hover {
@@ -306,6 +315,11 @@ body {
   flex: 1;
   min-width: 0;
   overflow: hidden;
+  pointer-events: none;
+}
+
+.channel-item-left * {
+  pointer-events: none;
 }
 
 .channel-item .channel-icon {
@@ -315,12 +329,19 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: none;
 }
 
 .channel-item-name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.channel-voice-meta,
+.channel-voice-meta * {
+  pointer-events: none;
 }
 
 .channel-item-actions {
@@ -329,6 +350,7 @@ body {
   gap: 4px;
   opacity: 0;
   transition: opacity 0.15s ease;
+  pointer-events: auto;
 }
 
 .channel-item:hover .channel-item-actions,
@@ -350,6 +372,7 @@ body {
   align-items: center;
   justify-content: center;
   transition: color 0.15s, background 0.15s;
+  pointer-events: auto;
 }
 
 .btn-channel-delete svg,

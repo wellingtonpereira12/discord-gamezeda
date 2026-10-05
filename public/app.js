@@ -958,7 +958,8 @@ function renderSidebarChannels() {
     `;
 
     // Toggle de colapso
-    catHeader.querySelector('.category-header-left').addEventListener('click', () => {
+    catHeader.addEventListener('click', (e) => {
+      if (e.target.closest('.category-actions')) return;
       if (collapsedCategories.has(category.id)) {
         collapsedCategories.delete(category.id);
       } else {
@@ -1047,7 +1048,7 @@ function renderSidebarChannels() {
             <i data-lucide="volume-2" class="channel-icon" style="color: ${isCurrentVoiceRoom ? '#23a55a' : '#949ba4'};"></i>
             <span class="channel-item-name">${escapeHtml(channel.name)}</span>
           </div>
-          <div style="display: flex; align-items: center; gap: 6px;">
+          <div class="channel-voice-meta" style="display: flex; align-items: center; gap: 6px;">
             <span style="font-size: 11px; color: ${isCurrentVoiceRoom ? '#23a55a' : '#949ba4'}; font-family: monospace;">
               ${isCurrentVoiceRoom ? 'Conectado' : (voiceUsers.length > 0 ? `${voiceUsers.length} online` : 'Conectar')}
             </span>
@@ -1165,6 +1166,9 @@ function switchTextChannel(chName) {
 
   document.querySelectorAll('[data-channel]').forEach(c => {
     c.classList.toggle('active', c.getAttribute('data-channel') === chName);
+  });
+  document.querySelectorAll('[data-voice]').forEach(c => {
+    c.classList.remove('active');
   });
 
   currentChannelNameEl.textContent = chName;
@@ -1339,6 +1343,12 @@ async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda')
     messagesContainer.style.display = 'none';
     const wrapper = document.querySelector('.chat-input-wrapper');
     if (wrapper) wrapper.style.display = 'none';
+
+    // Destaque visual: marca o canal de voz como ativo e remove dos canais de texto
+    document.querySelectorAll('[data-channel]').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('[data-voice]').forEach(c => {
+      c.classList.toggle('active', c.getAttribute('data-voice') === roomId);
+    });
     return;
   }
 
@@ -1348,15 +1358,13 @@ async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda')
 
   currentVoiceChannelId = roomId;
   currentVoiceChannelName = roomName;
-
-  webrtc.ensureAudioContext();
-  sounds.playJoin();
   inVoice = true;
 
   isMuted = false;
   btnToggleMic.classList.remove('active-muted');
   btnStageMic.classList.remove('active-muted');
 
+  // Atualização visual imediata
   voiceStatusBox.style.display = 'flex';
   const voiceSubEl = voiceStatusBox.querySelector('.voice-status-sub');
   if (voiceSubEl) {
@@ -1369,9 +1377,41 @@ async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda')
   if (wrapper) wrapper.style.display = 'none';
   myUserStatusEl.textContent = '🔊 Em voz';
 
-  await webrtc.startAudio();
-  socket.emit('voice:join', { roomId });
+  // Atualiza classe active nos canais
+  document.querySelectorAll('[data-channel]').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('[data-voice]').forEach(c => {
+    c.classList.toggle('active', c.getAttribute('data-voice') === roomId);
+  });
+
+  // Atualização otimista imediata na lista de participantes para feedback instantâneo no 1º clique
+  if (currentUser) {
+    if (!allVoiceRoomsState[roomId]) allVoiceRoomsState[roomId] = [];
+    const myId = socket ? socket.id : null;
+    const exists = allVoiceRoomsState[roomId].some(u => (myId && u.id === myId) || (u.name && u.name.toLowerCase() === currentUser.name.toLowerCase()));
+    if (!exists) {
+      allVoiceRoomsState[roomId].push({
+        id: myId || 'me',
+        name: currentUser.name,
+        avatar: currentUser.avatar,
+        inVoice: true,
+        currentVoiceRoom: roomId
+      });
+    }
+  }
+
   renderSidebarChannels();
+  renderVoiceStageCards();
+
+  // Emite entrada no socket IMEDIATAMENTE (sem esperar microfone)
+  socket.emit('voice:join', { roomId });
+
+  webrtc.ensureAudioContext();
+  sounds.playJoin();
+
+  // Conecta o microfone em paralelo sem travar a interface nem exigir segundo clique
+  webrtc.startAudio().catch(err => {
+    console.warn('[WebRTC] Aviso ao inicializar áudio:', err);
+  });
 }
 
 function leaveVoice(playAudio = true) {
