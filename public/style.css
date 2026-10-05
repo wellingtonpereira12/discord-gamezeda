@@ -2577,4 +2577,324 @@ body {
   cursor: not-allowed;
 }
 
+/* ==========================================================================
+   ESTILOS DE DRAWERS E RESPONSIVIDADE MOBILE (DISCORD MOBILE)
+   ========================================================================== */
+.chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mobile-menu-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background-color 0.15s;
+  flex-shrink: 0;
+}
+
+.mobile-menu-btn:hover {
+  color: var(--text-header);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mobile-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(2px);
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.mobile-drawer-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ==========================================================================
+   RESPONSIVIDADE COMPLETA PARA CELULAR (LAYOUT DISCORD MOBILE OFICIAL)
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* Layout Base */
+  #app {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Gaveta Lateral de Canais (Off-Canvas Drawer da Esquerda) */
+  .channels-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 290px;
+    max-width: 84vw;
+    height: 100%;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.65);
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .channels-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  /* Gaveta Lateral de Membros (Off-Canvas Drawer da Direita) */
+  .members-sidebar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 270px;
+    max-width: 80vw;
+    height: 100%;
+    z-index: 1000;
+    transform: translateX(100%);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.65);
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex !important;
+    flex-direction: column;
+  }
+
+  .members-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  /* Botão Menu Hamburger no Cabeçalho */
+  .mobile-menu-btn {
+    display: inline-flex;
+  }
+
+  /* Conteúdo Principal (Chat e Palco) Ocupa 100% da Largura */
+  .main-content {
+    width: 100vw;
+    max-width: 100vw;
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Cabeçalho do Chat Compacto para Mobile */
+  .chat-header {
+    padding: 0 10px;
+    height: 48px;
+    gap: 8px;
+  }
+
+  .chat-header-title {
+    font-size: 15px;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .chat-header-title .hash {
+    font-size: 18px;
+    margin-right: 4px;
+  }
+
+  .chat-header-icons {
+    gap: 8px;
+  }
+
+  .search-box-wrapper input {
+    width: 85px;
+    font-size: 12px;
+  }
+
+  /* Barra de Digitação de Mensagem no Mobile */
+  .chat-input-wrapper {
+    padding: 0 8px 12px 8px;
+  }
+
+  .chat-input-bar {
+    padding: 0 10px;
+    height: 42px;
+    gap: 8px;
+  }
+
+  .chat-input-bar input {
+    font-size: 14px;
+  }
+
+  .messages-container {
+    padding: 12px 10px;
+  }
+
+  /* Palco de Vídeo / Transmissão / Voz */
+  .video-stage {
+    padding: 0;
+  }
+
+  .video-grid {
+    padding: 8px;
+    gap: 8px;
+    align-content: flex-start;
+  }
+
+  .screen-tile {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 16 / 9;
+    max-height: 40vh;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  }
+
+  .screen-tile-badge {
+    top: 8px;
+    left: 8px;
+    font-size: 11px;
+    padding: 3px 6px;
+    gap: 4px;
+  }
+
+  .screen-tile-controls {
+    top: 8px;
+    right: 8px;
+    gap: 4px;
+  }
+
+  .screen-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .screen-volume-control-box {
+    padding-right: 4px;
+  }
+
+  .screen-volume-slider-wrap {
+    width: 50px;
+  }
+
+  .screen-volume-val {
+    display: none;
+  }
+
+  /* Cards de Usuários na Chamada de Voz */
+  .user-voice-card {
+    width: 105px;
+    height: 95px;
+    padding: 8px 6px;
+  }
+
+  .user-voice-card img {
+    width: 44px;
+    height: 44px;
+    margin-bottom: 4px;
+  }
+
+  .user-voice-card .card-name {
+    font-size: 12px;
+    max-width: 90px;
+  }
+
+  /* Barra Flutuante de Controles de Voz estilo Discord Mobile */
+  .stage-control-bar {
+    bottom: 12px;
+    padding: 6px 10px;
+    border-radius: 30px;
+    gap: 8px;
+    max-width: 96vw;
+    background: rgba(30, 31, 34, 0.96);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  }
+
+  .stage-btn {
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+  }
+
+  /* Modais no Mobile */
+  .welcome-modal {
+    width: 92vw;
+    max-width: 380px;
+    padding: 22px 16px;
+  }
+
+  .discord-modal {
+    width: 94vw !important;
+    max-width: 94vw !important;
+    max-height: 90vh !important;
+    padding: 16px !important;
+    overflow-y: auto !important;
+  }
+
+  .discord-modal.channel-create-modal {
+    width: 94vw !important;
+    max-width: 94vw !important;
+  }
+
+  .modal-body-clean {
+    padding: 16px 14px 12px 14px;
+  }
+
+  .modal-footer-clean {
+    padding: 12px 14px;
+    gap: 8px;
+  }
+
+  .btn-cancel,
+  .btn-primary,
+  .btn-danger-confirm {
+    padding: 8px 16px;
+    font-size: 13.5px;
+  }
+}
+
+/* Telas Ultra-Pequenas (max-width: 480px) */
+@media (max-width: 480px) {
+  .chat-header-icons .search-box-wrapper {
+    display: none;
+  }
+
+  .stage-btn span {
+    display: none;
+  }
+
+  .stage-btn {
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  .user-voice-card {
+    width: 90px;
+    height: 85px;
+  }
+
+  .user-voice-card img {
+    width: 38px;
+    height: 38px;
+  }
+
+  .user-voice-card .card-name {
+    font-size: 11px;
+    max-width: 78px;
+  }
+}
+
+
 

@@ -144,6 +144,10 @@ const membersListContent = document.getElementById('members-list-content');
 const dynamicVoiceCards = document.getElementById('dynamic-voice-cards');
 const membersSidebar = document.getElementById('members-sidebar');
 const btnToggleMembersSidebar = document.getElementById('btn-toggle-members-sidebar');
+const btnToggleChannelsSidebar = document.getElementById('btn-toggle-channels-sidebar');
+const mobileDrawerOverlay = document.getElementById('mobile-drawer-overlay');
+const channelsSidebar = document.querySelector('.channels-sidebar');
+
 
 // Palco de Vídeo / Telas
 const videoStage = document.getElementById('video-stage');
@@ -241,6 +245,76 @@ let isScreenSharing = false;
 
 const userConfigs = new Map();
 let currentContextPeerId = null;
+
+// ==========================================
+// CONTROLE DE DRAWERS MOBILE (ESTILO DISCORD MOBILE)
+// ==========================================
+function isMobileView() {
+  return window.innerWidth <= 768;
+}
+
+function checkOverlayState() {
+  const isAnyOpen = (channelsSidebar && channelsSidebar.classList.contains('mobile-open')) ||
+                    (membersSidebar && membersSidebar.classList.contains('mobile-open'));
+  if (!isAnyOpen && mobileDrawerOverlay) {
+    mobileDrawerOverlay.classList.remove('active');
+    setTimeout(() => {
+      if (mobileDrawerOverlay && !mobileDrawerOverlay.classList.contains('active')) {
+        mobileDrawerOverlay.style.display = 'none';
+      }
+    }, 280);
+  }
+}
+
+function openChannelsDrawer() {
+  if (!channelsSidebar) return;
+  channelsSidebar.classList.add('mobile-open');
+  if (membersSidebar) membersSidebar.classList.remove('mobile-open');
+  if (mobileDrawerOverlay) {
+    mobileDrawerOverlay.style.display = 'block';
+    requestAnimationFrame(() => {
+      if (mobileDrawerOverlay) mobileDrawerOverlay.classList.add('active');
+    });
+  }
+}
+
+function closeChannelsDrawer() {
+  if (!channelsSidebar) return;
+  channelsSidebar.classList.remove('mobile-open');
+  checkOverlayState();
+}
+
+function openMembersDrawer() {
+  if (!membersSidebar) return;
+  membersSidebar.classList.add('mobile-open');
+  if (channelsSidebar) channelsSidebar.classList.remove('mobile-open');
+  if (mobileDrawerOverlay) {
+    mobileDrawerOverlay.style.display = 'block';
+    requestAnimationFrame(() => {
+      if (mobileDrawerOverlay) mobileDrawerOverlay.classList.add('active');
+    });
+  }
+}
+
+function closeMembersDrawer() {
+  if (!membersSidebar) return;
+  membersSidebar.classList.remove('mobile-open');
+  checkOverlayState();
+}
+
+function closeAllDrawers() {
+  if (channelsSidebar) channelsSidebar.classList.remove('mobile-open');
+  if (membersSidebar) membersSidebar.classList.remove('mobile-open');
+  if (mobileDrawerOverlay) {
+    mobileDrawerOverlay.classList.remove('active');
+    setTimeout(() => {
+      if (mobileDrawerOverlay && !mobileDrawerOverlay.classList.contains('active')) {
+        mobileDrawerOverlay.style.display = 'none';
+      }
+    }, 280);
+  }
+}
+
 
 function getUserConfig(peerId) {
   if (!userConfigs.has(peerId)) {
@@ -1372,6 +1446,10 @@ function switchTextChannel(chName) {
   }
 
   renderCurrentChannelMessages();
+
+  if (isMobileView()) {
+    closeAllDrawers();
+  }
 }
 
 function renderCurrentChannelMessages(filterText = '') {
@@ -1505,13 +1583,102 @@ chatSearchInput.addEventListener('input', (e) => {
   renderCurrentChannelMessages(e.target.value.trim());
 });
 
-// Toggle da barra lateral de membros
-btnToggleMembersSidebar.addEventListener('click', () => {
-  if (membersSidebar) {
-    const isHidden = membersSidebar.style.display === 'none';
-    membersSidebar.style.display = isHidden ? 'flex' : 'none';
+// Toggle da barra lateral de membros (Desktop e Mobile)
+if (btnToggleMembersSidebar) {
+  btnToggleMembersSidebar.addEventListener('click', () => {
+    if (isMobileView()) {
+      if (membersSidebar && membersSidebar.classList.contains('mobile-open')) {
+        closeMembersDrawer();
+      } else {
+        openMembersDrawer();
+      }
+    } else {
+      if (membersSidebar) {
+        const isHidden = membersSidebar.style.display === 'none';
+        membersSidebar.style.display = isHidden ? 'flex' : 'none';
+      }
+    }
+  });
+}
+
+// Toggle da barra lateral de canais (Mobile Hamburger estilo Discord)
+if (btnToggleChannelsSidebar) {
+  btnToggleChannelsSidebar.addEventListener('click', () => {
+    if (channelsSidebar && channelsSidebar.classList.contains('mobile-open')) {
+      closeChannelsDrawer();
+    } else {
+      openChannelsDrawer();
+    }
+  });
+}
+
+// Fechar drawers ao tocar no backdrop escuro
+if (mobileDrawerOverlay) {
+  mobileDrawerOverlay.addEventListener('click', () => {
+    closeAllDrawers();
+  });
+}
+
+// Fechar drawers com tecla Escape se em mobile
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && isMobileView()) {
+    closeAllDrawers();
   }
 });
+
+// Ao redimensionar a janela (ex: rotação de tela ou redimensionar navegador)
+window.addEventListener('resize', () => {
+  if (!isMobileView()) {
+    closeAllDrawers();
+    if (membersSidebar) {
+      membersSidebar.style.display = '';
+    }
+  }
+});
+
+// Suporte a gestos touch swipe no estilo Discord Mobile
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener('touchstart', (e) => {
+  if (!isMobileView()) return;
+  if (e.touches && e.touches.length === 1) {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }
+}, { passive: true });
+
+document.addEventListener('touchend', (e) => {
+  if (!isMobileView()) return;
+  if (!e.changedTouches || e.changedTouches.length === 0) return;
+
+  const touchEndX = e.changedTouches[0].clientX;
+  const touchEndY = e.changedTouches[0].clientY;
+  const deltaX = touchEndX - touchStartX;
+  const deltaY = touchEndY - touchStartY;
+
+  // Deslize predominantemente horizontal (> 50px de deslocamento e horizontal > vertical)
+  if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+    const isChannelsOpen = channelsSidebar && channelsSidebar.classList.contains('mobile-open');
+    const isMembersOpen = membersSidebar && membersSidebar.classList.contains('mobile-open');
+
+    if (deltaX > 0) {
+      // Swipe para a direita
+      if (isMembersOpen) {
+        closeMembersDrawer();
+      } else if (!isChannelsOpen && touchStartX < 50) {
+        openChannelsDrawer();
+      }
+    } else {
+      // Swipe para a esquerda
+      if (isChannelsOpen) {
+        closeChannelsDrawer();
+      } else if (!isMembersOpen && touchStartX > window.innerWidth - 50) {
+        openMembersDrawer();
+      }
+    }
+  }
+}, { passive: true });
 
 // Emoji trigger
 btnEmojiTrigger.addEventListener('click', () => {
@@ -1536,6 +1703,9 @@ async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda',
     document.querySelectorAll('[data-voice]').forEach(c => {
       c.classList.toggle('active', c.getAttribute('data-voice') === roomId);
     });
+    if (isMobileView()) {
+      closeAllDrawers();
+    }
     return;
   }
 
@@ -1604,6 +1774,10 @@ async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda',
 
   renderSidebarChannels();
   renderVoiceStageCards();
+
+  if (isMobileView()) {
+    closeAllDrawers();
+  }
 
   // Emite entrada no socket IMEDIATAMENTE (sem esperar microfone) com o status atual de mute/deaf
   socket.emit('voice:join', {
@@ -2439,8 +2613,8 @@ function openContextMenu(e, peerId, peerName) {
   userContextMenu.style.display = 'flex';
   const menuWidth = 240;
   const menuHeight = 235;
-  let posX = e.clientX;
-  let posY = e.clientY;
+  let posX = (e && e.clientX != null) ? e.clientX : Math.max(10, Math.floor(window.innerWidth / 2 - menuWidth / 2));
+  let posY = (e && e.clientY != null) ? e.clientY : Math.max(10, Math.floor(window.innerHeight / 2 - menuHeight / 2));
 
   if (posX + menuWidth > window.innerWidth) {
     posX = Math.max(10, window.innerWidth - menuWidth - 10);

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Discord - Jogos Bolados / Gamezeda</title>
-  <link rel="stylesheet" href="style.css?v=20261005_v23">
+  <link rel="stylesheet" href="style.css?v=20261005_v28">
   <link rel="icon" href="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -72,6 +72,9 @@
   <!-- APLICAÇÃO DISCORD COMPLETA -->
   <div id="app">
     
+    <!-- Overlay Escuro para Drawers Laterais no Mobile (estilo Discord) -->
+    <div id="mobile-drawer-overlay" class="mobile-drawer-overlay" style="display: none;"></div>
+
     <!-- COLUNA 1: BARRA DE CANAIS DO SERVIDOR JOGOS BOLADOS / GAMEZEDA -->
     <div class="channels-sidebar">
       
@@ -225,9 +228,14 @@
       
       <!-- Cabeçalho Superior do Chat -->
       <div class="chat-header">
-        <div class="chat-header-title">
-          <span class="hash">#</span>
-          <span id="current-channel-name">geral</span>
+        <div class="chat-header-left">
+          <button class="header-icon-btn mobile-menu-btn" id="btn-toggle-channels-sidebar" title="Abrir Canais">
+            <i data-lucide="menu" style="width: 20px; height: 20px;"></i>
+          </button>
+          <div class="chat-header-title">
+            <span class="hash">#</span>
+            <span id="current-channel-name">geral</span>
+          </div>
         </div>
 
         <div class="chat-header-icons">
@@ -720,7 +728,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261005_v26"></script>
+  <script type="module" src="app.js?v=20261005_v28"></script>
 
 </body>
 </html>
