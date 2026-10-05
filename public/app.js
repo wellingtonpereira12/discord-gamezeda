@@ -323,9 +323,17 @@ webrtc.onRemoteScreenAudio = (peerId, stream, track) => {
       liveIndicatorEl.textContent = 'AO VIVO 1080p60 • 🔊 COM SOM';
     }
     updateScreenAudioMeter(stream);
-    updateScreenSoundButtonState();
+    updateScreenSoundControlsState();
   }
 };
+
+function updateScreenSoundButtonState() {
+  updateScreenSoundControlsState();
+}
+
+function renderVoiceChannelUsers() {
+  renderSidebarChannels();
+}
 
 // Medidor de teste de microfone no modal de configurações e no popover do supressor
 setInterval(() => {
@@ -355,7 +363,7 @@ function registerStream(id, stream, name, avatar, isLocal) {
   } else {
     renderStreamSwitcherBar();
     renderVoiceStageCards();
-    renderVoiceChannelUsers();
+    renderSidebarChannels();
   }
 }
 
@@ -376,7 +384,7 @@ function unregisterStream(id) {
 
   renderStreamSwitcherBar();
   renderVoiceStageCards();
-  renderVoiceChannelUsers();
+  renderSidebarChannels();
 }
 
 let screenAudioMeterTimer = null;
@@ -620,7 +628,7 @@ function viewStream(id) {
 
   renderStreamSwitcherBar();
   renderVoiceStageCards();
-  renderVoiceChannelUsers();
+  renderSidebarChannels();
 }
 
 function renderStreamSwitcherBar() {
@@ -1345,11 +1353,10 @@ function switchTextChannel(chName) {
   currentChannelNameEl.textContent = chName;
   chatInput.placeholder = `Conversar em #${chName}`;
 
-  if (videoStage.style.display === 'flex') {
-    videoStage.style.display = 'none';
-    messagesContainer.style.display = 'flex';
-    document.querySelector('.chat-input-wrapper').style.display = 'block';
-  }
+  if (videoStage) videoStage.style.display = 'none';
+  if (messagesContainer) messagesContainer.style.display = 'flex';
+  const chatInputWrap = document.querySelector('.chat-input-wrapper');
+  if (chatInputWrap) chatInputWrap.style.display = 'block';
 
   if (!channelMessagesStore[chName]) {
     socket.emit('chat:get-channel', { channelId: chName });
@@ -1598,16 +1605,23 @@ async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda')
 }
 
 function leaveVoice(playAudio = true) {
-  if (playAudio && inVoice) sounds.playLeave();
-  if (webrtc) webrtc.leaveVoice();
+  try {
+    if (playAudio && inVoice) sounds.playLeave();
+  } catch (e) {}
+
+  try {
+    if (webrtc) webrtc.leaveVoice();
+  } catch (e) {}
 
   inVoice = false;
   isScreenSharing = false;
   isCameraActive = false;
   currentVoiceChannelId = null;
 
-  unregisterStream('local');
-  unregisterStream('local-camera');
+  try {
+    unregisterStream('local');
+    unregisterStream('local-camera');
+  } catch (e) {}
 
   if (voiceStatusBox) voiceStatusBox.style.display = 'none';
   if (typeof closeNoiseSuppressionPopover === 'function') closeNoiseSuppressionPopover();
@@ -1616,6 +1630,8 @@ function leaveVoice(playAudio = true) {
     btnVoiceCamera.style.background = '';
     btnVoiceCamera.style.color = '';
   }
+
+  // Oculta o palco de voz e garante a reabertura do chat de mensagens
   if (videoStage) videoStage.style.display = 'none';
   if (messagesContainer) messagesContainer.style.display = 'flex';
   const wrapper = document.querySelector('.chat-input-wrapper');
@@ -1661,7 +1677,11 @@ function leaveVoice(playAudio = true) {
     socket.emit('voice:leave');
   }
 
-  // 4. Re-renderiza IMEDIATAMENTE a interface completa (canais, membros, cards)
+  // 4. Retorna IMEDIATAMENTE para o chat de texto que está selecionado (padrão Discord, ex: #geral)
+  const targetChannel = currentTextChannel || 'geral';
+  switchTextChannel(targetChannel);
+
+  // 5. Re-renderiza IMEDIATAMENTE a interface completa (canais, membros, cards)
   renderSidebarChannels();
   renderMembersSidebar();
   renderVoiceStageCards();
@@ -1669,6 +1689,20 @@ function leaveVoice(playAudio = true) {
 
 quickDisconnectBtn.addEventListener('click', () => leaveVoice(true));
 btnStageDisconnect.addEventListener('click', () => leaveVoice(true));
+
+const voiceStatusInfo = voiceStatusBox ? voiceStatusBox.querySelector('.voice-status-info') : null;
+if (voiceStatusInfo) {
+  voiceStatusInfo.style.cursor = 'pointer';
+  voiceStatusInfo.title = 'Clique para abrir o palco de voz';
+  voiceStatusInfo.addEventListener('click', () => {
+    if (inVoice && videoStage) {
+      videoStage.style.display = 'flex';
+      messagesContainer.style.display = 'none';
+      const wrapper = document.querySelector('.chat-input-wrapper');
+      if (wrapper) wrapper.style.display = 'none';
+    }
+  });
+}
 
 // Compartilhar Tela em HD
 async function toggleScreenShare(forceVideoOnly = false) {
