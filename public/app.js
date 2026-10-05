@@ -79,11 +79,19 @@ const popoverAvatar = document.getElementById('popover-avatar');
 const popoverName = document.getElementById('popover-name');
 const btnPopoverLogout = document.getElementById('btn-popover-logout');
 
-// Status de Voz e Ações Rápidas
+// Status de Voz e Ações Rápidas (Layout Fixo estilo Discord)
 const voiceStatusBox = document.getElementById('voice-status-box');
 const quickDisconnectBtn = document.getElementById('quick-disconnect-btn');
 const quickScreenShareBtn = document.getElementById('quick-screenshare-btn');
 const btnVoiceSoundboard = document.getElementById('btn-voice-soundboard');
+const btnVoiceCamera = document.getElementById('btn-voice-camera');
+const btnNoiseSuppression = document.getElementById('btn-noise-suppression');
+const noiseSuppressionPopover = document.getElementById('noise-suppression-popover');
+const btnCloseNoisePopover = document.getElementById('btn-close-noise-popover');
+const noisePopoverToggle = document.getElementById('noise-popover-toggle');
+const noisePopoverSlider = document.getElementById('noise-popover-slider');
+const noisePopoverVal = document.getElementById('noise-popover-val');
+const noisePopoverMeter = document.getElementById('noise-popover-meter');
 
 // Controles do Usuário
 const btnToggleMic = document.getElementById('btn-toggle-mic');
@@ -309,16 +317,19 @@ webrtc.onRemoteScreenAudio = (peerId, stream, track) => {
   }
 };
 
-// Medidor de teste de microfone no modal de configurações
+// Medidor de teste de microfone no modal de configurações e no popover do supressor
 setInterval(() => {
-  if (settingsModal.style.display !== 'none' && webrtc.analyser) {
+  const isSettingsOpen = settingsModal && settingsModal.style.display !== 'none';
+  const isNoisePopoverOpen = noiseSuppressionPopover && noiseSuppressionPopover.style.display === 'flex';
+  if ((isSettingsOpen || isNoisePopoverOpen) && webrtc.analyser) {
     const buffer = new Uint8Array(webrtc.analyser.frequencyBinCount);
     webrtc.analyser.getByteFrequencyData(buffer);
     let sum = 0;
     for (let i = 0; i < buffer.length; i++) sum += buffer[i];
     const avg = sum / buffer.length;
     const pct = Math.min(100, Math.round((avg / 60) * 100));
-    if (micTestMeter) micTestMeter.style.width = `${pct}%`;
+    if (micTestMeter && isSettingsOpen) micTestMeter.style.width = `${pct}%`;
+    if (noisePopoverMeter && isNoisePopoverOpen) noisePopoverMeter.style.width = `${pct}%`;
   }
 }, 60);
 
@@ -1482,11 +1493,19 @@ function leaveVoice(playAudio = true) {
 
   inVoice = false;
   isScreenSharing = false;
+  isCameraActive = false;
   currentVoiceChannelId = null;
 
   unregisterStream('local');
+  unregisterStream('local-camera');
 
   if (voiceStatusBox) voiceStatusBox.style.display = 'none';
+  if (typeof closeNoiseSuppressionPopover === 'function') closeNoiseSuppressionPopover();
+  if (btnVoiceCamera) {
+    btnVoiceCamera.classList.remove('active-stream');
+    btnVoiceCamera.style.background = '';
+    btnVoiceCamera.style.color = '';
+  }
   if (videoStage) videoStage.style.display = 'none';
   if (messagesContainer) messagesContainer.style.display = 'flex';
   const wrapper = document.querySelector('.chat-input-wrapper');
@@ -1620,6 +1639,117 @@ btnFullscreenScreen.addEventListener('click', () => {
     sharedScreenVideo.webkitRequestFullscreen();
   }
 });
+
+// ==========================================
+// TRANSMISSÃO DE CÂMERA / WEBCAM
+// ==========================================
+let isCameraActive = false;
+
+async function toggleCamera() {
+  if (!inVoice) {
+    const firstVoice = allChannels.find(c => c.type === 'voice') || { id: 'gamezeda', name: 'Gamezeda' };
+    await connectToVoiceChannel(firstVoice.id, firstVoice.name);
+  }
+
+  if (isCameraActive) {
+    if (webrtc) await webrtc.stopCamera();
+    unregisterStream('local-camera');
+    isCameraActive = false;
+    if (btnVoiceCamera) {
+      btnVoiceCamera.classList.remove('active-stream');
+      btnVoiceCamera.style.background = '';
+      btnVoiceCamera.style.color = '';
+    }
+    showSoundToast('📷 Câmera desativada');
+  } else {
+    try {
+      if (btnVoiceCamera) btnVoiceCamera.disabled = true;
+      const stream = await webrtc.startCamera();
+      if (stream) {
+        isCameraActive = true;
+        registerStream('local-camera', stream, `${currentUser ? currentUser.name : 'Você'} (Sua Câmera)`, currentUser ? currentUser.avatar : '', true);
+        if (btnVoiceCamera) {
+          btnVoiceCamera.classList.add('active-stream');
+          btnVoiceCamera.style.background = '#23a55a';
+          btnVoiceCamera.style.color = '#ffffff';
+        }
+        showSoundToast('📷 Câmera ativada com sucesso!');
+      }
+    } catch (err) {
+      console.error('Erro em toggleCamera:', err);
+      if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
+        showSoundToast('❌ Permissão de câmera não concedida no navegador.');
+      } else if (err.name === 'NotFoundError') {
+        showSoundToast('❌ Nenhuma câmera encontrada neste dispositivo.');
+      } else {
+        showSoundToast('❌ Falha ao iniciar câmera: ' + (err.message || 'Erro'));
+      }
+    } finally {
+      if (btnVoiceCamera) btnVoiceCamera.disabled = false;
+    }
+  }
+}
+
+if (btnVoiceCamera) {
+  btnVoiceCamera.addEventListener('click', () => toggleCamera());
+}
+
+// ==========================================
+// POPOVER DE SUPRESSÃO DE RUÍDO (NOISE GATE)
+// ==========================================
+function openNoiseSuppressionPopover() {
+  if (!noiseSuppressionPopover) return;
+  if (noiseSuppressionPopover.style.display === 'flex') {
+    closeNoiseSuppressionPopover();
+    return;
+  }
+
+  if (noisePopoverToggle) noisePopoverToggle.checked = webrtc.noiseSuppressionEnabled;
+  if (noisePopoverSlider) noisePopoverSlider.value = webrtc.noiseGateThreshold;
+  if (noisePopoverVal) noisePopoverVal.textContent = `${webrtc.noiseGateThreshold} dB`;
+
+  noiseSuppressionPopover.style.display = 'flex';
+  if (btnNoiseSuppression) btnNoiseSuppression.classList.add('active');
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function closeNoiseSuppressionPopover() {
+  if (!noiseSuppressionPopover) return;
+  noiseSuppressionPopover.style.display = 'none';
+  if (btnNoiseSuppression) btnNoiseSuppression.classList.remove('active');
+}
+
+if (btnNoiseSuppression) {
+  btnNoiseSuppression.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openNoiseSuppressionPopover();
+  });
+}
+
+if (btnCloseNoisePopover) {
+  btnCloseNoisePopover.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeNoiseSuppressionPopover();
+  });
+}
+
+if (noisePopoverToggle) {
+  noisePopoverToggle.addEventListener('change', (e) => {
+    webrtc.setNoiseSuppression(e.target.checked);
+    if (settingNoiseSuppressionToggle) settingNoiseSuppressionToggle.checked = e.target.checked;
+    showSoundToast(e.target.checked ? '🎙️ Supressor de ruído ativado' : '🎙️ Supressor de ruído desativado');
+  });
+}
+
+if (noisePopoverSlider) {
+  noisePopoverSlider.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value);
+    if (noisePopoverVal) noisePopoverVal.textContent = `${val} dB`;
+    if (settingNoiseThreshVal) settingNoiseThreshVal.textContent = val;
+    if (settingNoiseThresholdSlider) settingNoiseThresholdSlider.value = val;
+    webrtc.setNoiseSuppression(noisePopoverToggle ? noisePopoverToggle.checked : true, val);
+  });
+}
 
 function syncMuteStatusToServer() {
   if (inVoice) {
@@ -2192,6 +2322,13 @@ document.addEventListener('click', (e) => {
       closeSoundboardModal();
     }
   }
+  if (noiseSuppressionPopover && noiseSuppressionPopover.style.display === 'flex') {
+    const clickedInsideNoise = noiseSuppressionPopover.contains(e.target);
+    const clickedNoiseBtn = btnNoiseSuppression && btnNoiseSuppression.contains(e.target);
+    if (!clickedInsideNoise && !clickedNoiseBtn) {
+      closeNoiseSuppressionPopover();
+    }
+  }
 });
 
 document.addEventListener('keydown', (e) => {
@@ -2201,6 +2338,7 @@ document.addEventListener('keydown', (e) => {
     closeServerDropdown();
     closeSettingsModal();
     closeSoundboardModal();
+    closeNoiseSuppressionPopover();
     closeAudioDriverFallbackModal();
     closeCreateChannelModal();
     closeCreateCategoryModal();

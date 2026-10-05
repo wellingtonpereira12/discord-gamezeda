@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Discord - Jogos Bolados / Gamezeda</title>
-  <link rel="stylesheet" href="style.css?v=20261005_v18">
+  <link rel="stylesheet" href="style.css?v=20261005_v19">
   <link rel="icon" href="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -99,27 +99,77 @@
       <!-- Lista de Canais Rolável (Renderizada dinamicamente com categorias, abinhas e participantes) -->
       <div class="channels-scroll" id="channels-scroll-container"></div>
 
-      <!-- Barra de Status de Voz (quando conectado) -->
+      <!-- Barra de Status de Voz (quando conectado - Layout Fixo estilo Discord) -->
       <div class="voice-connection-status" id="voice-status-box">
         <div class="voice-status-header">
-          <div class="voice-status-title">
-            <i data-lucide="activity" style="width: 16px; height: 16px;"></i>
-            <span>Voz conectada</span>
+          <div class="voice-status-info">
+            <div class="voice-signal-icon-box" title="Conexão de Voz Estável">
+              <i data-lucide="radio" style="width: 17px; height: 17px; color: #23a55a;"></i>
+            </div>
+            <div class="voice-status-meta">
+              <span class="voice-status-title">Voz conectada</span>
+              <span class="voice-status-sub">Gamezeda / Jogos Bolados</span>
+            </div>
           </div>
-          <span class="voice-status-sub">Gamezeda / Jogos Bolados</span>
+          <div class="voice-header-actions">
+            <button type="button" class="btn-voice-header-action" id="btn-noise-suppression" title="Supressão de Ruído (Noise Gate)">
+              <i data-lucide="audio-waveform" style="width: 18px; height: 18px;"></i>
+            </button>
+            <button type="button" class="btn-voice-header-action danger" id="quick-disconnect-btn" title="Desconectar">
+              <i data-lucide="phone-off" style="width: 17px; height: 17px;"></i>
+            </button>
+          </div>
         </div>
-        <div class="voice-quick-actions">
-          <button class="btn-voice-action" id="quick-screenshare-btn" title="Compartilhar Tela HD">
-            <i data-lucide="screen-share" style="width: 16px; height: 16px;"></i>
-            <span>Tela HD</span>
+
+        <!-- Grade com 3 botões de ação: Câmera, Tela HD e Som (Soundboard) -->
+        <div class="voice-tiles-row">
+          <button type="button" class="voice-tile-btn" id="btn-voice-camera" title="Câmera de Vídeo">
+            <i data-lucide="video" style="width: 18px; height: 18px;"></i>
           </button>
-          <button class="btn-voice-action" id="btn-voice-soundboard" title="Soundboard">
-            <i data-lucide="music" style="width: 16px; height: 16px;"></i>
-            <span>Sons</span>
+          <button type="button" class="voice-tile-btn" id="quick-screenshare-btn" title="Compartilhar Tela HD">
+            <i data-lucide="screen-share" style="width: 18px; height: 18px;"></i>
           </button>
-          <button class="btn-voice-action danger" id="quick-disconnect-btn" title="Desconectar">
-            <i data-lucide="phone-off" style="width: 16px; height: 16px;"></i>
+          <button type="button" class="voice-tile-btn" id="btn-voice-soundboard" title="Soundboard do Servidor">
+            <i data-lucide="volume-2" style="width: 18px; height: 18px;"></i>
           </button>
+        </div>
+      </div>
+
+      <!-- Popover Flutuante do Supressor de Ruído (Noise Gate estilo Discord) -->
+      <div id="noise-suppression-popover" class="noise-suppression-popover" style="display: none;">
+        <div class="noise-popover-header">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="audio-waveform" style="width: 18px; height: 18px; color: #23a55a;"></i>
+            <span style="font-weight: 700; font-size: 13.5px; color: #fff;">Supressão de Ruído</span>
+          </div>
+          <button type="button" class="btn-close-modal" id="btn-close-noise-popover" style="font-size: 18px; padding: 0 4px; line-height: 1;">&times;</button>
+        </div>
+        <div class="noise-popover-body">
+          <div class="setting-toggle-row" style="margin-bottom: 12px;">
+            <div>
+              <div style="font-weight: 600; font-size: 13px; color: #dbdee1;">Ativar Supressor de Ruído</div>
+              <div style="font-size: 11px; color: #949ba4;">Noise Gate HD com filtro passa-altas de 80Hz</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="noise-popover-toggle">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div style="margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; color: #dbdee1;">
+              <span>Limiar de Sensibilidade:</span>
+              <span id="noise-popover-val" style="font-weight: 700; color: #23a55a;">14</span>
+            </div>
+            <input type="range" id="noise-popover-slider" class="range-slider" min="0" max="60" value="14" style="width: 100%;">
+          </div>
+
+          <div style="margin-top: 6px;">
+            <div style="font-size: 11px; color: #949ba4; margin-bottom: 4px;">Nível de entrada do microfone:</div>
+            <div class="mic-meter-bar" style="height: 8px;">
+              <div class="mic-meter-fill" id="noise-popover-meter" style="width: 0%;"></div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -613,7 +663,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261005_v18"></script>
+  <script type="module" src="app.js?v=20261005_v19"></script>
 
 </body>
 </html>

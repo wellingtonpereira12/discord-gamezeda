@@ -10,11 +10,13 @@ export class WebRTCManager {
 
     this.localAudioStream = null;
     this.localScreenStream = null;
+    this.localCameraStream = null;
     this.processedAudioStream = null;
     this.localScreenAudioTrackId = null;
 
     this.isMuted = false;
     this.isScreenSharing = false;
+    this.isCameraActive = false;
 
     // Dispositivos selecionados
     this.selectedInputDeviceId = localStorage.getItem('discord_input_device') || 'default';
@@ -66,7 +68,8 @@ export class WebRTCManager {
       this.peerSenders.set(peerId, {
         micSender: null,
         screenVideoSender: null,
-        screenAudioSender: null
+        screenAudioSender: null,
+        cameraVideoSender: null
       });
     }
     return this.peerSenders.get(peerId);
@@ -355,6 +358,13 @@ export class WebRTCManager {
       }
       if (screenAudioTrack && !senders.screenAudioSender) {
         senders.screenAudioSender = pc.addTrack(screenAudioTrack, this.localScreenStream);
+      }
+    }
+
+    if (this.localCameraStream) {
+      const cameraVideoTrack = this.localCameraStream.getVideoTracks()[0];
+      if (cameraVideoTrack && !senders.cameraVideoSender) {
+        senders.cameraVideoSender = pc.addTrack(cameraVideoTrack, this.localCameraStream);
       }
     }
   }
@@ -756,6 +766,71 @@ export class WebRTCManager {
     this.socket.emit('voice:screen-status', { isSharing: false });
   }
 
+  async startCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 30 }
+        },
+        audio: false
+      });
+      this.localCameraStream = stream;
+      this.isCameraActive = true;
+      const cameraTrack = stream.getVideoTracks()[0];
+
+      if (cameraTrack) {
+        cameraTrack.onended = () => {
+          this.stopCamera();
+        };
+      }
+
+      for (const [peerId, pc] of this.peers.entries()) {
+        try {
+          const senders = this.getPeerSenders(peerId);
+          if (senders.cameraVideoSender) {
+            try { pc.removeTrack(senders.cameraVideoSender); } catch (e) {}
+            senders.cameraVideoSender = null;
+          }
+          if (cameraTrack) {
+            senders.cameraVideoSender = pc.addTrack(cameraTrack, this.localCameraStream);
+          }
+          await this.renegotiate(pc, peerId, {
+            screenStreamId: this.localCameraStream.id
+          });
+          await this.applyBitrateParameters(pc);
+        } catch (peerErr) {
+          console.warn(`[WebRTC] Falha ao enviar vídeo da câmera para ${peerId}:`, peerErr);
+        }
+      }
+
+      return this.localCameraStream;
+    } catch (err) {
+      console.error('[WebRTC] Falha ao capturar câmera:', err);
+      this.localCameraStream = null;
+      this.isCameraActive = false;
+      throw err;
+    }
+  }
+
+  async stopCamera() {
+    if (this.localCameraStream) {
+      const tracks = this.localCameraStream.getTracks();
+      for (const [peerId, pc] of this.peers.entries()) {
+        const senders = this.getPeerSenders(peerId);
+        if (senders.cameraVideoSender) {
+          try { pc.removeTrack(senders.cameraVideoSender); } catch (e) {}
+          senders.cameraVideoSender = null;
+        }
+        await this.renegotiate(pc, peerId);
+      }
+      tracks.forEach(t => t.stop());
+      this.localCameraStream = null;
+    }
+    this.isCameraActive = false;
+  }
+
   async renegotiate(pc, targetId, extraData = {}) {
     if (!targetId) return;
     try {
@@ -848,6 +923,7 @@ export class WebRTCManager {
 
   leaveVoice() {
     this.stopScreenShare();
+    this.stopCamera();
 
     for (const [peerId, pc] of this.peers.entries()) {
       try { pc.close(); } catch (e) {}
