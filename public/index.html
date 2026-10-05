@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Discord - Jogos Bolados / Gamezeda</title>
-  <link rel="stylesheet" href="style.css?v=20261005_v19">
+  <link rel="stylesheet" href="style.css?v=20261005_v20">
   <link rel="icon" href="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -564,54 +564,56 @@
   <!-- MODAL: CRIAR CANAL (ESTILO DISCORD) -->
   <div id="modal-create-channel" class="modal-overlay" style="display: none; z-index: 10005;">
     <div class="discord-modal channel-create-modal">
-      <div class="modal-header-clean">
-        <h3>Criar Canal</h3>
-        <p class="modal-subtitle">no Jogos Bolados</p>
-      </div>
-
-      <div class="form-section" style="margin-top: 14px;">
-        <label class="form-section-title">TIPO DE CANAL</label>
-        
-        <div class="channel-type-selector">
-          <label class="channel-type-option active" id="option-type-text">
-            <input type="radio" name="new-channel-type" value="text" checked style="display: none;">
-            <div class="channel-type-icon">#</div>
-            <div class="channel-type-info">
-              <span class="channel-type-title">Texto</span>
-              <span class="channel-type-desc">Poste mensagens, imagens, memes e links</span>
-            </div>
-            <div class="channel-type-radio-dot"></div>
-          </label>
-
-          <label class="channel-type-option" id="option-type-voice">
-            <input type="radio" name="new-channel-type" value="voice" style="display: none;">
-            <div class="channel-type-icon">🔊</div>
-            <div class="channel-type-info">
-              <span class="channel-type-title">Voz</span>
-              <span class="channel-type-desc">Converse por voz, vídeo e compartilhe a tela em HD</span>
-            </div>
-            <div class="channel-type-radio-dot"></div>
-          </label>
+      <div class="modal-body-clean">
+        <div class="modal-header-clean">
+          <h3>Criar Canal</h3>
+          <p class="modal-subtitle">no Jogos Bolados</p>
         </div>
-      </div>
 
-      <div class="form-section" style="margin-top: 16px;">
-        <label for="input-new-channel-name" class="form-section-title">NOME DO CANAL</label>
-        <div class="channel-name-input-wrapper">
-          <span id="channel-name-prefix" class="channel-name-prefix">#</span>
-          <input type="text" id="input-new-channel-name" class="form-input channel-name-input" placeholder="novo-canal" maxlength="32" required>
+        <div class="form-section" style="margin-top: 18px;">
+          <label class="form-section-title">TIPO DE CANAL</label>
+          
+          <div class="channel-type-selector">
+            <label class="channel-type-option active" id="option-type-text">
+              <input type="radio" name="new-channel-type" value="text" checked style="display: none;">
+              <div class="channel-type-icon">#</div>
+              <div class="channel-type-info">
+                <span class="channel-type-title">Texto</span>
+                <span class="channel-type-desc">Poste mensagens, imagens, memes e links</span>
+              </div>
+              <div class="channel-type-radio-dot"></div>
+            </label>
+
+            <label class="channel-type-option" id="option-type-voice">
+              <input type="radio" name="new-channel-type" value="voice" style="display: none;">
+              <div class="channel-type-icon">🔊</div>
+              <div class="channel-type-info">
+                <span class="channel-type-title">Voz</span>
+                <span class="channel-type-desc">Converse por voz, vídeo e compartilhe a tela em HD</span>
+              </div>
+              <div class="channel-type-radio-dot"></div>
+            </label>
+          </div>
         </div>
-        <p class="form-help-text" id="channel-name-help">No Discord, canais de texto usam letras minúsculas e traços.</p>
-      </div>
 
-      <div class="form-section" style="margin-top: 14px;">
-        <label for="select-channel-category" class="form-section-title">CATEGORIA</label>
-        <select id="select-channel-category" class="form-input discord-select">
-          <!-- Opções preenchidas dinamicamente -->
-        </select>
-      </div>
+        <div class="form-section" style="margin-top: 16px;">
+          <label for="input-new-channel-name" class="form-section-title">NOME DO CANAL</label>
+          <div class="channel-name-input-wrapper">
+            <span id="channel-name-prefix" class="channel-name-prefix">#</span>
+            <input type="text" id="input-new-channel-name" class="channel-name-input" placeholder="novo-canal" maxlength="32" required>
+          </div>
+          <p class="form-help-text" id="channel-name-help">No Discord, canais de texto usam letras minúsculas e traços.</p>
+        </div>
 
-      <div id="create-channel-alert" class="login-alert-box" style="display: none; margin-top: 12px;"></div>
+        <div class="form-section" style="margin-top: 14px;">
+          <label for="select-channel-category" class="form-section-title">CATEGORIA</label>
+          <select id="select-channel-category" class="discord-select">
+            <!-- Opções preenchidas dinamicamente -->
+          </select>
+        </div>
+
+        <div id="create-channel-alert" class="login-alert-box" style="display: none; margin-top: 12px;"></div>
+      </div>
 
       <div class="modal-footer-clean">
         <button type="button" class="btn-cancel" id="btn-cancel-create-channel">Cancelar</button>
@@ -623,17 +625,21 @@
   <!-- MODAL: CRIAR CATEGORIA (ESTILO DISCORD) -->
   <div id="modal-create-category" class="modal-overlay" style="display: none; z-index: 10005;">
     <div class="discord-modal channel-create-modal" style="max-width: 440px;">
-      <div class="modal-header-clean">
-        <h3>Criar Categoria</h3>
-        <p class="modal-subtitle">Organize seus canais em grupos e abinhas</p>
-      </div>
+      <div class="modal-body-clean">
+        <div class="modal-header-clean">
+          <h3>Criar Categoria</h3>
+          <p class="modal-subtitle">Organize seus canais em grupos e abinhas</p>
+        </div>
 
-      <div class="form-section" style="margin-top: 14px;">
-        <label for="input-new-category-name" class="form-section-title">NOME DA CATEGORIA</label>
-        <input type="text" id="input-new-category-name" class="form-input" placeholder="Ex: JOGOS, MÚSICA, STAFF..." maxlength="32" required>
-      </div>
+        <div class="form-section" style="margin-top: 18px;">
+          <label for="input-new-category-name" class="form-section-title">NOME DA CATEGORIA</label>
+          <div class="channel-name-input-wrapper">
+            <input type="text" id="input-new-category-name" class="channel-name-input" placeholder="Ex: JOGOS, MÚSICA, STAFF..." maxlength="32" required>
+          </div>
+        </div>
 
-      <div id="create-category-alert" class="login-alert-box" style="display: none; margin-top: 12px;"></div>
+        <div id="create-category-alert" class="login-alert-box" style="display: none; margin-top: 12px;"></div>
+      </div>
 
       <div class="modal-footer-clean">
         <button type="button" class="btn-cancel" id="btn-cancel-create-category">Cancelar</button>
@@ -645,15 +651,17 @@
   <!-- MODAL: CONFIRMAR EXCLUSÃO (ESTILO DISCORD) -->
   <div id="modal-confirm-delete" class="modal-overlay" style="display: none; z-index: 10006;">
     <div class="discord-modal channel-create-modal" style="max-width: 440px;">
-      <div class="modal-header-clean">
-        <h3 id="delete-modal-title">Excluir Canal</h3>
+      <div class="modal-body-clean">
+        <div class="modal-header-clean">
+          <h3 id="delete-modal-title">Excluir Canal</h3>
+        </div>
+
+        <p id="delete-modal-desc" style="color: #dbdee1; font-size: 15px; line-height: 1.5; margin: 16px 0 0 0;">
+          Tem certeza de que deseja excluir este item? Esta ação não pode ser desfeita.
+        </p>
+
+        <div id="delete-modal-alert" class="login-alert-box" style="display: none; margin-top: 12px;"></div>
       </div>
-
-      <p id="delete-modal-desc" style="color: #dbdee1; font-size: 14px; line-height: 1.5; margin: 14px 0 16px 0;">
-        Tem certeza de que deseja excluir este item? Esta ação não pode ser desfeita.
-      </p>
-
-      <div id="delete-modal-alert" class="login-alert-box" style="display: none; margin-bottom: 12px;"></div>
 
       <div class="modal-footer-clean">
         <button type="button" class="btn-cancel" id="btn-cancel-delete">Cancelar</button>
@@ -663,7 +671,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261005_v19"></script>
+  <script type="module" src="app.js?v=20261005_v20"></script>
 
 </body>
 </html>

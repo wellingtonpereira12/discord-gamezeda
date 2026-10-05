@@ -2195,36 +2195,51 @@ body {
   color: #ffffff;
 }
 
-/* MODAL DE CRIAÇÃO DE CANAL ESTILO DISCORD */
-.channel-create-modal {
+/* ==========================================
+   MODAIS MODERNIZADOS (CRIAR CANAL, CRIAR CATEGORIA, EXCLUIR CANAL - ESTILO DISCORD)
+   ========================================== */
+.discord-modal.channel-create-modal {
   max-width: 460px;
-  width: 100%;
-  padding-bottom: 0;
+  width: 92%;
+  padding: 0 !important;
   overflow: hidden;
+  border-radius: 8px;
+  background: #313338;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.modal-body-clean {
+  padding: 24px 24px 20px 24px;
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-header-clean h3 {
   color: #ffffff;
   font-size: 20px;
   font-weight: 700;
-  margin-bottom: 2px;
+  margin: 0 0 4px 0;
+  line-height: 24px;
 }
 
 .modal-subtitle {
   color: #949ba4;
   font-size: 12px;
+  margin: 0;
 }
 
 .form-section-title {
   display: block;
   color: #b5bac1;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.02em;
   margin-bottom: 8px;
 }
 
+/* Seletor de Tipo de Canal (Texto vs Voz) */
 .channel-type-selector {
   display: flex;
   flex-direction: column;
@@ -2234,13 +2249,14 @@ body {
 .channel-type-option {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
+  gap: 14px;
+  padding: 12px 14px;
   background: #2b2d31;
   border: 1px solid transparent;
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  user-select: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .channel-type-option:hover {
@@ -2248,16 +2264,24 @@ body {
 }
 
 .channel-type-option.active {
-  background: #383a40;
+  background: #2b2d31;
   border-color: #5865F2;
 }
 
 .channel-type-icon {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   color: #949ba4;
   width: 24px;
-  text-align: center;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.channel-type-option.active .channel-type-icon {
+  color: #ffffff;
 }
 
 .channel-type-info {
@@ -2268,25 +2292,29 @@ body {
 
 .channel-type-title {
   color: #ffffff;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
+  line-height: 1.2;
 }
 
 .channel-type-desc {
   color: #949ba4;
   font-size: 12px;
-  margin-top: 1px;
+  margin-top: 3px;
+  line-height: 1.3;
 }
 
 .channel-type-radio-dot {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   border: 2px solid #80848e;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .channel-type-option.active .channel-type-radio-dot {
@@ -2296,19 +2324,23 @@ body {
 
 .channel-type-option.active .channel-type-radio-dot::after {
   content: '';
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: #ffffff;
 }
 
+/* Input do Nome do Canal com Prefixo Embutido */
 .channel-name-input-wrapper {
   display: flex;
   align-items: center;
   background: #1e1f22;
   border-radius: 4px;
-  padding: 0 10px;
-  border: 1px solid transparent;
+  padding: 0 12px;
+  border: 1px solid #1e1f22;
+  box-sizing: border-box;
+  height: 42px;
+  transition: border-color 0.15s ease;
 }
 
 .channel-name-input-wrapper:focus-within {
@@ -2316,58 +2348,184 @@ body {
 }
 
 .channel-name-prefix {
-  color: #80848e;
+  color: #949ba4;
   font-size: 16px;
   font-weight: 700;
-  margin-right: 6px;
+  margin-right: 8px;
   user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 .channel-name-input {
+  flex: 1;
+  width: 100%;
   border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
   background: transparent !important;
-  padding: 10px 0 !important;
+  color: #dbdee1 !important;
+  font-size: 15px !important;
+  font-weight: 500;
+  padding: 0 !important;
+  margin: 0 !important;
+  height: 100% !important;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.channel-name-input:focus {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.channel-name-input::placeholder {
+  color: #5c5e66;
 }
 
 .form-help-text {
   color: #80848e;
-  font-size: 11px;
-  margin-top: 5px;
+  font-size: 12px;
+  margin-top: 6px;
+  line-height: 1.3;
 }
 
+/* Select de Categoria Estilo Discord */
 .discord-select {
+  width: 100%;
+  height: 42px;
+  background: #1e1f22;
+  color: #dbdee1;
+  border: 1px solid #1e1f22;
+  border-radius: 4px;
+  padding: 0 36px 0 12px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23949ba4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
 }
 
+.discord-select:focus {
+  border-color: #5865F2;
+}
+
+/* Rodapé dos Modais (Alinhamento e Estilização Fiel ao Discord) */
 .modal-footer-clean {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 12px;
-  margin-top: 20px;
+  gap: 16px;
   background: #2b2d31;
-  margin-left: -20px;
-  margin-right: -20px;
-  margin-bottom: -20px;
-  padding: 14px 20px;
-  border-bottom-left-radius: 8px;
-  border-bottom-right-radius: 8px;
+  padding: 16px 24px;
+  margin: 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
 }
 
+/* Botão Cancelar (Texto transparente com hover no estilo Discord) */
+.btn-cancel {
+  background: transparent;
+  color: #ffffff;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: text-decoration 0.15s ease, background-color 0.15s ease;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+}
+
+.btn-cancel:hover {
+  text-decoration: underline;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.btn-cancel:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Botão Primário Discord (Blurple) */
+.btn-primary {
+  background: #5865F2;
+  color: #ffffff;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.05s ease;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  font-family: inherit;
+}
+
+.btn-primary:hover {
+  background: #4752c4;
+}
+
+.btn-primary:active {
+  background: #3c45a5;
+  transform: scale(0.98);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Botão de Excluir / Perigo Discord (Vermelho) */
 .btn-danger-confirm {
   background: #da373c;
   color: #ffffff;
   border: none;
-  padding: 10px 20px;
+  padding: 10px 24px;
   border-radius: 4px;
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background-color 0.15s ease, transform 0.05s ease;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  font-family: inherit;
 }
 
 .btn-danger-confirm:hover {
-  background: #a12828;
+  background: #b2272c;
+}
+
+.btn-danger-confirm:active {
+  background: #901f23;
+  transform: scale(0.98);
+}
+
+.btn-danger-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 
