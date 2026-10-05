@@ -15,7 +15,7 @@ const memoryStore = {
     'geral', 'links', 'meme-imagem-videos', 'musicas',
     'novo-video-youtube', 'clips-twitch', 'blogger',
     'informacoes-eventos-regras', 'nova-live', 'vendo-mousepad',
-    'to-sem-mic', 'tribunal-de-justica'
+    'to-sem-mic'
   ],
   messages: {},
   soundboard: [
