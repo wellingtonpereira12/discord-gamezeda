@@ -1126,6 +1126,12 @@ function renderMembersSidebar() {
   otherMembers.forEach(user => {
     membersListContent.appendChild(createMemberItem(user, false));
   });
+
+  const onlineCountEl = document.getElementById('header-online-count');
+  if (onlineCountEl) {
+    const totalOnline = seenMemberNames.size || (allOnlineUsers && allOnlineUsers.length) || 1;
+    onlineCountEl.textContent = `${totalOnline} online`;
+  }
 }
 
 // SVGs brancos estilo Discord para microfone mutado e fone cortado (áudio desativado)
@@ -1479,18 +1485,21 @@ function renderCurrentChannelMessages(filterText = '') {
     messages = messages.filter(m => (m.text && m.text.toLowerCase().includes(query)) || (m.sender && m.sender.toLowerCase().includes(query)));
   }
 
+  const welcomeBanner = document.createElement('div');
+  welcomeBanner.className = 'channel-welcome-banner';
+  welcomeBanner.innerHTML = `
+    <div class="channel-welcome-icon">#</div>
+    <h2 class="channel-welcome-title">Bem-vindo(a) a #${escapeHtml(currentTextChannel)}!</h2>
+    <p class="channel-welcome-desc">Este é o início do canal #${escapeHtml(currentTextChannel)}.</p>
+  `;
+  messagesContainer.appendChild(welcomeBanner);
+
   if (messages.length === 0) {
-    const emptyBanner = document.createElement('div');
-    emptyBanner.style.padding = '32px 16px';
-    emptyBanner.innerHTML = `
-      <div style="width: 64px; height: 64px; border-radius: 50%; background: #404249; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700; color: #fff; margin-bottom: 12px;">#</div>
-      <h2 style="color: #fff; font-size: 28px; font-weight: 700; margin-bottom: 8px;">Bem-vindo a #${currentTextChannel}!</h2>
-      <p style="color: #949ba4; font-size: 14px;">Este é o início do canal #${currentTextChannel}. Envie a primeira mensagem!</p>
-    `;
-    messagesContainer.appendChild(emptyBanner);
+    messagesContainer.classList.add('is-empty');
     return;
   }
 
+  messagesContainer.classList.remove('is-empty');
   messages.forEach(msg => appendMessageToContainer(msg));
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
@@ -1515,6 +1524,7 @@ socket.on('chat:new-message', ({ channelId, message }) => {
   channelMessagesStore[channelId].push(message);
 
   if (channelId === currentTextChannel) {
+    messagesContainer.classList.remove('is-empty');
     appendMessageToContainer(message);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
     if (message.sender !== (currentUser && currentUser.name)) {
@@ -1576,9 +1586,21 @@ function appendMessageToContainer(msg) {
   if (msg.isSystem) {
     const sysDiv = document.createElement('div');
     sysDiv.className = 'system-message';
+
+    let formattedText = escapeHtml(msg.text);
+    if (msg.sender && msg.text && msg.text.startsWith(msg.sender)) {
+      const rest = msg.text.substring(msg.sender.length);
+      formattedText = `<strong class="system-username">${escapeHtml(msg.sender)}</strong>${escapeHtml(rest)}`;
+    }
+
     sysDiv.innerHTML = `
-      <span style="color: #23a55a; margin-right: 8px;">➜</span>
-      <span>${escapeHtml(msg.text)} <span style="font-size: 11px; opacity: 0.6;">${escapeHtml(displayTime)}</span></span>
+      <span class="system-arrow">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#23a55a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display: block;">
+          <line x1="4" y1="12" x2="20" y2="12"></line>
+          <polyline points="13 5 20 12 13 19"></polyline>
+        </svg>
+      </span>
+      <span class="system-content">${formattedText} <span class="system-time">${escapeHtml(displayTime)}</span></span>
     `;
     messagesContainer.appendChild(sysDiv);
     return;
@@ -1672,6 +1694,29 @@ if (btnToggleChannelsSidebar) {
       closeChannelsDrawer();
     } else {
       openChannelsDrawer();
+    }
+  });
+}
+
+const chatHeaderTitleWrap = document.querySelector('.chat-header-title-wrap');
+if (chatHeaderTitleWrap) {
+  chatHeaderTitleWrap.addEventListener('click', (e) => {
+    if (isMobileView()) {
+      // Se clicou no contador online, abre a lista de membros
+      if (e.target.closest('#header-online-count')) {
+        if (membersSidebar && membersSidebar.classList.contains('mobile-open')) {
+          closeMembersDrawer();
+        } else {
+          openMembersDrawer();
+        }
+        return;
+      }
+      // Caso contrário, abre a gaveta de canais
+      if (channelsSidebar && channelsSidebar.classList.contains('mobile-open')) {
+        closeChannelsDrawer();
+      } else {
+        openChannelsDrawer();
+      }
     }
   });
 }

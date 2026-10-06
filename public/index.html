@@ -2,9 +2,9 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Discord - Jogos Bolados / Gamezeda</title>
-  <link rel="stylesheet" href="style.css?v=20261005_v34">
+  <link rel="stylesheet" href="style.css?v=20261005_v36">
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/logo.png?v=20261005">
   <link rel="shortcut icon" href="/favicon.ico?v=20261005">
   <link rel="apple-touch-icon" href="/assets/logo.png?v=20261005">
@@ -264,11 +264,19 @@
       <div class="chat-header">
         <div class="chat-header-left">
           <button class="header-icon-btn mobile-menu-btn" id="btn-toggle-channels-sidebar" title="Abrir Canais">
-            <i data-lucide="menu" style="width: 20px; height: 20px;"></i>
+            <i data-lucide="arrow-left" class="mobile-menu-arrow" style="width: 22px; height: 22px;"></i>
+            <i data-lucide="menu" class="desktop-menu-bars" style="width: 20px; height: 20px;"></i>
           </button>
-          <div class="chat-header-title">
-            <span class="hash">#</span>
-            <span id="current-channel-name">geral</span>
+          <div class="chat-header-title-wrap">
+            <div class="chat-header-title">
+              <span class="hash">#</span>
+              <span id="current-channel-name">geral</span>
+              <span class="channel-header-chevron">›</span>
+            </div>
+            <div class="channel-header-subinfo">
+              <span class="header-status-dot"></span>
+              <span id="header-online-count">1 online</span>
+            </div>
           </div>
         </div>
 
@@ -376,11 +384,11 @@
         <form id="chat-form" class="chat-input-bar">
           <input type="file" id="chat-file-input" style="display: none;" accept="image/*,video/*,audio/*,.pdf,.zip,.txt">
           <button type="button" class="chat-plus-btn" id="btn-attach-file" title="Adicionar arquivo / imagem">
-            <i data-lucide="plus-circle" style="width: 20px; height: 20px;"></i>
+            <i data-lucide="plus" style="width: 18px; height: 18px;"></i>
           </button>
           <input type="text" id="chat-input" placeholder="Conversar em #geral" autocomplete="off">
           <div class="chat-actions">
-            <span id="btn-emoji-trigger" title="Inserir Emoji" style="cursor: pointer; font-size: 18px;">😀</span>
+            <span id="btn-emoji-trigger" title="Inserir Emoji" style="cursor: pointer; font-size: 20px;">😊</span>
           </div>
         </form>
       </div>
@@ -842,7 +850,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261005_v34"></script>
+  <script type="module" src="app.js?v=20261005_v36"></script>
 
 </body>
 </html>
