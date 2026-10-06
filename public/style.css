@@ -2852,12 +2852,14 @@ body {
   /* Layout Base */
   #app {
     position: relative;
-    width: 100vw;
+    width: 100%;
+    max-width: 100%;
     height: 100%;
     height: 100vh;
     height: var(--app-height, 100dvh);
     max-height: var(--app-height, 100dvh);
     overflow: hidden;
+    overflow-x: hidden;
     display: flex;
   }
 
@@ -2912,8 +2914,8 @@ body {
 
   /* Conteúdo Principal (Chat e Palco) Ocupa 100% da Largura e Altura Dinâmica */
   .main-content {
-    width: 100vw;
-    max-width: 100vw;
+    width: 100%;
+    max-width: 100%;
     height: 100%;
     height: 100vh;
     height: var(--app-height, 100dvh);
@@ -2924,6 +2926,7 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    overflow-x: hidden;
   }
 
   /* Cabeçalho do Chat estilo Discord Mobile Oficial */
@@ -3313,6 +3316,37 @@ body {
   .btn-danger-confirm {
     padding: 8px 16px;
     font-size: 13.5px;
+  }
+
+  /* ==========================================================================
+     AJUSTES ESPECÍFICOS PARA O APLICATIVO APK (ANDROID WEBVIEW / EXPO)
+     Compensa a barra de status do Android (relógio/notificações) e navegação
+     ========================================================================== */
+  body.is-mobile-app .chat-header {
+    padding-top: max(28px, env(safe-area-inset-top, 28px)) !important;
+    height: calc(52px + max(28px, env(safe-area-inset-top, 28px))) !important;
+    box-sizing: border-box !important;
+  }
+
+  body.is-mobile-app .channels-sidebar {
+    padding-top: max(28px, env(safe-area-inset-top, 28px)) !important;
+    box-sizing: border-box !important;
+  }
+
+  body.is-mobile-app .members-sidebar {
+    padding-top: max(28px, env(safe-area-inset-top, 28px)) !important;
+    box-sizing: border-box !important;
+  }
+
+  body.is-mobile-app .chat-input-wrapper {
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)) !important;
+    box-sizing: border-box !important;
+  }
+
+  body.is-mobile-app .messages-container {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    box-sizing: border-box !important;
   }
 }
 

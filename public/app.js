@@ -17,6 +17,21 @@ if (window.visualViewport) {
 }
 updateAppHeight();
 
+// Detecção automática de aplicativo Mobile (APK Android / Expo WebView)
+function applyMobileAppFixes() {
+  const isRN = typeof window.ReactNativeWebView !== 'undefined';
+  const isAndroidWV = /Android.*(wv|Version\/[0-9])/i.test(navigator.userAgent);
+  const isKnownWV = /wv|WebView/i.test(navigator.userAgent);
+  const isStandAlone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+  if (isRN || isAndroidWV || isKnownWV || isStandAlone) {
+    document.body.classList.add('is-mobile-app');
+  }
+}
+applyMobileAppFixes();
+document.addEventListener('DOMContentLoaded', applyMobileAppFixes);
+window.addEventListener('load', applyMobileAppFixes);
+
 const socket = io();
 
 // Telemetria de erros do cliente enviada ao console do servidor para diagnóstico imediato

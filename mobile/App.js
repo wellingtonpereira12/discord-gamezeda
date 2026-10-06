@@ -104,7 +104,11 @@ export default function App() {
             mixedContentMode="always"
             allowsInlineMediaPlayback={true}
             mediaPlaybackRequiresUserAction={false}
-            scalesPageToFit={true}
+            scalesPageToFit={false}
+            showsVerticalScrollIndicator={false}
+            showsHorizontalScrollIndicator={false}
+            overScrollMode="never"
+            injectedJavaScript="document.body.classList.add('is-mobile-app'); true;"
             cacheEnabled={true}
             startInLoadingState={true}
             // Permissão para WebRTC e chamadas de voz no Android WebView
