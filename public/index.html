@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Discord - Jogos Bolados / Gamezeda</title>
-  <link rel="stylesheet" href="style.css?v=20261005_v29">
+  <link rel="stylesheet" href="style.css?v=20261005_v33">
   <link rel="icon" href="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png">
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -68,6 +68,28 @@
     🔒 Para que o microfone e compartilhamento de tela funcionem sem bloqueio: 
     <a id="https-link" href="#" style="color: #fff; text-decoration: underline; margin-left: 8px; font-weight: 700;">Clique aqui para acessar via HTTPS</a>
   </div>
+
+  <!-- BARRA DE TÍTULO PERSONALIZADA PARA DESKTOP (ELECTRON) -->
+  <header id="desktop-titlebar" class="desktop-titlebar" style="display: none;">
+    <div class="desktop-titlebar-drag"></div>
+    <div class="desktop-titlebar-controls">
+      <button class="desktop-control-btn" id="btn-desktop-minimize" title="Minimizar" aria-label="Minimizar">
+        <svg width="11" height="11" viewBox="0 0 12 12">
+          <rect fill="currentColor" width="10" height="1.1" x="1" y="5.5"></rect>
+        </svg>
+      </button>
+      <button class="desktop-control-btn" id="btn-desktop-maximize" title="Maximizar / Restaurar" aria-label="Maximizar">
+        <svg id="desktop-icon-maximize" width="11" height="11" viewBox="0 0 12 12">
+          <rect width="9" height="9" x="1.5" y="1.5" fill="none" stroke="currentColor" stroke-width="1.1"></rect>
+        </svg>
+      </button>
+      <button class="desktop-control-btn close" id="btn-desktop-close" title="Fechar" aria-label="Fechar">
+        <svg width="11" height="11" viewBox="0 0 12 12">
+          <polygon fill="currentColor" points="11 1.7 10.3 1 6 5.3 1.7 1 1 1.7 5.3 6 1 10.3 1.7 11 6 6.7 10.3 11 11 10.3 6.7 6"></polygon>
+        </svg>
+      </button>
+    </div>
+  </header>
 
   <!-- APLICAÇÃO DISCORD COMPLETA -->
   <div id="app">
@@ -813,7 +835,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261005_v32"></script>
+  <script type="module" src="app.js?v=20261005_v33"></script>
 
 </body>
 </html>

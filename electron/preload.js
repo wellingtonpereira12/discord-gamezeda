@@ -15,9 +15,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('updater:ready', (event, data) => callback(data));
   },
 
-  // Controles de Janela
+  // Controles de Janela Personalizada (Minimizar, Maximizar / Tela Cheia, Fechar)
   minimizeWindow: () => ipcRenderer.send('window:minimize'),
+  maximizeWindow: () => ipcRenderer.send('window:maximize'),
   closeWindow: () => ipcRenderer.send('window:close'),
+  isMaximized: () => ipcRenderer.invoke('window:is-maximized'),
+  onMaximizedChange: (callback) => {
+    ipcRenderer.on('window:maximized-change', (event, isMax) => callback(isMax));
+  },
 
   // Obter versão
   getVersion: () => ipcRenderer.invoke('app:get-version')

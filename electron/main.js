@@ -1,7 +1,10 @@
-const { app, BrowserWindow, ipcMain, session } = require('electron');
+const { app, BrowserWindow, ipcMain, session, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { checkAndApplyUpdates, launchInstallerAndExit } = require('./updater');
+
+// Desabilita menus de barra de ferramentas padrão do Electron (File, Edit, View, etc)
+Menu.setApplicationMenu(null);
 
 let splashWindow = null;
 let mainWindow = null;
@@ -69,12 +72,30 @@ function createMainWindow(targetUrl) {
     minWidth: 940,
     minHeight: 600,
     title: 'Jogos Bolados',
-    backgroundColor: '#313338',
+    backgroundColor: '#111214',
+    frame: false,
+    autoHideMenuBar: true,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false
+    }
+  });
+
+  // Garante que o menu nativo da janela não seja exibido
+  mainWindow.setMenu(null);
+
+  // Monitora alterações de estado Maximizado / Restaurado
+  mainWindow.on('maximize', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('window:maximized-change', true);
+    }
+  });
+
+  mainWindow.on('unmaximize', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('window:maximized-change', false);
     }
   });
 
@@ -169,17 +190,42 @@ async function startApplication() {
   }, 800);
 }
 
+// Função auxiliar para obter a janela ativa ou principal
+function getActiveWindow() {
+  const focused = BrowserWindow.getFocusedWindow();
+  if (focused && !focused.isDestroyed()) return focused;
+  if (mainWindow && !mainWindow.isDestroyed()) return mainWindow;
+  if (splashWindow && !splashWindow.isDestroyed()) return splashWindow;
+  return null;
+}
+
 // Configurações do ciclo de vida do Electron
 app.whenReady().then(() => {
-  // IPC Handlers
+  // IPC Handlers de Controle de Janela Personalizada
   ipcMain.on('window:minimize', () => {
-    const win = BrowserWindow.getFocusedWindow();
+    const win = getActiveWindow();
     if (win) win.minimize();
   });
 
+  ipcMain.on('window:maximize', () => {
+    const win = getActiveWindow();
+    if (win) {
+      if (win.isMaximized()) {
+        win.unmaximize();
+      } else {
+        win.maximize();
+      }
+    }
+  });
+
   ipcMain.on('window:close', () => {
-    const win = BrowserWindow.getFocusedWindow();
+    const win = getActiveWindow();
     if (win) win.close();
+  });
+
+  ipcMain.handle('window:is-maximized', () => {
+    const win = getActiveWindow();
+    return win ? win.isMaximized() : false;
   });
 
   ipcMain.handle('app:get-version', () => {

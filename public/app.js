@@ -3414,3 +3414,86 @@ renderSidebarChannels();
 if (window.lucide) {
   window.lucide.createIcons();
 }
+
+// ==========================================
+// SUPORTE AO CLIENTE DESKTOP (ELECTRON)
+// ==========================================
+function setupDesktopClient() {
+  if (!window.electronAPI || !window.electronAPI.isElectron) {
+    return;
+  }
+
+  document.body.classList.add('is-electron');
+
+  const desktopTitlebar = document.getElementById('desktop-titlebar');
+  const btnWinMinimize = document.getElementById('btn-desktop-minimize');
+  const btnWinMaximize = document.getElementById('btn-desktop-maximize');
+  const btnWinClose = document.getElementById('btn-desktop-close');
+  const iconWinMaximize = document.getElementById('desktop-icon-maximize');
+
+  if (btnDownloadDesktop) {
+    btnDownloadDesktop.style.display = 'none';
+  }
+
+  if (desktopTitlebar) {
+    desktopTitlebar.style.display = 'flex';
+    const dragArea = desktopTitlebar.querySelector('.desktop-titlebar-drag');
+    if (dragArea) {
+      dragArea.addEventListener('dblclick', () => {
+        window.electronAPI.maximizeWindow();
+      });
+    }
+  }
+
+  function updateMaximizeIcon(isMax) {
+    if (!iconWinMaximize) return;
+    if (isMax) {
+      // Ícone Restaurar (duas janelas sobrepostas)
+      iconWinMaximize.innerHTML = `
+        <rect width="7" height="7" x="3.5" y="1.5" fill="none" stroke="currentColor" stroke-width="1.1"></rect>
+        <path d="M1.5 3.5v7h7" fill="none" stroke="currentColor" stroke-width="1.1"></path>
+      `;
+      if (btnWinMaximize) btnWinMaximize.title = 'Restaurar';
+    } else {
+      // Ícone Maximizar (um quadrado)
+      iconWinMaximize.innerHTML = `
+        <rect width="9" height="9" x="1.5" y="1.5" fill="none" stroke="currentColor" stroke-width="1.1"></rect>
+      `;
+      if (btnWinMaximize) btnWinMaximize.title = 'Maximizar';
+    }
+  }
+
+  if (btnWinMinimize) {
+    btnWinMinimize.addEventListener('click', () => {
+      window.electronAPI.minimizeWindow();
+    });
+  }
+
+  if (btnWinMaximize) {
+    btnWinMaximize.addEventListener('click', () => {
+      window.electronAPI.maximizeWindow();
+    });
+  }
+
+  if (btnWinClose) {
+    btnWinClose.addEventListener('click', () => {
+      window.electronAPI.closeWindow();
+    });
+  }
+
+  if (window.electronAPI.onMaximizedChange) {
+    window.electronAPI.onMaximizedChange((isMax) => {
+      updateMaximizeIcon(isMax);
+    });
+  }
+
+  if (window.electronAPI.isMaximized) {
+    window.electronAPI.isMaximized().then(isMax => {
+      updateMaximizeIcon(isMax);
+    }).catch(() => {});
+  }
+}
+
+// Inicializa integração com cliente desktop se estiver no Electron
+setupDesktopClient();
+
