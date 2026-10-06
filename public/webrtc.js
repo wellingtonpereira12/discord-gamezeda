@@ -1,4 +1,43 @@
-// WebRTC Manager - Transmissão HD (1080p60fps / 8Mbps), Áudio Dual (Voz + Tela Independentes), Supressor de Ruído e Dispositivos
+// WebRTC Manager - Transmissão HD (1080p60fps / 8Mbps), Áudio Dual (Voz + Tela Independentes), Supressor de Ruído Neural RNNoise (Xiph.Org) e Dispositivos
+
+// Pre-carregamento e detecção SIMD para o modelo WebAssembly RNNoise (Xiph.Org)
+let rnnoiseWasmBinary = null;
+let rnnoiseWorkletLoaded = false;
+let isSimdSupported = null;
+
+async function checkSimd() {
+  if (isSimdSupported !== null) return isSimdSupported;
+  try {
+    isSimdSupported = await WebAssembly.validate(new Uint8Array([
+      0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11
+    ]));
+  } catch (e) {
+    isSimdSupported = false;
+  }
+  return isSimdSupported;
+}
+
+async function preloadRnnoise() {
+  if (rnnoiseWasmBinary) return rnnoiseWasmBinary;
+  try {
+    const simd = await checkSimd();
+    const wasmUrl = simd ? '/rnnoise/rnnoise_simd.wasm' : '/rnnoise/rnnoise.wasm';
+    const res = await fetch(wasmUrl);
+    if (!res.ok) throw new Error(`HTTP ${res.status} ao baixar ${wasmUrl}`);
+    rnnoiseWasmBinary = await res.arrayBuffer();
+    console.log(`[WebRTC 🤖 RNNoise] Modelo WebAssembly carregado (${simd ? 'SIMD' : 'Standard'}, ${rnnoiseWasmBinary.byteLength} bytes)`);
+    return rnnoiseWasmBinary;
+  } catch (err) {
+    console.warn('[WebRTC 🤖 RNNoise] Aviso ao carregar WASM:', err);
+    return null;
+  }
+}
+
+// Inicia pré-carregamento imediato em segundo plano
+if (typeof window !== 'undefined') {
+  preloadRnnoise().catch(() => {});
+}
+
 export class WebRTCManager {
   constructor(socket, onRemoteTrack, onRemoteRemove, onSpeakingChange, onRemoteSpeaking) {
     this.socket = socket;
@@ -22,9 +61,12 @@ export class WebRTCManager {
     this.selectedInputDeviceId = localStorage.getItem('discord_input_device') || 'default';
     this.selectedOutputDeviceId = localStorage.getItem('discord_output_device') || 'default';
 
-    // Supressor de Ruído (Noise Gate)
-    this.noiseSuppressionEnabled = localStorage.getItem('discord_noise_gate_enabled') !== 'false';
-    this.noiseGateThreshold = parseFloat(localStorage.getItem('discord_noise_gate_thresh') || '14');
+    // Supressor de Ruído Neural RNNoise (Xiph.Org)
+    this.noiseSuppressionEnabled = localStorage.getItem('discord_rnnoise_enabled') !== 'false';
+    this.rnnoiseNode = null;
+    this.rnnoiseGainNode = null;
+    this.bypassGainNode = null;
+    this.outputGainNode = null;
 
     // Mapa de conexões: peerId -> RTCPeerConnection
     this.peers = new Map();
@@ -84,6 +126,16 @@ export class WebRTCManager {
     }
     if (this.audioContext.state === 'suspended') {
       this.audioContext.resume();
+    }
+    if (this.audioContext.audioWorklet && !rnnoiseWorkletLoaded) {
+      this.audioContext.audioWorklet.addModule('/rnnoise/workletProcessor.js')
+        .then(() => {
+          rnnoiseWorkletLoaded = true;
+          console.log('[WebRTC 🤖 RNNoise] AudioWorkletProcessor registrado com sucesso.');
+        })
+        .catch(err => {
+          console.warn('[WebRTC 🤖 RNNoise] Aviso ao registrar AudioWorklet:', err);
+        });
     }
   }
 
@@ -572,7 +624,7 @@ export class WebRTCManager {
       console.log('[WebRTC 🎤] Microfone ativado!');
       this.isMuted = false;
 
-      this.setupAudioProcessingChain(this.localAudioStream);
+      await this.setupAudioProcessingChain(this.localAudioStream);
 
       const outgoingTrack = this.getOutgoingAudioTrack();
       for (const [peerId, pc] of this.peers.entries()) {
@@ -594,28 +646,77 @@ export class WebRTCManager {
     }
   }
 
-  setupAudioProcessingChain(rawStream) {
+  async setupAudioProcessingChain(rawStream) {
     try {
       this.ensureAudioContext();
 
       if (this.localSourceNode) {
         try { this.localSourceNode.disconnect(); } catch (e) {}
       }
+      if (this.rnnoiseNode) {
+        try {
+          this.rnnoiseNode.port.postMessage('destroy');
+          this.rnnoiseNode.disconnect();
+        } catch (e) {}
+        this.rnnoiseNode = null;
+      }
 
       this.localSourceNode = this.audioContext.createMediaStreamSource(rawStream);
-
-      const highpass = this.audioContext.createBiquadFilter();
-      highpass.type = 'highpass';
-      highpass.frequency.value = 80;
-
-      this.noiseGateNode = this.audioContext.createGain();
-      this.noiseGateNode.gain.value = 1.0;
-
       this.destinationNode = this.audioContext.createMediaStreamDestination();
 
-      this.localSourceNode.connect(highpass);
-      highpass.connect(this.noiseGateNode);
-      this.noiseGateNode.connect(this.destinationNode);
+      // Nó mestre de saída para mutação instantânea
+      this.outputGainNode = this.audioContext.createGain();
+      this.outputGainNode.gain.value = this.isMuted ? 0.0 : 1.0;
+      this.outputGainNode.connect(this.destinationNode);
+
+      // Ganhos Wet (RNNoise) e Dry (Bypass direto) para transição limpa
+      this.rnnoiseGainNode = this.audioContext.createGain();
+      this.bypassGainNode = this.audioContext.createGain();
+
+      this.rnnoiseGainNode.gain.value = this.noiseSuppressionEnabled ? 1.0 : 0.0;
+      this.bypassGainNode.gain.value = this.noiseSuppressionEnabled ? 0.0 : 1.0;
+
+      this.rnnoiseGainNode.connect(this.outputGainNode);
+      this.bypassGainNode.connect(this.outputGainNode);
+
+      // Filtro subsônico (40Hz) eliminando estalos mecânicos sem afetar a voz
+      const subFilter = this.audioContext.createBiquadFilter();
+      subFilter.type = 'highpass';
+      subFilter.frequency.value = 40;
+
+      this.localSourceNode.connect(subFilter);
+      subFilter.connect(this.bypassGainNode);
+
+      // Instancia o modelo RNNoise em WebAssembly dentro de um AudioWorklet isolado
+      let rnnoiseReady = false;
+      try {
+        const wasm = await preloadRnnoise();
+        if (this.audioContext.audioWorklet && !rnnoiseWorkletLoaded) {
+          await this.audioContext.audioWorklet.addModule('/rnnoise/workletProcessor.js');
+          rnnoiseWorkletLoaded = true;
+        }
+
+        if (wasm && rnnoiseWorkletLoaded) {
+          this.rnnoiseNode = new AudioWorkletNode(this.audioContext, '@sapphi-red/web-noise-suppressor/rnnoise', {
+            processorOptions: {
+              maxChannels: 1,
+              wasmBinary: wasm
+            }
+          });
+
+          subFilter.connect(this.rnnoiseNode);
+          this.rnnoiseNode.connect(this.rnnoiseGainNode);
+          rnnoiseReady = true;
+          console.log('[WebRTC 🤖 RNNoise] Supressor neural (RNN/GRU) ativado com sucesso em 48kHz!');
+        }
+      } catch (rnErr) {
+        console.warn('[WebRTC 🤖 RNNoise] Aviso ao instanciar RNNoise, operando em bypass:', rnErr);
+      }
+
+      if (!rnnoiseReady) {
+        this.bypassGainNode.gain.value = 1.0;
+        this.rnnoiseGainNode.gain.value = 0.0;
+      }
 
       this.processedAudioStream = this.destinationNode.stream;
     } catch (e) {
@@ -652,13 +753,21 @@ export class WebRTCManager {
     document.querySelectorAll('audio').forEach(audio => this.applyOutputDeviceToElement(audio));
   }
 
-  setNoiseSuppression(enabled, threshold) {
-    this.noiseSuppressionEnabled = enabled;
-    if (threshold !== undefined) {
-      this.noiseGateThreshold = threshold;
-      localStorage.setItem('discord_noise_gate_thresh', threshold.toString());
+  setNoiseSuppression(enabled) {
+    this.noiseSuppressionEnabled = !!enabled;
+    localStorage.setItem('discord_rnnoise_enabled', this.noiseSuppressionEnabled ? 'true' : 'false');
+
+    if (this.rnnoiseGainNode && this.bypassGainNode && this.audioContext) {
+      const now = this.audioContext.currentTime;
+      if (this.noiseSuppressionEnabled && this.rnnoiseNode) {
+        this.bypassGainNode.gain.setTargetAtTime(0.0, now, 0.02);
+        this.rnnoiseGainNode.gain.setTargetAtTime(1.0, now, 0.02);
+      } else {
+        this.rnnoiseGainNode.gain.setTargetAtTime(0.0, now, 0.02);
+        this.bypassGainNode.gain.setTargetAtTime(1.0, now, 0.02);
+      }
     }
-    localStorage.setItem('discord_noise_gate_enabled', enabled ? 'true' : 'false');
+    console.log(`[WebRTC 🤖 RNNoise] Supressão de ruído: ${this.noiseSuppressionEnabled ? 'ATIVADA' : 'DESATIVADA'}`);
   }
 
   toggleMute() {
@@ -668,8 +777,13 @@ export class WebRTCManager {
         track.enabled = !this.isMuted;
       });
     }
-    if (this.noiseGateNode) {
-      this.noiseGateNode.gain.value = this.isMuted ? 0.0 : 1.0;
+    if (this.processedAudioStream) {
+      this.processedAudioStream.getAudioTracks().forEach(track => {
+        track.enabled = !this.isMuted;
+      });
+    }
+    if (this.outputGainNode) {
+      this.outputGainNode.gain.value = this.isMuted ? 0.0 : 1.0;
     }
     return this.isMuted;
   }
@@ -941,7 +1055,12 @@ export class WebRTCManager {
   setupLocalSpeechMeter(stream) {
     try {
       this.ensureAudioContext();
-      const meterSource = this.audioContext.createMediaStreamSource(stream);
+      if (this.analyserTimer) {
+        clearInterval(this.analyserTimer);
+        this.analyserTimer = null;
+      }
+
+      const meterSource = this.audioContext.createMediaStreamSource(this.processedAudioStream || stream);
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.fftSize = 256;
       meterSource.connect(this.analyser);
@@ -963,20 +1082,14 @@ export class WebRTCManager {
         for (let i = 0; i < buffer.length; i++) sum += buffer[i];
         const avg = sum / buffer.length;
 
-        const threshold = this.noiseGateThreshold;
-        const isOpen = avg > threshold;
+        // Detecção de voz ativa (VAD) sobre o áudio neural processado pelo RNNoise
+        const isSpeaking = avg > 10;
 
-        if (this.noiseGateNode && this.noiseSuppressionEnabled) {
-          const targetGain = isOpen ? 1.0 : 0.0;
-          this.noiseGateNode.gain.setTargetAtTime(targetGain, this.audioContext.currentTime, 0.05);
-        }
-
-        const isSpeaking = isOpen;
         if (isSpeaking !== wasSpeaking) {
           wasSpeaking = isSpeaking;
           if (this.onSpeakingChange) this.onSpeakingChange(isSpeaking);
         }
-      }, 80);
+      }, 60);
     } catch (e) {}
   }
 
@@ -1038,6 +1151,14 @@ export class WebRTCManager {
       this.localAudioStream.getTracks().forEach(t => t.stop());
       this.localAudioStream = null;
     }
+    if (this.rnnoiseNode) {
+      try {
+        this.rnnoiseNode.port.postMessage('destroy');
+        this.rnnoiseNode.disconnect();
+      } catch (e) {}
+      this.rnnoiseNode = null;
+    }
+    this.processedAudioStream = null;
     if (this.analyserTimer) {
       clearInterval(this.analyserTimer);
       this.analyserTimer = null;

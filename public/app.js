@@ -89,8 +89,6 @@ const btnNoiseSuppression = document.getElementById('btn-noise-suppression');
 const noiseSuppressionPopover = document.getElementById('noise-suppression-popover');
 const btnCloseNoisePopover = document.getElementById('btn-close-noise-popover');
 const noisePopoverToggle = document.getElementById('noise-popover-toggle');
-const noisePopoverSlider = document.getElementById('noise-popover-slider');
-const noisePopoverVal = document.getElementById('noise-popover-val');
 const noisePopoverMeter = document.getElementById('noise-popover-meter');
 
 // Controles do Usuário
@@ -203,8 +201,6 @@ const settingAudioOutput = document.getElementById('setting-audio-output');
 const micTestMeter = document.getElementById('mic-test-meter');
 const btnTestOutputSound = document.getElementById('btn-test-output-sound');
 const settingNoiseSuppressionToggle = document.getElementById('setting-noise-suppression-toggle');
-const settingNoiseThresholdSlider = document.getElementById('setting-noise-threshold-slider');
-const settingNoiseThreshVal = document.getElementById('setting-noise-thresh-val');
 
 // Configurações - Abas e Cadastro
 const tabBtnVoice = document.getElementById('tab-btn-voice');
@@ -430,7 +426,14 @@ setInterval(() => {
     const avg = sum / buffer.length;
     const pct = Math.min(100, Math.round((avg / 60) * 100));
     if (micTestMeter && isSettingsOpen) micTestMeter.style.width = `${pct}%`;
-    if (noisePopoverMeter && isNoisePopoverOpen) noisePopoverMeter.style.width = `${pct}%`;
+    if (noisePopoverMeter && isNoisePopoverOpen) {
+      noisePopoverMeter.style.width = `${pct}%`;
+      const levelText = document.getElementById('rnnoise-level-text');
+      if (levelText) {
+        levelText.textContent = pct > 12 ? 'Voz Detectada (Límpida)' : (webrtc.noiseSuppressionEnabled ? 'Silêncio / Ruído Filtrado' : 'Monitorando Direto');
+        levelText.style.color = pct > 12 ? '#23a55a' : (webrtc.noiseSuppressionEnabled ? '#5865F2' : '#949ba4');
+      }
+    }
   }
 }, 60);
 
@@ -2091,8 +2094,27 @@ if (btnVoiceCamera) {
 }
 
 // ==========================================
-// POPOVER DE SUPRESSÃO DE RUÍDO (NOISE GATE)
+// POPOVER DE SUPRESSÃO DE RUÍDO (RNNOISE - XIPH.ORG)
 // ==========================================
+function updateNoiseSuppressionUI(enabled) {
+  if (noisePopoverToggle) noisePopoverToggle.checked = enabled;
+  if (settingNoiseSuppressionToggle) settingNoiseSuppressionToggle.checked = enabled;
+
+  const statusText = document.getElementById('rnnoise-status-text');
+  const dot = document.querySelector('.rnnoise-live-dot');
+  if (statusText) {
+    statusText.textContent = enabled ? 'Inteligência Artificial Ativa' : 'Supressão Desativada (Áudio Direto)';
+    statusText.style.color = enabled ? '#ffffff' : '#949ba4';
+  }
+  if (dot) {
+    dot.style.background = enabled ? '#23a55a' : '#80848e';
+    dot.style.boxShadow = enabled ? '0 0 6px #23a55a' : 'none';
+  }
+  if (btnNoiseSuppression) {
+    btnNoiseSuppression.classList.toggle('active', enabled);
+  }
+}
+
 function openNoiseSuppressionPopover() {
   if (!noiseSuppressionPopover) return;
   if (noiseSuppressionPopover.style.display === 'flex') {
@@ -2100,10 +2122,7 @@ function openNoiseSuppressionPopover() {
     return;
   }
 
-  if (noisePopoverToggle) noisePopoverToggle.checked = webrtc.noiseSuppressionEnabled;
-  if (noisePopoverSlider) noisePopoverSlider.value = webrtc.noiseGateThreshold;
-  if (noisePopoverVal) noisePopoverVal.textContent = `${webrtc.noiseGateThreshold} dB`;
-
+  updateNoiseSuppressionUI(webrtc.noiseSuppressionEnabled);
   noiseSuppressionPopover.style.display = 'flex';
   if (btnNoiseSuppression) btnNoiseSuppression.classList.add('active');
   if (window.lucide) window.lucide.createIcons();
@@ -2131,19 +2150,10 @@ if (btnCloseNoisePopover) {
 
 if (noisePopoverToggle) {
   noisePopoverToggle.addEventListener('change', (e) => {
-    webrtc.setNoiseSuppression(e.target.checked);
-    if (settingNoiseSuppressionToggle) settingNoiseSuppressionToggle.checked = e.target.checked;
-    showSoundToast(e.target.checked ? '🎙️ Supressor de ruído ativado' : '🎙️ Supressor de ruído desativado');
-  });
-}
-
-if (noisePopoverSlider) {
-  noisePopoverSlider.addEventListener('input', (e) => {
-    const val = parseFloat(e.target.value);
-    if (noisePopoverVal) noisePopoverVal.textContent = `${val} dB`;
-    if (settingNoiseThreshVal) settingNoiseThreshVal.textContent = val;
-    if (settingNoiseThresholdSlider) settingNoiseThresholdSlider.value = val;
-    webrtc.setNoiseSuppression(noisePopoverToggle ? noisePopoverToggle.checked : true, val);
+    const enabled = e.target.checked;
+    webrtc.setNoiseSuppression(enabled);
+    updateNoiseSuppressionUI(enabled);
+    showSoundToast(enabled ? '⚡ Supressão de Ruído RNNoise ativada!' : '🔇 Supressão de Ruído RNNoise desativada');
   });
 }
 
@@ -2314,10 +2324,8 @@ async function openSettingsModal() {
   switchSettingsTab('voice');
   await populateDeviceSelectors();
 
-  // Sincroniza toggle e slider de supressão de ruído
-  settingNoiseSuppressionToggle.checked = webrtc.noiseSuppressionEnabled;
-  settingNoiseThresholdSlider.value = webrtc.noiseGateThreshold;
-  settingNoiseThreshVal.textContent = webrtc.noiseGateThreshold;
+  // Sincroniza toggle de supressão de ruído RNNoise
+  updateNoiseSuppressionUI(webrtc.noiseSuppressionEnabled);
 }
 
 function closeSettingsModal() {
@@ -2370,15 +2378,14 @@ btnTestOutputSound.addEventListener('click', () => {
   sounds.playJoin();
 });
 
-settingNoiseSuppressionToggle.addEventListener('change', (e) => {
-  webrtc.setNoiseSuppression(e.target.checked);
-});
-
-settingNoiseThresholdSlider.addEventListener('input', (e) => {
-  const val = parseFloat(e.target.value);
-  settingNoiseThreshVal.textContent = val;
-  webrtc.setNoiseSuppression(settingNoiseSuppressionToggle.checked, val);
-});
+if (settingNoiseSuppressionToggle) {
+  settingNoiseSuppressionToggle.addEventListener('change', (e) => {
+    const enabled = e.target.checked;
+    webrtc.setNoiseSuppression(enabled);
+    updateNoiseSuppressionUI(enabled);
+    showSoundToast(enabled ? '⚡ Supressão de Ruído RNNoise ativada!' : '🔇 Supressão de Ruído RNNoise desativada');
+  });
+}
 
 // ==========================================
 // SOUNDBOARD DO SERVIDOR (POPOVER ESTILO DISCORD)

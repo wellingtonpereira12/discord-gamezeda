@@ -641,6 +641,25 @@ body {
   flex-direction: column;
 }
 
+.rnnoise-status-badge-box {
+  background: rgba(88, 101, 242, 0.12);
+  border: 1px solid rgba(88, 101, 242, 0.28);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+}
+
+.rnnoise-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #23a55a;
+  box-shadow: 0 0 6px #23a55a;
+  display: inline-block;
+  transition: background-color 0.2s, box-shadow 0.2s;
+}
+
 @media (max-width: 768px) {
   .noise-suppression-popover {
     left: 10px;
