@@ -25,6 +25,11 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             git clean -fd -e public/downloads
+            mkdir -p public/downloads
+            if [ ! -f public/downloads/Jogos-Bolados-Setup.exe ] || [ ! -s public/downloads/Jogos-Bolados-Setup.exe ]; then
+              echo "📥 [CI/CD] Sincronizando instalador Windows para cache local na VPS..."
+              curl -L -s -o public/downloads/Jogos-Bolados-Setup.exe https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/Jogos-Bolados-Setup.exe || true
+            fi
             docker compose up -d --build
             docker ps --filter "name=discord-gamezeda"
             echo "✅ [CI/CD] Deploy e compilação concluídos com sucesso!"

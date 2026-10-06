@@ -78,3 +78,21 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Atualizar Release desktop-latest no GitHub
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/heads/main')
+        with:
+          tag_name: desktop-latest
+          name: Jogos Bolados Desktop (Windows)
+          body: |
+            🎮 **Jogos Bolados para PC (Windows) - Versão Mais Recente**
+            
+            - **Versão:** v${{ steps.pkg_version.outputs.VERSION }}
+            - **Instalador:** Executável oficial para Windows do Jogos Bolados PC.
+          files: |
+            dist/*.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -21,3 +21,9 @@ deploy_vps.py
 check_*.*
 verify_*.*
 PROMPT_NOVA_JANELA.md
+
+# Arquivos de Download de Binários (hospedados em Releases e montados na VPS)
+public/downloads/*.exe
+public/downloads/*.apk
+public/downloads/*.ipa
+!public/downloads/.gitkeep
