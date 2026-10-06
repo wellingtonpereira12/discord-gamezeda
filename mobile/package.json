@@ -8,19 +8,21 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build:android": "eas build --platform android --profile preview",
-    "build:ios": "eas build --platform ios --profile preview"
+    "build:ios": "eas build --platform ios --profile preview",
+    "postinstall": "patch-package || node scripts/patch-webview.js"
   },
   "dependencies": {
     "expo": "~51.0.0",
-    "expo-status-bar": "~1.12.1",
-    "expo-camera": "~15.0.16",
     "expo-av": "~14.0.7",
+    "expo-camera": "~15.0.16",
+    "expo-status-bar": "~1.12.1",
     "react": "18.2.0",
     "react-native": "0.74.5",
     "react-native-webview": "13.8.6"
   },
   "devDependencies": {
-    "@babel/core": "^7.20.0"
+    "@babel/core": "^7.20.0",
+    "patch-package": "^8.0.1"
   },
   "private": true
 }

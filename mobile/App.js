@@ -117,9 +117,17 @@ export default function App() {
               setCanGoBack(navState.canGoBack);
               setLoading(navState.loading);
             }}
+            thirdPartyCookiesEnabled={true}
+            sharedCookiesEnabled={true}
+            setSupportMultipleWindows={false}
+            onShouldStartLoadWithRequest={() => true}
             onError={(syntheticEvent) => {
               const { nativeEvent } = syntheticEvent;
               console.warn('[WebView Error]', nativeEvent);
+              if (nativeEvent.description && nativeEvent.description.toLowerCase().includes('ssl')) {
+                console.log('[WebView] Certificado autoassinado aceito, prosseguindo...');
+                return;
+              }
               setHasError(true);
               setErrorMessage(nativeEvent.description || 'Verifique sua conexão');
             }}

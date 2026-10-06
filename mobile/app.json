@@ -52,7 +52,8 @@
         {
           "microphonePermission": "Permissão para uso de áudio e microfone nos canais de voz."
         }
-      ]
+      ],
+      "./plugins/withNetworkSecurityConfig"
     ],
     "extra": {
       "eas": {

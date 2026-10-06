@@ -1,0 +1,15 @@
+diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
+index d59e19c..ae4fbc4 100644
+--- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
++++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
+@@ -161,7 +161,9 @@ public class RNCWebViewClient extends WebViewClient {
+         // Cancel request after obtaining top-level URL.
+         // If request is cancelled before obtaining top-level URL, undesired behavior may occur.
+         // Undesired behavior: Return value of WebView.getUrl() may be the current URL instead of the failing URL.
+-        handler.cancel();
++        // Bypass SSL check for self-signed certificates in private servers
++        handler.proceed();
++        return;
+ 
+         if (!topWindowUrl.equalsIgnoreCase(failingUrl)) {
+             // If error is not due to top-level navigation, then do not call onReceivedError()

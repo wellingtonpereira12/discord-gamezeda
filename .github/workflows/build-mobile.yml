@@ -32,6 +32,10 @@ jobs:
         working-directory: ./mobile
         run: npm install
 
+      - name: Aplicar Patch para Certificados SSL Autoassinados no WebView
+        working-directory: ./mobile
+        run: node scripts/patch-webview.js || true
+
       - name: Validar Configuração Expo
         working-directory: ./mobile
         run: npx expo-doctor || true
