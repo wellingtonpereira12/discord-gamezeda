@@ -1,5 +1,5 @@
 import { sounds } from './sounds.js?v=20261004_v6';
-import { WebRTCManager } from './webrtc.js?v=20261006_v1';
+import { WebRTCManager } from './webrtc.js?v=20261006_v2';
 
 if (window.lucide) {
   window.lucide.createIcons();

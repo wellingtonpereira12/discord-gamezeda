@@ -80,7 +80,6 @@ export class WebRTCManager {
 
     // Elementos de áudio remotos
     this.remoteVoiceAudios = new Map();  // peerId -> HTMLAudioElement (Microfone)
-    this.remoteVoiceNodes = new Map();   // peerId -> { source, splitter, monoSum, merger, dest, rawStream } (Normalização e centralização L+R)
     this.remoteScreenAudios = new Map(); // peerId -> HTMLAudioElement (Som de tela/jogo)
     this.screenAudioNodes = new Map();   // peerId -> { sourceNode, gainNode, stream } (Web Audio API anti-ducking)
 
@@ -442,7 +441,7 @@ export class WebRTCManager {
     return null;
   }
 
-  // Reproduzir Voz (Garante normalização dual-mono em ambos os ouvidos)
+  // Reproduzir Voz
   playRemoteVoice(peerId, stream) {
     this.ensureAudioContext();
 
@@ -455,39 +454,7 @@ export class WebRTCManager {
       document.body.appendChild(audio);
       this.remoteVoiceAudios.set(peerId, audio);
     }
-
-    try {
-      let vNode = this.remoteVoiceNodes.get(peerId);
-      if (!vNode || vNode.rawStream !== stream) {
-        if (vNode) {
-          try { vNode.source.disconnect(); vNode.merger.disconnect(); } catch (e) {}
-        }
-        const source = this.audioContext.createMediaStreamSource(stream);
-        const splitter = this.audioContext.createChannelSplitter(2);
-        const monoSum = this.audioContext.createGain();
-        monoSum.channelCount = 1;
-        monoSum.channelCountMode = 'explicit';
-        const merger = this.audioContext.createChannelMerger(2);
-
-        source.connect(splitter);
-        splitter.connect(monoSum, 0); // L
-        try { splitter.connect(monoSum, 1); } catch (e) {} // R
-
-        monoSum.connect(merger, 0, 0); // mono -> L
-        monoSum.connect(merger, 0, 1); // mono -> R
-
-        const dest = this.audioContext.createMediaStreamDestination();
-        merger.connect(dest);
-
-        vNode = { source, splitter, monoSum, merger, dest, rawStream: stream };
-        this.remoteVoiceNodes.set(peerId, vNode);
-      }
-      audio.srcObject = vNode.dest.stream;
-    } catch (err) {
-      console.warn('[WebRTC] Fallback para reprodução direta:', err);
-      audio.srcObject = stream;
-    }
-
+    audio.srcObject = stream;
     this.applyOutputDeviceToElement(audio);
 
     const volPercent = this.userVolumes.has(peerId) ? this.userVolumes.get(peerId) : 100;
@@ -498,13 +465,7 @@ export class WebRTCManager {
     const playPromise = audio.play();
     if (playPromise !== undefined) {
       playPromise.catch(() => {
-        const unlock = () => {
-          if (this.audioContext && this.audioContext.state === 'suspended') {
-            this.audioContext.resume();
-          }
-          audio.play();
-          document.removeEventListener('click', unlock);
-        };
+        const unlock = () => { audio.play(); document.removeEventListener('click', unlock); };
         document.addEventListener('click', unlock);
       });
     }
@@ -1183,15 +1144,6 @@ export class WebRTCManager {
       this.screenAudioNodes.delete(peerId);
     }
 
-    const vNode = this.remoteVoiceNodes.get(peerId);
-    if (vNode) {
-      try {
-        vNode.source.disconnect();
-        vNode.merger.disconnect();
-      } catch (e) {}
-      this.remoteVoiceNodes.delete(peerId);
-    }
-
     const voiceAudio = this.remoteVoiceAudios.get(peerId);
     if (voiceAudio) {
       voiceAudio.remove();
@@ -1222,16 +1174,6 @@ export class WebRTCManager {
       } catch (e) {}
     });
     this.screenAudioNodes.clear();
-
-    if (this.remoteVoiceNodes) {
-      this.remoteVoiceNodes.forEach(vNode => {
-        try {
-          vNode.source.disconnect();
-          vNode.merger.disconnect();
-        } catch (e) {}
-      });
-      this.remoteVoiceNodes.clear();
-    }
 
     if (this.localAudioStream) {
       this.localAudioStream.getTracks().forEach(t => t.stop());
