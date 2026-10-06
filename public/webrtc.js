@@ -80,6 +80,7 @@ export class WebRTCManager {
 
     // Elementos de áudio remotos
     this.remoteVoiceAudios = new Map();  // peerId -> HTMLAudioElement (Microfone)
+    this.remoteVoiceNodes = new Map();   // peerId -> { source, splitter, monoSum, merger, dest, rawStream } (Normalização e centralização L+R)
     this.remoteScreenAudios = new Map(); // peerId -> HTMLAudioElement (Som de tela/jogo)
     this.screenAudioNodes = new Map();   // peerId -> { sourceNode, gainNode, stream } (Web Audio API anti-ducking)
 
@@ -128,7 +129,7 @@ export class WebRTCManager {
       this.audioContext.resume();
     }
     if (this.audioContext.audioWorklet && !rnnoiseWorkletLoaded) {
-      this.audioContext.audioWorklet.addModule('/rnnoise/workletProcessor.js')
+      this.audioContext.audioWorklet.addModule('/rnnoise/workletProcessor.js?v=20261006_v1')
         .then(() => {
           rnnoiseWorkletLoaded = true;
           console.log('[WebRTC 🤖 RNNoise] AudioWorkletProcessor registrado com sucesso.');
@@ -441,7 +442,7 @@ export class WebRTCManager {
     return null;
   }
 
-  // Reproduzir Voz
+  // Reproduzir Voz (Garante normalização dual-mono em ambos os ouvidos)
   playRemoteVoice(peerId, stream) {
     this.ensureAudioContext();
 
@@ -454,7 +455,39 @@ export class WebRTCManager {
       document.body.appendChild(audio);
       this.remoteVoiceAudios.set(peerId, audio);
     }
-    audio.srcObject = stream;
+
+    try {
+      let vNode = this.remoteVoiceNodes.get(peerId);
+      if (!vNode || vNode.rawStream !== stream) {
+        if (vNode) {
+          try { vNode.source.disconnect(); vNode.merger.disconnect(); } catch (e) {}
+        }
+        const source = this.audioContext.createMediaStreamSource(stream);
+        const splitter = this.audioContext.createChannelSplitter(2);
+        const monoSum = this.audioContext.createGain();
+        monoSum.channelCount = 1;
+        monoSum.channelCountMode = 'explicit';
+        const merger = this.audioContext.createChannelMerger(2);
+
+        source.connect(splitter);
+        splitter.connect(monoSum, 0); // L
+        try { splitter.connect(monoSum, 1); } catch (e) {} // R
+
+        monoSum.connect(merger, 0, 0); // mono -> L
+        monoSum.connect(merger, 0, 1); // mono -> R
+
+        const dest = this.audioContext.createMediaStreamDestination();
+        merger.connect(dest);
+
+        vNode = { source, splitter, monoSum, merger, dest, rawStream: stream };
+        this.remoteVoiceNodes.set(peerId, vNode);
+      }
+      audio.srcObject = vNode.dest.stream;
+    } catch (err) {
+      console.warn('[WebRTC] Fallback para reprodução direta:', err);
+      audio.srcObject = stream;
+    }
+
     this.applyOutputDeviceToElement(audio);
 
     const volPercent = this.userVolumes.has(peerId) ? this.userVolumes.get(peerId) : 100;
@@ -465,7 +498,13 @@ export class WebRTCManager {
     const playPromise = audio.play();
     if (playPromise !== undefined) {
       playPromise.catch(() => {
-        const unlock = () => { audio.play(); document.removeEventListener('click', unlock); };
+        const unlock = () => {
+          if (this.audioContext && this.audioContext.state === 'suspended') {
+            this.audioContext.resume();
+          }
+          audio.play();
+          document.removeEventListener('click', unlock);
+        };
         document.addEventListener('click', unlock);
       });
     }
@@ -600,6 +639,7 @@ export class WebRTCManager {
     this.ensureAudioContext();
 
     const audioConstraints = {
+      channelCount: { ideal: 1 },
       echoCancellation: true,
       noiseSuppression: true,
       autoGainControl: false,
@@ -663,6 +703,9 @@ export class WebRTCManager {
 
       this.localSourceNode = this.audioContext.createMediaStreamSource(rawStream);
       this.destinationNode = this.audioContext.createMediaStreamDestination();
+      this.destinationNode.channelCount = 2;
+      this.destinationNode.channelCountMode = 'explicit';
+      this.destinationNode.channelInterpretation = 'speakers';
 
       // Nó mestre de saída para mutação instantânea
       this.outputGainNode = this.audioContext.createGain();
@@ -679,20 +722,38 @@ export class WebRTCManager {
       this.rnnoiseGainNode.connect(this.outputGainNode);
       this.bypassGainNode.connect(this.outputGainNode);
 
+      // Normalização de entrada: extrai L e R e soma em sinal mono limpo
+      // Suporta nativamente microfones estéreo e interfaces de áudio USB (Focusrite, Behringer, etc)
+      const inputSplitter = this.audioContext.createChannelSplitter(2);
+      const inputMonoSum = this.audioContext.createGain();
+      inputMonoSum.channelCount = 1;
+      inputMonoSum.channelCountMode = 'explicit';
+
+      this.localSourceNode.connect(inputSplitter);
+      inputSplitter.connect(inputMonoSum, 0); // Canal 0 (Left)
+      try { inputSplitter.connect(inputMonoSum, 1); } catch (e) {} // Canal 1 (Right)
+
       // Filtro subsônico (40Hz) eliminando estalos mecânicos sem afetar a voz
       const subFilter = this.audioContext.createBiquadFilter();
       subFilter.type = 'highpass';
       subFilter.frequency.value = 40;
+      subFilter.channelCount = 1;
+      subFilter.channelCountMode = 'explicit';
 
-      this.localSourceNode.connect(subFilter);
-      subFilter.connect(this.bypassGainNode);
+      inputMonoSum.connect(subFilter);
+
+      // Rota de Bypass: duplica o sinal mono para ambos os lados (Left e Right)
+      const bypassMerger = this.audioContext.createChannelMerger(2);
+      subFilter.connect(bypassMerger, 0, 0); // mono -> Left
+      subFilter.connect(bypassMerger, 0, 1); // mono -> Right
+      bypassMerger.connect(this.bypassGainNode);
 
       // Instancia o modelo RNNoise em WebAssembly dentro de um AudioWorklet isolado
       let rnnoiseReady = false;
       try {
         const wasm = await preloadRnnoise();
         if (this.audioContext.audioWorklet && !rnnoiseWorkletLoaded) {
-          await this.audioContext.audioWorklet.addModule('/rnnoise/workletProcessor.js');
+          await this.audioContext.audioWorklet.addModule('/rnnoise/workletProcessor.js?v=20261006_v1');
           rnnoiseWorkletLoaded = true;
         }
 
@@ -705,9 +766,15 @@ export class WebRTCManager {
           });
 
           subFilter.connect(this.rnnoiseNode);
-          this.rnnoiseNode.connect(this.rnnoiseGainNode);
+
+          // Rota RNNoise: Duplica o sinal filtrado pelo modelo neural para AMBOS os lados (Left e Right)
+          const rnnoiseMerger = this.audioContext.createChannelMerger(2);
+          this.rnnoiseNode.connect(rnnoiseMerger, 0, 0); // Voz neural limpa -> Left
+          this.rnnoiseNode.connect(rnnoiseMerger, 0, 1); // Voz neural limpa -> Right
+          rnnoiseMerger.connect(this.rnnoiseGainNode);
+
           rnnoiseReady = true;
-          console.log('[WebRTC 🤖 RNNoise] Supressor neural (RNN/GRU) ativado com sucesso em 48kHz!');
+          console.log('[WebRTC 🤖 RNNoise] Supressor neural (RNN/GRU) ativado com sucesso em 48kHz (Dual-Mono Centrado nos dois lados)!');
         }
       } catch (rnErr) {
         console.warn('[WebRTC 🤖 RNNoise] Aviso ao instanciar RNNoise, operando em bypass:', rnErr);
@@ -1116,6 +1183,15 @@ export class WebRTCManager {
       this.screenAudioNodes.delete(peerId);
     }
 
+    const vNode = this.remoteVoiceNodes.get(peerId);
+    if (vNode) {
+      try {
+        vNode.source.disconnect();
+        vNode.merger.disconnect();
+      } catch (e) {}
+      this.remoteVoiceNodes.delete(peerId);
+    }
+
     const voiceAudio = this.remoteVoiceAudios.get(peerId);
     if (voiceAudio) {
       voiceAudio.remove();
@@ -1146,6 +1222,16 @@ export class WebRTCManager {
       } catch (e) {}
     });
     this.screenAudioNodes.clear();
+
+    if (this.remoteVoiceNodes) {
+      this.remoteVoiceNodes.forEach(vNode => {
+        try {
+          vNode.source.disconnect();
+          vNode.merger.disconnect();
+        } catch (e) {}
+      });
+      this.remoteVoiceNodes.clear();
+    }
 
     if (this.localAudioStream) {
       this.localAudioStream.getTracks().forEach(t => t.stop());
