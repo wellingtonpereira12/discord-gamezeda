@@ -37,6 +37,8 @@ app.on('certificate-error', (event, webContents, url, error, certificate, callba
   callback(true);
 });
 
+const appIconPath = path.join(__dirname, 'assets', 'logo.png');
+
 /**
  * Cria a Splash Screen de Inicialização e Verificação de Versão
  */
@@ -47,6 +49,7 @@ function createSplashWindow() {
     resizable: false,
     frame: false,
     center: true,
+    icon: fs.existsSync(appIconPath) ? appIconPath : undefined,
     backgroundColor: '#111214',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -72,6 +75,7 @@ function createMainWindow(targetUrl) {
     minWidth: 940,
     minHeight: 600,
     title: 'Jogos Bolados',
+    icon: fs.existsSync(appIconPath) ? appIconPath : undefined,
     backgroundColor: '#111214',
     frame: false,
     autoHideMenuBar: true,
