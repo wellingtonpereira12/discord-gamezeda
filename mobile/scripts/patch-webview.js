@@ -18,17 +18,27 @@ const targetFile = path.join(
 
 if (fs.existsSync(targetFile)) {
   let content = fs.readFileSync(targetFile, 'utf8');
-  if (content.includes('handler.cancel();')) {
-    content = content.replace(
-      'handler.cancel();',
-      '// Bypass SSL check for self-signed certificates in private servers\n        handler.proceed();\n        return;'
-    );
+
+  const replacement = `@Override
+    public void onReceivedSslError(final WebView webView, final SslErrorHandler handler, final SslError error) {
+        if (handler != null) {
+            handler.proceed();
+        }
+    }`;
+
+  const sslRegexWithOriginal = /@Override\s+public\s+void\s+onReceivedSslError\s*\([\s\S]*?this\.onReceivedError\s*\([\s\S]*?\);\s*\}/m;
+  const sslRegexAny = /@Override\s+public\s+void\s+onReceivedSslError\s*\([\s\S]*?\n    \}/m;
+
+  if (sslRegexWithOriginal.test(content)) {
+    content = content.replace(sslRegexWithOriginal, replacement);
     fs.writeFileSync(targetFile, content, 'utf8');
-    console.log('✅ [patch-webview] Successfully patched RNCWebViewClient.java to proceed on SSL certificate errors!');
-  } else if (content.includes('handler.proceed();')) {
-    console.log('ℹ️ [patch-webview] RNCWebViewClient.java is already patched.');
+    console.log('✅ [patch-webview] Replaced onReceivedSslError with clean handler.proceed() implementation!');
+  } else if (sslRegexAny.test(content)) {
+    content = content.replace(sslRegexAny, replacement);
+    fs.writeFileSync(targetFile, content, 'utf8');
+    console.log('✅ [patch-webview] Updated onReceivedSslError with clean handler.proceed() implementation!');
   } else {
-    console.warn('⚠️ [patch-webview] handler.cancel() not found in target file.');
+    console.log('ℹ️ [patch-webview] onReceivedSslError already clean.');
   }
 } else {
   console.log('⚠️ [patch-webview] Target file does not exist: ' + targetFile);
