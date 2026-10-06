@@ -5,6 +5,18 @@ if (window.lucide) {
   window.lucide.createIcons();
 }
 
+// Ajuste dinâmico de altura para Mobile (garante que barra de endereço do navegador não esconda a digitação)
+function updateAppHeight() {
+  const vh = window.innerHeight;
+  document.documentElement.style.setProperty('--app-height', `${vh}px`);
+}
+window.addEventListener('resize', updateAppHeight);
+window.addEventListener('orientationchange', updateAppHeight);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', updateAppHeight);
+}
+updateAppHeight();
+
 const socket = io();
 
 // Telemetria de erros do cliente enviada ao console do servidor para diagnóstico imediato
@@ -1516,6 +1528,17 @@ chatForm.addEventListener('submit', (e) => {
 
   chatInput.value = '';
 });
+
+if (chatInput) {
+  chatInput.addEventListener('focus', () => {
+    setTimeout(() => {
+      updateAppHeight();
+      if (messagesContainer) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+    }, 200);
+  });
+}
 
 socket.on('chat:new-message', ({ channelId, message }) => {
   if (!channelMessagesStore[channelId]) {
