@@ -48,11 +48,6 @@
           "microphonePermission": "Permissão para uso de áudio e microfone nos canais de voz."
         }
       ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "jogos-bolados-expo"
-      }
-    }
+    ]
   }
 }

@@ -1,4 +1,4 @@
-name: Build Mobile App (Jogos Bolados Expo)
+name: Build Mobile App (Jogos Bolados Expo EAS)
 
 on:
   push:
@@ -9,9 +9,12 @@ on:
       - '.github/workflows/build-mobile.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  mobile-check:
-    name: Validar Projeto Expo Mobile
+  mobile-build:
+    name: Build APK Android no Expo EAS
     runs-on: ubuntu-latest
 
     steps:
@@ -32,3 +35,100 @@ jobs:
       - name: Validar Configuração Expo
         working-directory: ./mobile
         run: npx expo-doctor || true
+
+      - name: Verificar Presença do EXPO_TOKEN
+        id: check_token
+        run: |
+          if [ -n "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "has_token=true" >> $GITHUB_OUTPUT
+            echo "✅ [Expo EAS] EXPO_TOKEN detectado! Iniciando pipeline de build..."
+          else
+            echo "has_token=false" >> $GITHUB_OUTPUT
+            echo "⚠️ [Expo EAS] EXPO_TOKEN não configurado nos Secrets do repositório."
+            echo "💡 Para compilar o APK automaticamente a cada commit:"
+            echo "   1. Acesse: https://expo.dev/settings/access-tokens e gere um token (Expo Access Token)."
+            echo "   2. Adicione no GitHub: Settings > Secrets and variables > Actions > EXPO_TOKEN."
+          fi
+
+      - name: Configurar EAS CLI e Autenticar
+        if: steps.check_token.outputs.has_token == 'true'
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Vincular Projeto ao Expo (eas init se necessário)
+        if: steps.check_token.outputs.has_token == 'true'
+        working-directory: ./mobile
+        run: |
+          npx eas-cli init --non-interactive || true
+
+      - name: Compilar APK Android no Expo EAS Cloud
+        if: steps.check_token.outputs.has_token == 'true'
+        working-directory: ./mobile
+        run: |
+          echo "🚀 [EAS] Iniciando compilação do APK Android (profile preview)..."
+          npx eas-cli build --platform android --profile preview --non-interactive --wait --json > eas-build.json
+          cat eas-build.json
+
+          # Extrai a URL do APK compilado pelo EAS
+          APK_URL=$(node -e '
+            const fs = require("fs");
+            try {
+              const data = JSON.parse(fs.readFileSync("eas-build.json", "utf8"));
+              const item = Array.isArray(data) ? data[0] : data;
+              const url = (item.artifacts && item.artifacts.buildUrl) || (item.artifacts && item.artifacts.applicationArchiveUrl);
+              console.log(url || "");
+            } catch(e) { console.log(""); }
+          ')
+
+          if [ -n "$APK_URL" ]; then
+            echo "APK_URL=$APK_URL" >> $GITHUB_ENV
+            echo "📥 Baixando APK do EAS: $APK_URL"
+            curl -L "$APK_URL" -o Jogos-Bolados.apk
+          else
+            echo "⚠️ URL do artefato não encontrada diretamente no JSON. Buscando via eas-cli build:download..."
+            npx eas-cli build:download -p android -e preview -o Jogos-Bolados.apk || true
+          fi
+
+      - name: Publicar Artefato do APK no GitHub Actions
+        if: steps.check_token.outputs.has_token == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Jogos-Bolados-Android-APK
+          path: mobile/Jogos-Bolados.apk
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Atualizar Release no GitHub com Jogos-Bolados.apk
+        if: steps.check_token.outputs.has_token == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mobile-latest
+          name: Jogos Bolados Mobile (Android APK)
+          body: |
+            📱 **Jogos Bolados Mobile - Aplicativo Android (APK)**
+            
+            - **Gerado via:** Expo EAS Build
+            - **Perfil:** Preview (Standalone APK instalável)
+            - **Compatível com:** Android 8.0+
+          files: |
+            mobile/Jogos-Bolados.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sincronizar APK para o Servidor VPS
+        if: steps.check_token.outputs.has_token == 'true' && env.APK_URL != ''
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            mkdir -p /root/discord-gamezeda/public/downloads
+            cd /root/discord-gamezeda/public/downloads
+            curl -L "${{ env.APK_URL }}" -o Jogos-Bolados.apk
+            echo "✅ [VPS] Jogos-Bolados.apk atualizado com sucesso no servidor!"
