@@ -125,4 +125,5 @@ jobs:
             mkdir -p /root/discord-gamezeda/public/downloads
             cd /root/discord-gamezeda/public/downloads
             curl -L "${{ env.APK_URL }}" -o Jogos-Bolados.apk
-            echo "✅ [VPS] Jogos-Bolados.apk atualizado com sucesso no servidor!"
+            docker cp /root/discord-gamezeda/public/downloads/Jogos-Bolados.apk discord-gamezeda:/app/public/downloads/Jogos-Bolados.apk || true
+            echo "✅ [VPS] Jogos-Bolados.apk atualizado com sucesso no servidor e no container!"

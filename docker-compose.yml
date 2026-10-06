@@ -17,6 +17,7 @@ services:
       - DB_NAME=discord_gamezeda
     volumes:
       - discord-uploads:/app/public/uploads
+      - ./public/downloads:/app/public/downloads
 
 volumes:
   discord-uploads:

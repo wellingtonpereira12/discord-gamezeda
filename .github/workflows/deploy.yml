@@ -24,7 +24,7 @@ jobs:
             cd /root/discord-gamezeda
             git fetch origin main
             git reset --hard origin/main
-            git clean -fd
+            git clean -fd -e public/downloads
             docker compose up -d --build
             docker ps --filter "name=discord-gamezeda"
             echo "✅ [CI/CD] Deploy e compilação concluídos com sucesso!"

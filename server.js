@@ -84,7 +84,7 @@ app.get('/download/windows', (req, res) => {
     return res.download(localExePath, 'Jogos-Bolados-Setup.exe');
   }
   // Se ainda não existir localmente no container, redireciona para a release mais recente no GitHub
-  const githubReleaseUrl = 'https://github.com/wellingtonpereira12/discord-gamezeda/releases/latest/download/Jogos-Bolados-Setup.exe';
+  const githubReleaseUrl = 'https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/Jogos-Bolados-Setup.exe';
   return res.redirect(302, githubReleaseUrl);
 });
 
@@ -95,8 +95,8 @@ app.get('/download/android', (req, res) => {
     res.setHeader('Content-Type', 'application/vnd.android.package-archive');
     return res.download(localApkPath, 'Jogos-Bolados.apk');
   }
-  // Fallback: Redireciona para o release mais recente no GitHub
-  const githubReleaseUrl = 'https://github.com/wellingtonpereira12/discord-gamezeda/releases/latest/download/Jogos-Bolados.apk';
+  // Fallback: Redireciona para o release mobile-latest no GitHub
+  const githubReleaseUrl = 'https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/mobile-latest/Jogos-Bolados.apk';
   return res.redirect(302, githubReleaseUrl);
 });
 
@@ -106,8 +106,8 @@ app.get('/download/ios', (req, res) => {
   if (fs.existsSync(localIpaPath)) {
     return res.download(localIpaPath, 'Jogos-Bolados.ipa');
   }
-  // Fallback: Redireciona para o release mais recente ou Expo
-  const githubReleaseUrl = 'https://github.com/wellingtonpereira12/discord-gamezeda/releases/latest/download/Jogos-Bolados.ipa';
+  // Fallback: Redireciona para o release mobile-latest no GitHub
+  const githubReleaseUrl = 'https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/mobile-latest/Jogos-Bolados.ipa';
   return res.redirect(302, githubReleaseUrl);
 });
 
