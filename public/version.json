@@ -1,0 +1,9 @@
+{
+  "name": "Jogos Bolados",
+  "version": "1.0.0",
+  "releaseDate": "2026-10-05",
+  "minVersion": "1.0.0",
+  "downloadUrl": "/download/windows",
+  "installerName": "Jogos-Bolados-Setup.exe",
+  "notes": "Versão oficial Jogos Bolados Desktop para Windows com suporte a WebRTC HD, RNNoise e aceleração gráfica por hardware."
+}

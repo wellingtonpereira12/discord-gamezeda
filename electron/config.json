@@ -1,0 +1,8 @@
+{
+  "appName": "Jogos Bolados",
+  "serverUrl": "https://2.24.64.219:3050",
+  "localServerUrl": "http://localhost:3000",
+  "versionCheckEndpoint": "/api/desktop/version",
+  "versionFallbackEndpoint": "/version.json",
+  "downloadEndpoint": "/download/windows"
+}

@@ -1,0 +1,80 @@
+name: Compilar Executável Windows (Jogos Bolados PC)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'electron/**'
+      - 'package.json'
+      - '.github/workflows/build-electron.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-electron:
+    name: Build Electron Windows (.exe)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout do Código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Instalar Dependências
+        run: npm install
+
+      - name: Extrair Versão do package.json
+        id: pkg_version
+        shell: pwsh
+        run: |
+          $pkg = Get-Content package.json | ConvertFrom-Json
+          echo "VERSION=$($pkg.version)" >> $env:GITHUB_OUTPUT
+          Write-Host "Versão do build: $($pkg.version)"
+
+      - name: Compilar Instalador Windows com Electron Builder
+        run: npm run dist:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Listar Arquivos Compilados em dist
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path dist -Force
+
+      - name: Fazer Upload do Artefato no GitHub Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: Jogos-Bolados-Windows-Setup-v${{ steps.pkg_version.outputs.VERSION }}
+          path: dist/*.exe
+          retention-days: 30
+
+      - name: Criar ou Atualizar Release no GitHub com Executável
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/heads/main')
+        with:
+          tag_name: v${{ steps.pkg_version.outputs.VERSION }}
+          name: Jogos Bolados Desktop v${{ steps.pkg_version.outputs.VERSION }}
+          body: |
+            🎮 **Jogos Bolados para PC (Windows)**
+            
+            - **Versão:** v${{ steps.pkg_version.outputs.VERSION }}
+            - **Instalador:** Executável gerado automaticamente pelo GitHub Actions.
+            - **Recursos:**
+              - Voz e vídeo em alta definição com WebRTC.
+              - Cancelamento de ruído baseado em rede neural (RNNoise da Xiph.Org).
+              - Compartilhamento de tela HD e Soundboard integrado.
+              - Sistema automático de verificação de versões e atualizações com splash screen ("tubinho de download").
+          files: |
+            dist/*.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

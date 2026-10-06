@@ -221,6 +221,7 @@ const btnSaveAccountPassword = document.getElementById('btn-save-account-passwor
 const soundboardModal = document.getElementById('soundboard-modal');
 const btnCloseSoundboard = document.getElementById('btn-close-soundboard');
 const btnOpenSoundboardHeader = document.getElementById('btn-open-soundboard-header');
+const btnDownloadDesktop = document.getElementById('btn-download-desktop');
 const soundboardSearchInput = document.getElementById('soundboard-search-input');
 const soundboardGrid = document.getElementById('soundboard-grid');
 const btnOpenAddSoundModal = document.getElementById('btn-open-add-sound-modal');
@@ -2523,6 +2524,14 @@ socket.on('soundboard:played', ({ soundUrl, soundName, emoji, playedBy, playedBy
 if (btnVoiceSoundboard) btnVoiceSoundboard.addEventListener('click', openSoundboardModal);
 if (btnStageSoundboard) btnStageSoundboard.addEventListener('click', openSoundboardModal);
 if (btnOpenSoundboardHeader) btnOpenSoundboardHeader.addEventListener('click', openSoundboardModal);
+
+if (btnDownloadDesktop) {
+  btnDownloadDesktop.addEventListener('click', () => {
+    showSoundToast('Iniciando download do Jogos Bolados para Windows...');
+    window.location.href = '/download/windows';
+  });
+}
+
 if (btnCloseSoundboard) btnCloseSoundboard.addEventListener('click', (e) => {
   e.stopPropagation();
   closeSoundboardModal();

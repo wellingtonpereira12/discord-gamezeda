@@ -1,11 +1,13 @@
 {
-  "name": "discord-clone-webrtc",
+  "name": "jogos-bolados",
   "version": "1.0.0",
-  "description": "Discord Clone com Chat em Tempo Real e Compartilhamento de Tela WebRTC",
+  "description": "Discord Clone com Chat em Tempo Real, Compartilhamento de Tela WebRTC e Cliente Desktop Electron",
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "electron": "electron electron/main.js",
+    "dist:win": "electron-builder --win"
   },
   "dependencies": {
     "@sapphi-red/web-noise-suppressor": "^0.4.1",
@@ -15,6 +17,39 @@
     "socket.io": "^4.7.5"
   },
   "devDependencies": {
+    "electron": "^31.3.1",
+    "electron-builder": "^24.13.3",
     "ssh2": "^1.17.0"
+  },
+  "build": {
+    "appId": "com.jogosbolados.desktop",
+    "productName": "Jogos Bolados",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.js"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Jogos Bolados",
+      "uninstallDisplayName": "Jogos Bolados",
+      "artifactName": "Jogos-Bolados-Setup.${ext}"
+    }
   }
 }

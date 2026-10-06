@@ -1,0 +1,202 @@
+const { app, BrowserWindow, ipcMain, session } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const { checkAndApplyUpdates, launchInstallerAndExit } = require('./updater');
+
+let splashWindow = null;
+let mainWindow = null;
+
+// Carrega configurações
+let config = {
+  appName: 'Jogos Bolados',
+  serverUrl: 'https://2.24.64.219:3050',
+  localServerUrl: 'http://localhost:3000'
+};
+
+const configPath = path.join(__dirname, 'config.json');
+if (fs.existsSync(configPath)) {
+  try {
+    const fileData = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    config = { ...config, ...fileData };
+  } catch (e) {
+    console.warn('[Config] Erro ao ler config.json:', e.message);
+  }
+}
+
+// Suporte a flags de aceleração por hardware e WebRTC
+app.commandLine.appendSwitch('ignore-certificate-errors', 'true');
+app.commandLine.appendSwitch('allow-insecure-localhost', 'true');
+app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer');
+
+// Ignora erros de SSL autoassinado do servidor VPS
+app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
+  event.preventDefault();
+  callback(true);
+});
+
+/**
+ * Cria a Splash Screen de Inicialização e Verificação de Versão
+ */
+function createSplashWindow() {
+  splashWindow = new BrowserWindow({
+    width: 360,
+    height: 440,
+    resizable: false,
+    frame: false,
+    center: true,
+    backgroundColor: '#111214',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  splashWindow.loadFile(path.join(__dirname, 'splash.html'));
+
+  splashWindow.on('closed', () => {
+    splashWindow = null;
+  });
+}
+
+/**
+ * Cria a Janela Principal do Discord "Jogos Bolados"
+ */
+function createMainWindow(targetUrl) {
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 940,
+    minHeight: 600,
+    title: 'Jogos Bolados',
+    backgroundColor: '#313338',
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  // Concede automaticamente permissões de mídia (microfone, câmera, compartilhamento de tela)
+  mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+    const allowed = ['media', 'mediaKeySystem', 'notifications', 'display-capture', 'pointerLock'];
+    if (allowed.includes(permission)) {
+      return callback(true);
+    }
+    callback(false);
+  });
+
+  // Habilita captura de tela moderna no Electron WebRTC
+  if (mainWindow.webContents.session.setDisplayMediaRequestHandler) {
+    mainWindow.webContents.session.setDisplayMediaRequestHandler((request, callback) => {
+      // Por padrão seleciona o stream principal ou permite captura nativa
+      callback({});
+    });
+  }
+
+  // Abre links externos no navegador padrão do usuário
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    const { shell } = require('electron');
+    if (url.startsWith('http:') || url.startsWith('https:')) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
+  mainWindow.loadURL(targetUrl);
+
+  mainWindow.once('ready-to-show', () => {
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.close();
+    }
+    mainWindow.show();
+    mainWindow.focus();
+  });
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+}
+
+/**
+ * Fluxo de Inicialização:
+ * 1. Abre Splash
+ * 2. Checa versão remota via JSON
+ * 3. Se houver nova versão, baixa com tubinho de progresso e instala
+ * 4. Se não, abre a tela principal do Jogos Bolados
+ */
+async function startApplication() {
+  createSplashWindow();
+
+  const currentVersion = app.getVersion();
+  const serverUrl = process.env.SERVER_URL || config.serverUrl;
+
+  console.log(`[Jogos Bolados] Iniciando cliente desktop v${currentVersion}`);
+  console.log(`[Jogos Bolados] Servidor conectado: ${serverUrl}`);
+
+  // Aguarda janela de splash carregar DOM
+  await new Promise(r => setTimeout(r, 600));
+
+  try {
+    const updateResult = await checkAndApplyUpdates({
+      currentVersion,
+      serverUrl,
+      onStatus: (status) => {
+        if (splashWindow && !splashWindow.isDestroyed()) {
+          splashWindow.webContents.send('updater:status', status);
+        }
+      },
+      onProgress: (progress) => {
+        if (splashWindow && !splashWindow.isDestroyed()) {
+          splashWindow.webContents.send('updater:progress', progress);
+        }
+      }
+    });
+
+    if (updateResult && updateResult.updateAvailable && updateResult.installerPath) {
+      console.log('[Jogos Bolados] Atualização baixada. Iniciando instalador...');
+      launchInstallerAndExit(updateResult.installerPath);
+      return;
+    }
+  } catch (err) {
+    console.error('[Jogos Bolados] Erro ao verificar atualizações:', err.message);
+  }
+
+  // Transição suave para a janela principal
+  setTimeout(() => {
+    createMainWindow(serverUrl);
+  }, 800);
+}
+
+// Configurações do ciclo de vida do Electron
+app.whenReady().then(() => {
+  // IPC Handlers
+  ipcMain.on('window:minimize', () => {
+    const win = BrowserWindow.getFocusedWindow();
+    if (win) win.minimize();
+  });
+
+  ipcMain.on('window:close', () => {
+    const win = BrowserWindow.getFocusedWindow();
+    if (win) win.close();
+  });
+
+  ipcMain.handle('app:get-version', () => {
+    return app.getVersion();
+  });
+
+  startApplication();
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      startApplication();
+    }
+  });
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});

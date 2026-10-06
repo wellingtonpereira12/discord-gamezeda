@@ -55,6 +55,36 @@ app.use(express.static(path.join(__dirname, 'public'), {
 // Rotas de Upload e Soundboard API
 app.use('/api', uploadRouter);
 
+// Rota de consulta de versão do Cliente Desktop Electron
+app.get('/api/desktop/version', (req, res) => {
+  const versionFilePath = path.join(__dirname, 'public', 'version.json');
+  if (fs.existsSync(versionFilePath)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(versionFilePath, 'utf8'));
+      return res.json(data);
+    } catch (e) {
+      console.error('Erro ao ler public/version.json:', e);
+    }
+  }
+  return res.json({
+    name: 'Jogos Bolados',
+    version: '1.0.0',
+    downloadUrl: '/download/windows',
+    installerName: 'Jogos-Bolados-Setup.exe'
+  });
+});
+
+// Rota de Download do Executável Windows (Jogos Bolados PC)
+app.get('/download/windows', (req, res) => {
+  const localExePath = path.join(__dirname, 'public', 'downloads', 'Jogos-Bolados-Setup.exe');
+  if (fs.existsSync(localExePath)) {
+    return res.download(localExePath, 'Jogos-Bolados-Setup.exe');
+  }
+  // Se ainda não existir localmente no container, redireciona para a release mais recente no GitHub
+  const githubReleaseUrl = 'https://github.com/wellingtonpereira12/discord-gamezeda/releases/latest/download/Jogos-Bolados-Setup.exe';
+  return res.redirect(302, githubReleaseUrl);
+});
+
 // Inicialização do Banco MariaDB
 await initDatabase();
 
