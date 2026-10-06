@@ -5,5 +5,12 @@
   "minVersion": "1.0.0",
   "downloadUrl": "/download/windows",
   "installerName": "Jogos-Bolados-Setup.exe",
-  "notes": "Versão oficial Jogos Bolados Desktop para Windows com suporte a WebRTC HD, RNNoise e aceleração gráfica por hardware."
+  "mobile": {
+    "version": "1.0.0",
+    "androidUrl": "/download/android",
+    "androidApk": "Jogos-Bolados.apk",
+    "iosUrl": "/download/ios",
+    "iosIpa": "Jogos-Bolados.ipa"
+  },
+  "notes": "Versão oficial Jogos Bolados Desktop para Windows e Mobile para Android (.apk) e iOS com suporte a WebRTC HD e supressão de ruído RNNoise."
 }

@@ -1935,6 +1935,156 @@ body {
   }
 }
 
+/* Botão de Download Mobile no Header */
+.btn-download-mobile {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(35, 165, 90, 0.15);
+  color: #23a55a;
+  border: 1px solid rgba(35, 165, 90, 0.35);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease-in-out;
+}
+
+.btn-download-mobile:hover {
+  background: #23a55a;
+  color: #ffffff;
+  border-color: #23a55a;
+  box-shadow: 0 2px 10px rgba(35, 165, 90, 0.45);
+  transform: translateY(-1px);
+}
+
+.btn-download-mobile:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 820px) {
+  .btn-download-mobile .mobile-btn-text {
+    display: none;
+  }
+  .btn-download-mobile {
+    padding: 5px;
+  }
+}
+
+/* Modal Mobile & QR Code Styles */
+.mobile-platform-selector {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  background: #1e1f22;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.platform-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #949ba4;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.platform-tab-btn:hover {
+  color: #dbdee1;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.platform-tab-btn.active {
+  background: #5865F2;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(88, 101, 242, 0.35);
+}
+
+.platform-tab-btn.active.tab-ios {
+  background: #23a55a;
+  box-shadow: 0 2px 6px rgba(35, 165, 90, 0.35);
+}
+
+.qr-code-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.qr-code-frame {
+  background: #ffffff;
+  padding: 12px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 214px;
+  height: 214px;
+  margin-bottom: 12px;
+  position: relative;
+}
+
+.qr-code-image {
+  width: 190px;
+  height: 190px;
+  display: block;
+  border-radius: 4px;
+}
+
+.qr-code-caption {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #f2f3f5;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.qr-code-url-pill {
+  font-size: 11px;
+  font-family: monospace;
+  background: #1e1f22;
+  color: #949ba4;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.mobile-modal-actions > * {
+  flex: 1;
+}
+
+.mobile-platform-tip {
+  font-size: 12px;
+  color: #949ba4;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 10px 12px;
+  border-radius: 6px;
+  border-left: 3px solid #5865F2;
+  line-height: 1.45;
+}
+
 .search-box-wrapper {
   position: relative;
   display: flex;

@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "Jogos Bolados",
+    "slug": "jogos-bolados",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#111214"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jogosbolados.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "O Jogos Bolados precisa de acesso à câmera para suas transmissões e chamadas de vídeo.",
+        "NSMicrophoneUsageDescription": "O Jogos Bolados precisa de acesso ao microfone para você conversar com seus amigos nos canais de voz.",
+        "UIBackgroundModes": ["audio"]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#111214"
+      },
+      "package": "com.jogosbolados.app",
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "MODIFY_AUDIO_SETTINGS",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "WAKE_LOCK"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permissão para uso de vídeo e câmera nas chamadas."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Permissão para uso de áudio e microfone nos canais de voz."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "jogos-bolados-expo"
+      }
+    }
+  }
+}

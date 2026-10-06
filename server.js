@@ -85,6 +85,45 @@ app.get('/download/windows', (req, res) => {
   return res.redirect(302, githubReleaseUrl);
 });
 
+// Rota de Download do Aplicativo Android (APK)
+app.get('/download/android', (req, res) => {
+  const localApkPath = path.join(__dirname, 'public', 'downloads', 'Jogos-Bolados.apk');
+  if (fs.existsSync(localApkPath)) {
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    return res.download(localApkPath, 'Jogos-Bolados.apk');
+  }
+  // Fallback: Redireciona para o release mais recente no GitHub
+  const githubReleaseUrl = 'https://github.com/wellingtonpereira12/discord-gamezeda/releases/latest/download/Jogos-Bolados.apk';
+  return res.redirect(302, githubReleaseUrl);
+});
+
+// Rota de Download / Acesso do Aplicativo iOS
+app.get('/download/ios', (req, res) => {
+  const localIpaPath = path.join(__dirname, 'public', 'downloads', 'Jogos-Bolados.ipa');
+  if (fs.existsSync(localIpaPath)) {
+    return res.download(localIpaPath, 'Jogos-Bolados.ipa');
+  }
+  // Fallback: Redireciona para o release mais recente ou Expo
+  const githubReleaseUrl = 'https://github.com/wellingtonpereira12/discord-gamezeda/releases/latest/download/Jogos-Bolados.ipa';
+  return res.redirect(302, githubReleaseUrl);
+});
+
+// Rota de Informações de Versão Mobile
+app.get('/api/mobile/version', (req, res) => {
+  return res.json({
+    name: 'Jogos Bolados Mobile',
+    version: '1.0.0',
+    android: {
+      downloadUrl: '/download/android',
+      filename: 'Jogos-Bolados.apk'
+    },
+    ios: {
+      downloadUrl: '/download/ios',
+      filename: 'Jogos-Bolados.ipa'
+    }
+  });
+});
+
 // Inicialização do Banco MariaDB
 await initDatabase();
 
