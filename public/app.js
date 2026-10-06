@@ -181,6 +181,7 @@ const btnEmojiTrigger = document.getElementById('btn-emoji-trigger');
 
 // Menu de Contexto do Usuário
 const userContextMenu = document.getElementById('user-context-menu');
+const btnCloseContextMenu = document.getElementById('btn-close-context-menu');
 const ctxVolumeSlider = document.getElementById('ctx-volume-slider');
 const ctxVolumeVal = document.getElementById('ctx-volume-val');
 const ctxScreenVolumeSlider = document.getElementById('ctx-screen-volume-slider');
@@ -2826,6 +2827,20 @@ function openContextMenu(e, peerId, peerName) {
   userContextMenu.style.top = `${posY}px`;
 }
 
+function closeContextMenu() {
+  if (userContextMenu) {
+    userContextMenu.style.display = 'none';
+  }
+  currentContextPeerId = null;
+}
+
+if (btnCloseContextMenu) {
+  btnCloseContextMenu.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeContextMenu();
+  });
+}
+
 // ==========================================
 // POPOVER DO USUÁRIO & LOGOUT
 // ==========================================
@@ -2944,17 +2959,40 @@ document.addEventListener('contextmenu', (e) => {
                           e.target.closest('.user-voice-card') ||
                           e.target.closest('.member-item') ||
                           e.target.closest('#main-screen-tile');
-  if (!isCustomTrigger && userContextMenu) {
+  // Se clicar com botão direito fora de um gatilho de usuário, fecha o menu de contexto
+  if (!isCustomTrigger) {
     closeContextMenu();
   }
-}, false);
+}, true);
 
 window.addEventListener('contextmenu', (e) => {
   e.preventDefault();
-}, false);
+}, true);
+
+// Fecha o menu de contexto ao clicar com botão direito ou esquerdo em qualquer lugar fora dele
+document.addEventListener('mousedown', (e) => {
+  // Se for clique com o botão direito (e.button === 2)
+  if (e.button === 2) {
+    const isCustomTrigger = e.target.closest('.voice-user-pill') ||
+                            e.target.closest('.user-voice-card') ||
+                            e.target.closest('.member-item') ||
+                            e.target.closest('#main-screen-tile');
+    if (!isCustomTrigger) {
+      closeContextMenu();
+    }
+    return;
+  }
+
+  // Se for clique com o botão esquerdo (e.button === 0) fora do menu
+  if (userContextMenu && userContextMenu.style.display === 'flex') {
+    if (!userContextMenu.contains(e.target)) {
+      closeContextMenu();
+    }
+  }
+});
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
+  if (e.key === 'Escape' || e.key === 'Esc') {
     closeContextMenu();
     closeUserPopover();
     closeServerDropdown();
@@ -2966,7 +3004,8 @@ document.addEventListener('keydown', (e) => {
     closeCreateCategoryModal();
     closeDeleteModal();
     closeSwitchVoiceModal();
-    addSoundModal.style.display = 'none';
+    closeMobileModal();
+    if (addSoundModal) addSoundModal.style.display = 'none';
   }
 });
 
