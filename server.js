@@ -1,3 +1,6 @@
+// Configuração de Fuso Horário Oficial (Horário de Brasília)
+process.env.TZ = 'America/Sao_Paulo';
+
 import express from 'express';
 import http from 'http';
 import https from 'https';

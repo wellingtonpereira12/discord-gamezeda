@@ -11,7 +11,12 @@ export function registerChatHandlers(io, socket, users) {
     const targetChannel = validChannels.includes(channelId) ? channelId : 'geral';
 
     const now = new Date();
-    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    const timeStr = now.toLocaleTimeString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
 
     const msgPayload = {
       id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -21,7 +26,8 @@ export function registerChatHandlers(io, socket, users) {
       isSystem: false,
       text: (text || '').trim(),
       attachmentUrl: attachmentUrl || null,
-      timestamp: `Hoje às ${timeStr}`
+      timestamp: `Hoje às ${timeStr}`,
+      createdAt: now.toISOString()
     };
 
     const saved = await saveMessage(msgPayload);

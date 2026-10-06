@@ -107,14 +107,20 @@ export function setupSockets(io) {
 
       // Mensagem de boas-vindas no canal geral
       const now = new Date();
-      const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+      const timeStr = now.toLocaleTimeString('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
       const welcomeMsg = {
         id: `sys-${Date.now()}`,
         channelId: 'geral',
         sender: user.name,
         isSystem: true,
         text: `${user.name} entrou no servidor.`,
-        timestamp: `Hoje às ${timeStr}`
+        timestamp: `Hoje às ${timeStr}`,
+        createdAt: now.toISOString()
       };
       await saveMessage(welcomeMsg);
 

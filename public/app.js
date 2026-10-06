@@ -1525,13 +1525,59 @@ socket.on('chat:new-message', ({ channelId, message }) => {
   }
 });
 
+function formatMessageDisplayTime(msg) {
+  if (!msg) return '';
+
+  // 1. Se o ID carrega o timestamp Unix (ex: msg-1791246309127-... ou sys-1791246309127)
+  if (typeof msg.id === 'string') {
+    const match = msg.id.match(/^(?:msg|sys)-(\d{13})/);
+    if (match) {
+      const timeMs = parseInt(match[1], 10);
+      if (!isNaN(timeMs) && timeMs > 1700000000000) {
+        const d = new Date(timeMs);
+        const timeStr = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
+        const now = new Date();
+        const isToday = d.toDateString() === now.toDateString();
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const isYesterday = d.toDateString() === yesterday.toDateString();
+
+        if (isToday) return `Hoje às ${timeStr}`;
+        if (isYesterday) return `Ontem às ${timeStr}`;
+        return `${d.toLocaleDateString('pt-BR')} às ${timeStr}`;
+      }
+    }
+  }
+
+  // 2. Se tiver createdAt válido (ISO string ou Date do banco)
+  if (msg.createdAt) {
+    const d = new Date(msg.createdAt);
+    if (!isNaN(d.getTime())) {
+      const timeStr = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
+      const now = new Date();
+      const isToday = d.toDateString() === now.toDateString();
+      if (isToday) return `Hoje às ${timeStr}`;
+      return `${d.toLocaleDateString('pt-BR')} às ${timeStr}`;
+    }
+  }
+
+  // 3. Fallback para msg.timestamp original
+  if (msg.timestamp) {
+    return msg.timestamp;
+  }
+
+  return 'Hoje às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
 function appendMessageToContainer(msg) {
+  const displayTime = formatMessageDisplayTime(msg);
+
   if (msg.isSystem) {
     const sysDiv = document.createElement('div');
     sysDiv.className = 'system-message';
     sysDiv.innerHTML = `
       <span style="color: #23a55a; margin-right: 8px;">➜</span>
-      <span>${escapeHtml(msg.text)} <span style="font-size: 11px; opacity: 0.6;">${msg.timestamp}</span></span>
+      <span>${escapeHtml(msg.text)} <span style="font-size: 11px; opacity: 0.6;">${escapeHtml(displayTime)}</span></span>
     `;
     messagesContainer.appendChild(sysDiv);
     return;
@@ -1558,7 +1604,7 @@ function appendMessageToContainer(msg) {
     <div class="message-content">
       <div class="message-header">
         <span class="message-author" style="color: #5865F2;">${escapeHtml(msg.sender)}</span>
-        <span class="message-time">${msg.timestamp}</span>
+        <span class="message-time">${escapeHtml(displayTime)}</span>
       </div>
       <div class="message-text">${escapeHtml(msg.text)}</div>
       ${attachmentHtml}

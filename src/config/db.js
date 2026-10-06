@@ -75,12 +75,20 @@ export async function initDatabase() {
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0,
-      connectTimeout: 5000
+      connectTimeout: 5000,
+      timezone: '-03:00'
     });
 
     const conn = await pool.getConnection();
     console.log('[+] Conectado com sucesso ao MariaDB!');
     isConnected = true;
+
+    // Garante timezone -03:00 (Brasília) na sessão do MariaDB
+    try {
+      await conn.query("SET time_zone = '-03:00'");
+    } catch (tzErr) {
+      console.warn('[!] Falha ao definir time_zone no MariaDB:', tzErr.message);
+    }
 
     // Criação das tabelas
     await conn.query(`
@@ -186,6 +194,21 @@ export async function initDatabase() {
           [s.id, s.name, s.emoji, s.file_url, s.created_by]
         );
       }
+    }
+
+    // Corrige horários de mensagens antigas gravadas com timezone UTC para o Horário de Brasília
+    try {
+      await conn.query(`
+        UPDATE messages 
+        SET timestamp = CONCAT('Hoje às ', DATE_FORMAT(DATE_SUB(created_at, INTERVAL 3 HOUR), '%H:%i'))
+        WHERE timestamp LIKE 'Hoje às 00:%' 
+           OR timestamp LIKE 'Hoje às 01:%' 
+           OR timestamp LIKE 'Hoje às 02:%'
+           OR timestamp LIKE 'Hoje às 22:%'
+           OR timestamp LIKE 'Hoje às 23:%'
+      `);
+    } catch (migErr) {
+      console.warn('[!] Migração de timestamp:', migErr.message);
     }
 
     conn.release();
@@ -362,7 +385,7 @@ export async function getChannelMessages(channelId, limit = 50) {
   if (isConnected && pool) {
     try {
       const [rows] = await pool.query(
-        `SELECT id, channel_id as channelId, sender_name as sender, avatar, is_system as isSystem, text, attachment_url as attachmentUrl, timestamp
+        `SELECT id, channel_id as channelId, sender_name as sender, avatar, is_system as isSystem, text, attachment_url as attachmentUrl, timestamp, created_at as createdAt
          FROM messages WHERE channel_id = ? ORDER BY created_at DESC LIMIT ?`,
         [channelId, limit]
       );
