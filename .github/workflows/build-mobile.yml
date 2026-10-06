@@ -21,10 +21,10 @@ jobs:
       - name: Checkout do Código
         uses: actions/checkout@v4
 
-      - name: Configurar Node.js 20
+      - name: Configurar Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
           cache-dependency-path: 'mobile/package.json'
 
@@ -50,25 +50,19 @@ jobs:
             echo "   2. Adicione no GitHub: Settings > Secrets and variables > Actions > EXPO_TOKEN."
           fi
 
-      - name: Configurar EAS CLI e Autenticar
+      - name: Instalar EAS CLI Globalmente
         if: steps.check_token.outputs.has_token == 'true'
-        uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-
-      - name: Vincular Projeto ao Expo (eas init se necessário)
-        if: steps.check_token.outputs.has_token == 'true'
-        working-directory: ./mobile
-        run: |
-          npx eas-cli init --non-interactive || true
+        run: npm install -g eas-cli
 
       - name: Compilar APK Android no Expo EAS Cloud
         if: steps.check_token.outputs.has_token == 'true'
         working-directory: ./mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           echo "🚀 [EAS] Iniciando compilação do APK Android (profile preview)..."
-          npx eas-cli build --platform android --profile preview --non-interactive --wait --json > eas-build.json
+          eas whoami
+          eas build --platform android --profile preview --non-interactive --wait --json > eas-build.json
           cat eas-build.json
 
           # Extrai a URL do APK compilado pelo EAS
