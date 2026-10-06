@@ -22,7 +22,9 @@ jobs:
           script: |
             echo "🚀 [CI/CD] Iniciando atualização automática na VPS..."
             cd /root/discord-gamezeda
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
+            git clean -fd
             docker compose up -d --build
             docker ps --filter "name=discord-gamezeda"
             echo "✅ [CI/CD] Deploy e compilação concluídos com sucesso!"
