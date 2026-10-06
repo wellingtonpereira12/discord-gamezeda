@@ -196,21 +196,6 @@ export async function initDatabase() {
       }
     }
 
-    // Corrige horários de mensagens antigas gravadas com timezone UTC para o Horário de Brasília
-    try {
-      await conn.query(`
-        UPDATE messages 
-        SET timestamp = CONCAT('Hoje às ', DATE_FORMAT(DATE_SUB(created_at, INTERVAL 3 HOUR), '%H:%i'))
-        WHERE timestamp LIKE 'Hoje às 00:%' 
-           OR timestamp LIKE 'Hoje às 01:%' 
-           OR timestamp LIKE 'Hoje às 02:%'
-           OR timestamp LIKE 'Hoje às 22:%'
-           OR timestamp LIKE 'Hoje às 23:%'
-      `);
-    } catch (migErr) {
-      console.warn('[!] Migração de timestamp:', migErr.message);
-    }
-
     conn.release();
     return true;
   } catch (err) {
