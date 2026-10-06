@@ -1,6 +1,7 @@
 # Dependências
 node_modules/
 dist/
+.expo/
 
 # Certificados SSL locais
 *.pem
