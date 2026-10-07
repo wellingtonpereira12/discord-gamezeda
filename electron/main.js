@@ -13,6 +13,7 @@ let cachedScreenSources = [];
 let screenPickerTimeout = null;
 let lastSelectedSource = null;
 let lastSelectedTime = 0;
+let currentAudioRequested = true;
 
 // Carrega configurações
 let config = {
@@ -126,6 +127,7 @@ function createMainWindow(targetUrl) {
         if (!request.videoRequested) {
           return callback();
         }
+        currentAudioRequested = !!request.audioRequested;
 
         // Se for um fallback imediato sem áudio da mesma tela escolhida recentemente (< 4s)
         if (!request.audioRequested && lastSelectedSource && (Date.now() - lastSelectedTime < 4000)) {
@@ -340,10 +342,11 @@ app.whenReady().then(() => {
       if (selectedSource) {
         lastSelectedSource = selectedSource;
         lastSelectedTime = Date.now();
-        pendingDisplayMediaCallback({
-          video: selectedSource,
-          audio: 'loopback'
-        });
+        const response = { video: selectedSource };
+        if (currentAudioRequested) {
+          response.audio = 'loopback';
+        }
+        pendingDisplayMediaCallback(response);
       } else {
         pendingDisplayMediaCallback();
       }
