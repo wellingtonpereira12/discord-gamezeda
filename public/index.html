@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
-  <title>Discord - Jogos Bolados / Gamezeda</title>
-  <link rel="stylesheet" href="style.css?v=20261005_v38">
+  <title>FakeDC</title>
+  <link rel="stylesheet" href="style.css?v=20261007_v5">
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/logo.png?v=20261005">
   <link rel="shortcut icon" href="/favicon.ico?v=20261005">
   <link rel="apple-touch-icon" href="/assets/logo.png?v=20261005">
@@ -15,14 +15,14 @@
   <!-- Hls.js Client for SoundCloud & Audio Streams -->
   <script src="/hls.min.js"></script>
 </head>
-<body oncontextmenu="return false;">
+<body>
 
   <!-- MODAL DE ENTRADA (COM CHECAGEM INTELIGENTE DE CADASTRO/SENHA) -->
   <div id="login-modal" class="modal-overlay" style="display: none;">
     <div class="welcome-modal">
       <div class="modal-header">
-        <img src="/assets/logo.png?v=20261005" width="60" height="60" style="border-radius: 50%; object-fit: cover; margin-bottom: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.6); border: 2px solid rgba(255,255,255,0.2);" alt="Jogos Bolados">
-        <h2>Entrar no Jogos Bolados</h2>
+        <img src="/assets/logo.png?v=20261005" width="60" height="60" style="border-radius: 50%; object-fit: cover; margin-bottom: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.6); border: 2px solid rgba(255,255,255,0.2);" alt="FakeDC">
+        <h2>Entrar no FakeDC</h2>
         <p>Acesse o grupo <strong>Gamezeda</strong> com voz e tela em HD!</p>
       </div>
 
@@ -77,7 +77,7 @@
   <header id="desktop-titlebar" class="desktop-titlebar" style="display: none;">
     <div class="desktop-titlebar-left">
       <img src="/assets/logo.png?v=20261005" class="desktop-titlebar-logo" alt="">
-      <span class="desktop-titlebar-brand">Jogos Bolados</span>
+      <span class="desktop-titlebar-brand">FakeDC</span>
     </div>
     <div class="desktop-titlebar-drag"></div>
     <div class="desktop-titlebar-controls">
@@ -105,14 +105,14 @@
     <!-- Overlay Escuro para Drawers Laterais no Mobile (estilo Discord) -->
     <div id="mobile-drawer-overlay" class="mobile-drawer-overlay" style="display: none;"></div>
 
-    <!-- COLUNA 1: BARRA DE CANAIS DO SERVIDOR JOGOS BOLADOS / GAMEZEDA -->
+    <!-- COLUNA 1: BARRA DE CANAIS DO SERVIDOR FAKEDC / GAMEZEDA -->
     <div class="channels-sidebar">
       
       <!-- Cabeçalho do Servidor -->
       <div class="server-header" id="server-header-btn">
         <span style="display: flex; align-items: center; gap: 8px;">
-          <img src="/assets/logo.png?v=20261005" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1.5px solid rgba(255, 255, 255, 0.25);" alt="Jogos Bolados">
-          <span style="font-weight: 800;">Jogos Bolados</span>
+          <img src="/assets/logo.png?v=20261005" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1.5px solid rgba(255, 255, 255, 0.25);" alt="FakeDC">
+          <span style="font-weight: 800;">FakeDC</span>
           <i data-lucide="badge-check" style="width: 16px; height: 16px; color: #5865F2;"></i>
         </span>
         <i data-lucide="chevron-down" style="width: 18px; height: 18px;"></i>
@@ -142,7 +142,7 @@
             </div>
             <div class="voice-status-meta">
               <span class="voice-status-title">Voz conectada</span>
-              <span class="voice-status-sub">Gamezeda / Jogos Bolados</span>
+              <span class="voice-status-sub">Gamezeda / FakeDC</span>
             </div>
           </div>
           <div class="voice-header-actions">
@@ -214,23 +214,47 @@
 
       <!-- Barra do Usuário Logado (Perfil) -->
       <div class="user-panel">
-        <!-- Pop-up flutuante ao clicar com o botão esquerdo no usuário -->
-        <div id="user-profile-popover" class="user-profile-popover" style="display: none;">
-          <div class="user-popover-header">
-            <div class="user-avatar-wrap">
-              <img id="popover-avatar" class="user-avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=Gamezeda" alt="Avatar">
-              <div class="status-dot"></div>
+        <!-- CARD POPOUT DE PERFIL ESTILO DISCORD -->
+        <div id="user-profile-card-popout" class="user-profile-card-popout" style="display: none;">
+          <div class="profile-card-banner" id="popout-banner">
+            <button type="button" class="profile-card-close" id="btn-close-profile-card" title="Fechar (Esc)">&times;</button>
+          </div>
+          <div class="profile-card-avatar-wrap">
+            <img id="popout-avatar" class="profile-card-avatar" src="" alt="Avatar">
+            <div class="profile-card-status-badge status-online" id="popout-status-badge"></div>
+          </div>
+          <div class="profile-card-body">
+            <div class="profile-card-header">
+              <div class="profile-card-name" id="popout-name">Usuário</div>
+              <div class="profile-card-status-text" id="popout-custom-status"></div>
             </div>
-            <div class="user-popover-meta">
-              <span id="popover-name" class="user-popover-username">Você</span>
-              <span class="user-popover-badge">● Online</span>
+            
+            <!-- Cartão de Atividade de Jogo (Rich Presence) -->
+            <div class="profile-card-game-box" id="popout-game-box" style="display: none;">
+              <div class="profile-card-game-icon">🎮</div>
+              <div class="profile-card-game-details">
+                <div class="profile-card-game-label">JOGANDO</div>
+                <div class="profile-card-game-name" id="popout-game-title">Counter-Strike 2</div>
+                <div class="profile-card-game-elapsed" id="popout-game-elapsed">há 15 minutos</div>
+              </div>
+            </div>
+
+            <!-- Sobre Mim / Bio -->
+            <div class="profile-card-section" id="popout-bio-section">
+              <div class="profile-card-sec-label">SOBRE MIM</div>
+              <div class="profile-card-bio-text" id="popout-bio-text">Sem descrição.</div>
+            </div>
+
+            <!-- Ações do Card -->
+            <div class="profile-card-footer">
+              <button type="button" class="profile-card-action-btn primary" id="btn-popout-primary-action">
+                Mencionar
+              </button>
+              <button type="button" class="profile-card-action-btn danger" id="btn-popout-logout" style="display: none;">
+                Sair da Conta
+              </button>
             </div>
           </div>
-          <div class="user-popover-separator"></div>
-          <button type="button" id="btn-popover-logout" class="user-popover-item danger">
-            <i data-lucide="log-out" style="width: 16px; height: 16px;"></i>
-            <span>Sair da Conta (Logout)</span>
-          </button>
         </div>
 
         <div class="user-info" id="btn-current-user-profile" title="Clique para opções de conta">
@@ -283,7 +307,7 @@
         </div>
 
         <div class="chat-header-icons">
-          <button class="header-icon-btn btn-download-desktop" id="btn-download-desktop" title="Download para Windows (Jogos Bolados PC)">
+          <button class="header-icon-btn btn-download-desktop" id="btn-download-desktop" title="Download para Windows (FakeDC PC)">
             <i data-lucide="download" style="width: 17px; height: 17px;"></i>
             <span class="desktop-btn-text">Download para Windows</span>
           </button>
@@ -298,9 +322,28 @@
             <input type="text" id="chat-search-input" placeholder="Buscar mensagens">
             <i data-lucide="search" style="width: 14px; height: 14px;"></i>
           </div>
+          <button class="header-icon-btn" id="btn-pinned-messages" title="Mensagens Fixadas (Pins)">
+            <i data-lucide="pin" style="width: 18px; height: 18px;"></i>
+          </button>
           <button class="header-icon-btn" id="btn-toggle-members-sidebar" title="Alternar Lista de Membros">
             <i data-lucide="users" style="width: 18px; height: 18px;"></i>
           </button>
+        </div>
+      </div>
+
+      <!-- POPOVER DE MENSAGENS FIXADAS (PINS) -->
+      <div id="pinned-messages-popover" class="pinned-messages-popover" style="display: none;">
+        <div class="pinned-popover-header">
+          <div class="pinned-popover-title">
+            <i data-lucide="pin" style="width: 16px; height: 16px; color: #f0b232;"></i>
+            <span>Mensagens Fixadas</span>
+          </div>
+          <button type="button" class="pinned-popover-close" id="btn-close-pinned-popover" title="Fechar (Esc)">
+            <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+          </button>
+        </div>
+        <div class="pinned-popover-list" id="pinned-messages-list">
+          <!-- Renderizado dinamicamente -->
         </div>
       </div>
 
@@ -408,6 +451,11 @@
             <span>Soundboard</span>
           </button>
 
+          <button class="stage-btn" id="btn-stage-grid-mode" title="Alternar entre Modo Grade e Foco Principal">
+            <i data-lucide="layout-grid" style="width: 18px; height: 18px;"></i>
+            <span id="btn-stage-grid-text">Modo Grade</span>
+          </button>
+
           <button class="stage-btn" id="btn-stage-mic" title="Microfone">
             <i data-lucide="mic" id="stage-mic-icon" style="width: 18px; height: 18px;"></i>
             <span id="stage-mic-text">Microfone</span>
@@ -466,6 +514,27 @@
 
       </div>
 
+      <!-- MINI PLAYER FLUTUANTE (PICTURE-IN-PICTURE DE TELA TRANSMITIDA) -->
+      <div id="stream-pip-widget" class="stream-pip-widget" style="display: none;">
+        <div class="stream-pip-header">
+          <div class="stream-pip-meta">
+            <span class="stream-pip-dot"></span>
+            <span id="stream-pip-name">Ao Vivo</span>
+          </div>
+          <div class="stream-pip-actions">
+            <button type="button" class="stream-pip-btn" id="btn-pip-fullscreen" title="Voltar ao palco de vídeo">
+              <i data-lucide="maximize-2" style="width: 13px; height: 13px;"></i>
+            </button>
+            <button type="button" class="stream-pip-btn" id="btn-pip-close" title="Fechar PiP">
+              <i data-lucide="x" style="width: 13px; height: 13px;"></i>
+            </button>
+          </div>
+        </div>
+        <div class="stream-pip-video-wrap">
+          <video id="stream-pip-video" autoplay playsinline muted></video>
+        </div>
+      </div>
+
       <!-- ÁREA DE MENSAGENS DO CHAT (PERSISTIDAS NO MARIADB) -->
       <div class="messages-container" id="messages-container"></div>
 
@@ -490,6 +559,27 @@
           <div class="emoji-picker-body" id="emoji-picker-body">
             <!-- Gerado via JavaScript -->
           </div>
+        </div>
+        <!-- BARRA DE RESPOSTA ATIVA (ESTILO DISCORD) -->
+        <div id="reply-bar" class="chat-reply-bar" style="display: none;">
+          <div class="chat-reply-bar-left">
+            <span class="chat-reply-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 17 4 12 9 7"></polyline>
+                <path d="M20 18v-2a4 4 0 0 0-4-4H4"></path>
+              </svg>
+            </span>
+            <span class="chat-reply-text">Respondendo a <strong id="reply-target-sender">Alguém</strong>: <span id="reply-target-snippet" class="chat-reply-snippet"></span></span>
+          </div>
+          <button type="button" class="chat-reply-close-btn" id="btn-cancel-reply" title="Cancelar resposta (Esc)">
+            <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+          </button>
+        </div>
+
+        <!-- POPOVER DE AUTOCOMPLETE DE MENÇÕES (@) -->
+        <div id="mention-autocomplete-popover" class="mention-autocomplete-popover" style="display: none;">
+          <div class="mention-autocomplete-header">MEMBROS & MENÇÕES</div>
+          <div id="mention-autocomplete-list" class="mention-autocomplete-list"></div>
         </div>
 
         <form id="chat-form" class="chat-input-bar">
@@ -570,6 +660,10 @@
           <i data-lucide="sliders" style="width: 16px; height: 16px;"></i>
           <span>Voz & Áudio</span>
         </button>
+        <button type="button" class="settings-tab-btn" id="tab-btn-profile">
+          <i data-lucide="user" style="width: 16px; height: 16px;"></i>
+          <span>Perfil</span>
+        </button>
         <button type="button" class="settings-tab-btn" id="tab-btn-account">
           <i data-lucide="user-check" style="width: 16px; height: 16px;"></i>
           <span>Cadastro</span>
@@ -590,6 +684,49 @@
               <div class="mic-meter-bar">
                 <div id="mic-test-meter" class="mic-meter-fill"></div>
               </div>
+            </div>
+          </div>
+
+          <!-- MODO DE ENTRADA (ATIVIDADE DE VOZ VS PUSH-TO-TALK) -->
+          <div class="settings-section">
+            <label class="settings-label">MODO DE ENTRADA</label>
+            <div class="input-mode-selector">
+              <label class="input-mode-card active" id="label-mode-vad">
+                <input type="radio" name="setting-input-mode" value="vad" checked style="display: none;">
+                <div class="input-mode-card-header">
+                  <i data-lucide="mic" style="width: 16px; height: 16px;"></i>
+                  <span class="input-mode-card-title">Atividade de Voz</span>
+                </div>
+                <p class="input-mode-card-desc">Transmite som automaticamente ao detectar sua fala.</p>
+                <div class="channel-type-radio-dot"></div>
+              </label>
+
+              <label class="input-mode-card" id="label-mode-ptt">
+                <input type="radio" name="setting-input-mode" value="ptt" style="display: none;">
+                <div class="input-mode-card-header">
+                  <i data-lucide="radio" style="width: 16px; height: 16px;"></i>
+                  <span class="input-mode-card-title">Aperte para Falar (PTT)</span>
+                </div>
+                <p class="input-mode-card-desc">Transmite somente enquanto você segurar a tecla.</p>
+                <div class="channel-type-radio-dot"></div>
+              </label>
+            </div>
+
+            <!-- Configuração de Atalho do PTT -->
+            <div id="ptt-key-container" class="ptt-key-container" style="display: none; margin-top: 12px;">
+              <label class="settings-label">ATALHO / TECLA PUSH-TO-TALK</label>
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <button type="button" id="btn-record-ptt-key" class="btn-record-key">
+                  <span id="ptt-key-display">Caps Lock</span>
+                  <small id="ptt-key-hint">(Clique para gravar tecla)</small>
+                </button>
+                <button type="button" id="btn-reset-ptt-key" class="btn-subtle" title="Redefinir para padrão">
+                  Restaurar
+                </button>
+              </div>
+              <p class="form-help-text" style="margin-top: 6px;">
+                💡 No Desktop (Electron), atalhos globais de teclado como <strong>Ctrl+Shift+M</strong> silenciam o microfone mesmo com jogos em tela cheia.
+              </p>
             </div>
           </div>
 
@@ -628,6 +765,114 @@
                 🤖 <strong>Processamento Neural Local:</strong> Modelo RNNoise compilado em WebAssembly executado diretamente no hardware do seu dispositivo, garantindo zero latência e total privacidade.
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- ABA: PERFIL & CUSTOMIZAÇÃO (FASE 2) -->
+        <div id="tab-content-profile" style="display: none;">
+          <div class="profile-settings-wrap">
+            
+            <!-- Coluna de Edição de Campos -->
+            <div class="profile-settings-form">
+              <!-- Foto de Perfil (Avatar Próprio) -->
+              <div class="settings-section">
+                <label class="settings-label">FOTO DE PERFIL (AVATAR)</label>
+                <div class="profile-avatar-edit-row">
+                  <div class="profile-avatar-preview-wrap">
+                    <img id="setting-avatar-preview" src="" alt="Avatar" class="profile-avatar-preview">
+                    <label for="setting-avatar-input" class="profile-avatar-upload-overlay" title="Alterar foto">
+                      <i data-lucide="camera" style="width: 18px; height: 18px;"></i>
+                    </label>
+                  </div>
+                  <div class="profile-avatar-actions">
+                    <input type="file" id="setting-avatar-input" accept="image/jpeg,image/png,image/webp,image/gif" style="display: none;">
+                    <button type="button" class="btn-subtle" id="btn-choose-avatar">
+                      <i data-lucide="upload" style="width: 14px; height: 14px;"></i>
+                      <span>Escolher Imagem...</span>
+                    </button>
+                    <button type="button" class="btn-subtle danger" id="btn-reset-avatar">
+                      Restaurar Padrão
+                    </button>
+                    <p class="form-help-text">JPG, PNG, WebP ou GIF (máx. 5MB).</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Cor do Banner -->
+              <div class="settings-section">
+                <label class="settings-label" for="setting-banner-color">COR DO BANNER DO PERFIL</label>
+                <div class="banner-color-picker-row">
+                  <input type="color" id="setting-banner-color" class="banner-color-input" value="#5865F2">
+                  <div class="banner-color-presets">
+                    <button type="button" class="banner-color-preset" data-color="#5865F2" style="background: #5865F2;" title="Azul Discord"></button>
+                    <button type="button" class="banner-color-preset" data-color="#57F287" style="background: #57F287;" title="Verde"></button>
+                    <button type="button" class="banner-color-preset" data-color="#FEE75C" style="background: #FEE75C;" title="Amarelo"></button>
+                    <button type="button" class="banner-color-preset" data-color="#EB459E" style="background: #EB459E;" title="Rosa Fúcsia"></button>
+                    <button type="button" class="banner-color-preset" data-color="#ED4245" style="background: #ED4245;" title="Vermelho"></button>
+                    <button type="button" class="banner-color-preset" data-color="#1E1F22" style="background: #1E1F22;" title="Escuro"></button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Status de Presença -->
+              <div class="settings-section">
+                <label class="settings-label" for="setting-status-mode">STATUS DE PRESENÇA</label>
+                <select id="setting-status-mode" class="settings-select">
+                  <option value="online">🟢 Online</option>
+                  <option value="idle">🟡 Ausente</option>
+                  <option value="dnd">🔴 Não Perturbar</option>
+                  <option value="invisible">⚪ Invisível</option>
+                </select>
+              </div>
+
+              <!-- Frase de Status Customizada -->
+              <div class="settings-section">
+                <label class="settings-label" for="setting-custom-status">FRASE DE STATUS PERSONALIZADA</label>
+                <div class="form-input-with-limit">
+                  <input type="text" id="setting-custom-status" class="form-input" placeholder="Ex: Jogando novidades, ouvindo som..." maxlength="80">
+                  <span class="char-count" id="count-custom-status">0/80</span>
+                </div>
+              </div>
+
+              <!-- Sobre Mim / Bio -->
+              <div class="settings-section">
+                <label class="settings-label" for="setting-bio">SOBRE MIM (BIO)</label>
+                <div class="form-input-with-limit">
+                  <textarea id="setting-bio" class="form-input" rows="3" placeholder="Fale um pouco sobre você..." maxlength="200" style="resize: none;"></textarea>
+                  <span class="char-count" id="count-bio">0/200</span>
+                </div>
+              </div>
+
+              <div id="profile-save-alert" class="account-alert" style="display: none;"></div>
+
+              <button type="button" id="btn-save-profile-settings" class="btn-account-submit" style="margin-top: 8px;">
+                <i data-lucide="check" style="width: 16px; height: 16px;"></i>
+                <span>Salvar Alterações do Perfil</span>
+              </button>
+            </div>
+
+            <!-- Prévia do Card ao Vivo -->
+            <div class="profile-preview-card-wrap">
+              <label class="settings-label">PRÉ-VISUALIZAÇÃO</label>
+              <div class="profile-live-preview-box">
+                <div class="profile-card-banner" id="preview-banner" style="background-color: #5865F2;"></div>
+                <div class="profile-card-avatar-wrap">
+                  <img id="preview-avatar" class="profile-card-avatar" src="" alt="Avatar">
+                  <div class="profile-card-status-badge status-online" id="preview-status-badge"></div>
+                </div>
+                <div class="profile-card-body">
+                  <div class="profile-card-header">
+                    <div class="profile-card-name" id="preview-username">Seu Nome</div>
+                    <div class="profile-card-status-text" id="preview-custom-status-text"></div>
+                  </div>
+                  <div class="profile-card-section" style="margin-top: 12px;">
+                    <div class="profile-card-sec-label">SOBRE MIM</div>
+                    <div class="profile-card-bio-text" id="preview-bio-text">Sem descrição.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
 
@@ -701,18 +946,21 @@
     </div>
   </div>
 
-  <!-- SUB-MODAL DE CADASTRO DE SOM (UPLOAD SOUNDBOARD) -->
+  <!-- SUB-MODAL DE CADASTRO/EDIÇÃO DE SOM (SOUNDBOARD) -->
   <div id="add-sound-modal" class="modal-overlay" style="display: none; z-index: 10001;">
-    <div class="discord-modal" style="max-width: 420px;">
+    <div class="discord-modal" style="max-width: 440px;">
       <div class="modal-header-with-close">
-        <h3>Cadastrar Efeito Sonoro</h3>
+        <h3 id="add-sound-modal-title">Cadastrar Efeito Sonoro</h3>
         <button class="btn-close-modal" id="btn-close-add-sound">&times;</button>
       </div>
 
       <form id="add-sound-form" style="display: flex; flex-direction: column; gap: 14px; margin-top: 14px;">
+        <input type="hidden" id="sound-edit-id" value="">
+
         <div class="form-group">
-          <label>Arquivo de Áudio (MP3, WAV, OGG máx 5MB)</label>
+          <label id="sound-file-label">Arquivo de Áudio (MP3, WAV, OGG máx 5MB)</label>
           <input type="file" id="sound-file-input" accept="audio/*" required class="form-input" style="padding: 6px;">
+          <small id="sound-file-help" style="color: #949ba4; font-size: 11px; margin-top: 4px; display: none;">Deixe vazio caso queira manter o áudio atual.</small>
         </div>
 
         <div class="form-group">
@@ -720,9 +968,25 @@
           <input type="text" id="sound-name-input" placeholder="Ex: Buzina do Baile" required maxlength="30" class="form-input">
         </div>
 
-        <div class="form-group">
-          <label>Emoji</label>
-          <input type="text" id="sound-emoji-input" value="🔊" maxlength="4" class="form-input" style="width: 80px; text-align: center; font-size: 20px;">
+        <div class="form-group" style="position: relative;">
+          <label>Emoji do Som</label>
+          <div class="sound-emoji-picker-trigger-wrap">
+            <button type="button" id="btn-sound-emoji-trigger" class="sound-emoji-trigger-btn" title="Clique para escolher um emoji">
+              <span id="sound-emoji-display">🔊</span>
+              <span id="sound-emoji-text-label" style="font-size: 13px; color: #dbdee1;">Escolher emoji</span>
+              <i data-lucide="chevron-down" style="width: 14px; height: 14px; margin-left: auto; color: #949ba4;"></i>
+            </button>
+            <input type="hidden" id="sound-emoji-input" value="🔊">
+          </div>
+
+          <!-- Popover / Leque com Grade de Emojis do Soundboard -->
+          <div id="sound-emoji-popover" class="sound-emoji-popover" style="display: none;">
+            <div class="sound-emoji-popover-search">
+              <i data-lucide="search" style="width: 14px; height: 14px; color: #949ba4;"></i>
+              <input type="text" id="sound-emoji-search-input" placeholder="Pesquisar emoji (ex: risada, fogo, gato)...">
+            </div>
+            <div class="sound-emoji-popover-grid custom-scroll" id="sound-emoji-popover-grid"></div>
+          </div>
         </div>
 
         <button type="submit" class="btn-enter" id="btn-submit-sound" style="margin-top: 8px;">Salvar e Enviar Som</button>
@@ -764,7 +1028,7 @@
       <div class="modal-body-clean">
         <div class="modal-header-clean">
           <h3>Criar Canal</h3>
-          <p class="modal-subtitle">no Jogos Bolados</p>
+          <p class="modal-subtitle">no FakeDC</p>
         </div>
 
         <div class="form-section" style="margin-top: 18px;">
@@ -900,8 +1164,8 @@
       <div class="modal-body-clean" style="padding: 22px 24px 16px 24px;">
         <div class="modal-header-clean" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
           <div style="display: flex; align-items: center; gap: 8px;">
-            <img src="/assets/logo.png?v=20261005" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1.5px solid rgba(255, 255, 255, 0.2);" alt="Jogos Bolados">
-            <h3 style="margin: 0; font-size: 20px; font-weight: 700; color: #fff;">Jogos Bolados Mobile</h3>
+            <img src="/assets/logo.png?v=20261005" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1.5px solid rgba(255, 255, 255, 0.2);" alt="FakeDC">
+            <h3 style="margin: 0; font-size: 20px; font-weight: 700; color: #fff;">FakeDC Mobile</h3>
           </div>
           <button type="button" class="btn-close-modal" id="btn-close-mobile-modal" style="font-size: 22px; color: #949ba4; background: none; border: none; cursor: pointer; line-height: 1; padding: 0 4px;" title="Fechar">&times;</button>
         </div>
@@ -1048,6 +1312,43 @@
             Compartilhar
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- POPOVER FLUTUANTE DE REAÇÕES RÁPIDAS COM EMOJI -->
+  <div id="quick-reaction-picker" class="quick-reaction-picker" style="display: none;">
+    <button type="button" class="quick-react-btn" data-emoji="👍" title="Joinha">👍</button>
+    <button type="button" class="quick-react-btn" data-emoji="❤️" title="Coração">❤️</button>
+    <button type="button" class="quick-react-btn" data-emoji="😂" title="Rindo">😂</button>
+    <button type="button" class="quick-react-btn" data-emoji="😮" title="Uau">😮</button>
+    <button type="button" class="quick-react-btn" data-emoji="😢" title="Triste">😢</button>
+    <button type="button" class="quick-react-btn" data-emoji="🔥" title="Fogo">🔥</button>
+    <button type="button" class="quick-react-btn" data-emoji="🚀" title="Foguete">🚀</button>
+    <button type="button" class="quick-react-btn" data-emoji="🎮" title="Game">🎮</button>
+    <button type="button" class="quick-react-btn" data-emoji="🎉" title="Festa">🎉</button>
+    <button type="button" class="quick-react-btn" data-emoji="💩" title="Cocô">💩</button>
+    <button type="button" class="quick-react-btn-more" id="btn-quick-react-more" title="Mais Emojis...">➕</button>
+  </div>
+
+  <!-- MODAL: CONFIRMAR EXCLUSÃO DE MENSAGEM -->
+  <div id="delete-message-modal" class="modal-overlay" style="display: none; z-index: 10020;">
+    <div class="discord-modal" style="max-width: 440px;">
+      <div class="modal-header-with-close">
+        <h3 style="color: #f23f43; display: flex; align-items: center; gap: 8px;">
+          <i data-lucide="trash-2" style="width: 20px; height: 20px;"></i>
+          Excluir Mensagem
+        </h3>
+        <button type="button" class="btn-close-modal" id="btn-close-delete-message-modal" title="Cancelar (Esc)">&times;</button>
+      </div>
+      <div style="padding: 16px 20px; color: #dbdee1; font-size: 14px; line-height: 1.5;">
+        <p>Tem certeza de que deseja excluir esta mensagem? Esta ação não pode ser desfeita.</p>
+        <div id="delete-message-preview" style="margin-top: 12px; padding: 10px 14px; background: #2b2d31; border-left: 3px solid #f23f43; border-radius: 4px; font-size: 13px; color: #949ba4; max-height: 80px; overflow-y: auto;">
+        </div>
+      </div>
+      <div class="modal-footer-clean" style="justify-content: flex-end; gap: 12px; padding: 14px 20px; background: #2b2d31;">
+        <button type="button" class="btn-cancel" id="btn-cancel-delete-message">Cancelar</button>
+        <button type="button" class="btn-danger" id="btn-confirm-delete-message" style="background: #da373c; color: #fff; padding: 8px 20px; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">Excluir</button>
       </div>
     </div>
   </div>

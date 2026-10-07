@@ -1,7 +1,8 @@
-const { app, BrowserWindow, ipcMain, session, Menu, desktopCapturer } = require('electron');
+const { app, BrowserWindow, ipcMain, session, Menu, desktopCapturer, globalShortcut, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { checkAndApplyUpdates, launchInstallerAndExit } = require('./updater');
+const gameDetector = require('./gameDetector');
 
 // Desabilita menus de barra de ferramentas padrão do Electron (File, Edit, View, etc)
 Menu.setApplicationMenu(null);
@@ -17,7 +18,7 @@ let currentAudioRequested = true;
 
 // Carrega configurações
 let config = {
-  appName: 'Jogos Bolados',
+  appName: 'FakeDC',
   serverUrl: 'https://jogosbolados.duckdns.org',
   localServerUrl: 'http://localhost:3000'
 };
@@ -74,7 +75,7 @@ function createSplashWindow() {
 }
 
 /**
- * Cria a Janela Principal do Discord "Jogos Bolados"
+ * Cria a Janela Principal do Discord "FakeDC"
  */
 function createMainWindow(targetUrl) {
   mainWindow = new BrowserWindow({
@@ -82,7 +83,7 @@ function createMainWindow(targetUrl) {
     height: 800,
     minWidth: 940,
     minHeight: 600,
-    title: 'Jogos Bolados',
+    title: 'FakeDC',
     icon: fs.existsSync(appIconPath) ? appIconPath : undefined,
     backgroundColor: '#111214',
     frame: false,
@@ -201,9 +202,13 @@ function createMainWindow(targetUrl) {
     }
     mainWindow.show();
     mainWindow.focus();
+
+    // Inicia monitoramento de jogos do Windows (Discord Rich Presence / Game Activity)
+    gameDetector.start(10000);
   });
 
   mainWindow.on('closed', () => {
+    gameDetector.stop();
     if (pendingDisplayMediaCallback) {
       try { pendingDisplayMediaCallback(); } catch (e) {}
       pendingDisplayMediaCallback = null;
@@ -240,7 +245,7 @@ function getAppVersion() {
  * 1. Abre Splash
  * 2. Checa versão remota via JSON
  * 3. Se houver nova versão, baixa com tubinho de progresso e instala
- * 4. Se não, abre a tela principal do Jogos Bolados
+ * 4. Se não, abre a tela principal do FakeDC
  */
 async function startApplication() {
   createSplashWindow();
@@ -251,8 +256,8 @@ async function startApplication() {
   } catch (e) {}
   const serverUrl = process.env.SERVER_URL || config.serverUrl;
 
-  console.log(`[Jogos Bolados] Iniciando cliente desktop v${currentVersion}`);
-  console.log(`[Jogos Bolados] Servidor conectado: ${serverUrl}`);
+  console.log(`[FakeDC] Iniciando cliente desktop v${currentVersion}`);
+  console.log(`[FakeDC] Servidor conectado: ${serverUrl}`);
 
   // Aguarda janela de splash carregar DOM
   await new Promise(r => setTimeout(r, 600));
@@ -274,12 +279,12 @@ async function startApplication() {
     });
 
     if (updateResult && updateResult.updateAvailable && updateResult.installerPath) {
-      console.log('[Jogos Bolados] Atualização baixada. Iniciando instalador...');
+      console.log('[FakeDC] Atualização baixada. Iniciando instalador...');
       launchInstallerAndExit(updateResult.installerPath);
       return;
     }
   } catch (err) {
-    console.error('[Jogos Bolados] Erro ao verificar atualizações:', err.message);
+    console.error('[FakeDC] Erro ao verificar atualizações:', err.message);
   }
 
   // Transição suave para a janela principal
@@ -385,13 +390,87 @@ app.whenReady().then(() => {
     }
   });
 
+  // Notifica o renderer quando o jogo em execução mudar ou for fechado
+  gameDetector.on('change', (activity) => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+      mainWindow.webContents.send('electron:game-activity', activity);
+    }
+  });
+
+  ipcMain.handle('electron:get-game-activity', () => {
+    return gameDetector.getCurrentActivity();
+  });
+
+  // Piscar ícone na barra de tarefas (flashFrame - Fase 4)
+  ipcMain.on('window:flash-frame', (event, flag) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.flashFrame(Boolean(flag));
+    }
+  });
+
+  // Trazer janela para primeiro plano ao clicar em notificação
+  ipcMain.on('window:show-focus', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
+  // Notificação Nativa do Windows Toast (Fase 4)
+  ipcMain.on('notification:show', (event, { title, body, icon, channelId }) => {
+    try {
+      if (Notification && Notification.isSupported()) {
+        const notif = new Notification({
+          title: title || 'FakeDC',
+          body: body || '',
+          icon: fs.existsSync(appIconPath) ? appIconPath : undefined,
+          silent: false
+        });
+        notif.on('click', () => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.show();
+            mainWindow.focus();
+            if (channelId && !mainWindow.webContents.isDestroyed()) {
+              mainWindow.webContents.send('notification:clicked', { channelId });
+            }
+          }
+        });
+        notif.show();
+      }
+    } catch (err) {
+      console.warn('[Notification] Erro ao disparar notificação nativa:', err.message);
+    }
+  });
+
   startApplication();
+
+  // Atalhos Globais de Teclado (Discord Global Shortcuts: Ctrl+Shift+M e Ctrl+Shift+D)
+  try {
+    globalShortcut.register('CommandOrControl+Shift+M', () => {
+      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.send('shortcut:toggle-mic');
+      }
+    });
+    globalShortcut.register('CommandOrControl+Shift+D', () => {
+      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.send('shortcut:toggle-deaf');
+      }
+    });
+  } catch (err) {
+    console.warn('[Shortcuts] Erro ao registrar atalhos globais:', err.message);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       startApplication();
     }
   });
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
 });
 
 app.on('window-all-closed', () => {

@@ -1,5 +1,5 @@
 {
-  "appName": "Jogos Bolados",
+  "appName": "FakeDC",
   "serverUrl": "https://jogosbolados.duckdns.org",
   "localServerUrl": "http://localhost:3000",
   "versionCheckEndpoint": "/api/desktop/version",

@@ -1,7 +1,7 @@
 {
-  "name": "jogos-bolados",
+  "name": "fakedc",
   "version": "1.0.5",
-  "description": "Discord Clone com Chat em Tempo Real, Compartilhamento de Tela WebRTC e Cliente Desktop Electron",
+  "description": "FakeDC - Discord Clone com Chat em Tempo Real, Compartilhamento de Tela WebRTC e Cliente Desktop Electron",
   "main": "server.js",
   "type": "module",
   "scripts": {
@@ -24,8 +24,8 @@
     "ssh2": "^1.17.0"
   },
   "build": {
-    "appId": "com.jogosbolados.desktop",
-    "productName": "Jogos Bolados",
+    "appId": "com.fakedc.desktop",
+    "productName": "FakeDC",
     "directories": {
       "output": "dist"
     },
@@ -50,12 +50,12 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "shortcutName": "Jogos Bolados",
-      "uninstallDisplayName": "Jogos Bolados",
+      "shortcutName": "FakeDC",
+      "uninstallDisplayName": "FakeDC",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "installerHeaderIcon": "build/icon.ico",
-      "artifactName": "Jogos-Bolados-Setup.${ext}"
+      "artifactName": "FakeDC-Setup.${ext}"
     }
   }
 }

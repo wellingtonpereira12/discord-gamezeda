@@ -1,16 +1,16 @@
 {
-  "name": "Jogos Bolados",
+  "name": "FakeDC",
   "version": "1.0.5",
   "releaseDate": "2026-10-07",
   "minVersion": "1.0.0",
-  "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/Jogos-Bolados-Setup.exe",
-  "installerName": "Jogos-Bolados-Setup.exe",
+  "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe",
+  "installerName": "FakeDC-Setup.exe",
   "mobile": {
     "version": "1.0.0",
     "androidUrl": "/download/android",
-    "androidApk": "Jogos-Bolados.apk",
+    "androidApk": "FakeDC.apk",
     "iosUrl": "/download/ios",
-    "iosIpa": "Jogos-Bolados.ipa"
+    "iosIpa": "FakeDC.ipa"
   },
-  "notes": "Versão oficial Jogos Bolados Desktop para Windows e Mobile para Android (.apk) e iOS com suporte a WebRTC HD e supressão de ruído RNNoise."
+  "notes": "Versão oficial FakeDC Desktop para Windows e Mobile para Android (.apk) e iOS com suporte a WebRTC HD e supressão de ruído RNNoise."
 }
