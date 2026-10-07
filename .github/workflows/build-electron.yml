@@ -44,6 +44,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Duplicar Executável para Compatibilidade Retroativa
+        shell: pwsh
+        run: |
+          if (Test-Path dist/FakeDC-Setup.exe) {
+            Copy-Item dist/FakeDC-Setup.exe dist/Jogos-Bolados-Setup.exe -Force
+            Write-Host "FakeDC-Setup.exe duplicado como Jogos-Bolados-Setup.exe com sucesso!"
+          }
+
       - name: Listar Arquivos Compilados em dist
         shell: pwsh
         run: |
@@ -52,7 +60,7 @@ jobs:
       - name: Fazer Upload do Artefato no GitHub Actions
         uses: actions/upload-artifact@v4
         with:
-          name: Jogos-Bolados-Windows-Setup-v${{ steps.pkg_version.outputs.VERSION }}
+          name: FakeDC-Windows-Setup-v${{ steps.pkg_version.outputs.VERSION }}
           path: dist/*.exe
           retention-days: 30
 
@@ -61,17 +69,17 @@ jobs:
         if: startsWith(github.ref, 'refs/heads/main')
         with:
           tag_name: v${{ steps.pkg_version.outputs.VERSION }}
-          name: Jogos Bolados Desktop v${{ steps.pkg_version.outputs.VERSION }}
+          name: FakeDC Desktop v${{ steps.pkg_version.outputs.VERSION }}
           body: |
-            🎮 **Jogos Bolados para PC (Windows)**
+            🎮 **FakeDC para PC (Windows)**
             
             - **Versão:** v${{ steps.pkg_version.outputs.VERSION }}
-            - **Instalador:** Executável gerado automaticamente pelo GitHub Actions.
+            - **Instalador:** Executável 1-click gerado automaticamente pelo GitHub Actions.
             - **Recursos:**
-              - Voz e vídeo em alta definição com WebRTC.
-              - Cancelamento de ruído baseado em rede neural (RNNoise da Xiph.Org).
-              - Compartilhamento de tela HD e Soundboard integrado.
-              - Sistema automático de verificação de versões e atualizações com splash screen ("tubinho de download").
+              - Voz e vídeo em alta definição com WebRTC e STUN/TURN.
+              - Cancelamento de ruído baseado em rede neural (RNNoise).
+              - Compartilhamento de tela HD estilo Discord (seletor de telas e janelas).
+              - Auto-updater 100% silencioso e resiliente.
           files: |
             dist/*.exe
           draft: false
@@ -84,12 +92,12 @@ jobs:
         if: startsWith(github.ref, 'refs/heads/main')
         with:
           tag_name: desktop-latest
-          name: Jogos Bolados Desktop (Windows)
+          name: FakeDC Desktop (Windows)
           body: |
-            🎮 **Jogos Bolados para PC (Windows) - Versão Mais Recente**
+            🎮 **FakeDC para PC (Windows) - Versão Mais Recente**
             
             - **Versão:** v${{ steps.pkg_version.outputs.VERSION }}
-            - **Instalador:** Executável oficial para Windows do Jogos Bolados PC.
+            - **Instalador:** Executável oficial FakeDC-Setup.exe e compatibilidade Jogos-Bolados-Setup.exe.
           files: |
             dist/*.exe
           draft: false
