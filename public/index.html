@@ -471,6 +471,27 @@
 
       <!-- Campo de Digitação na Base -->
       <div class="chat-input-wrapper">
+        <!-- POPOVER DE SELEÇÃO DE EMOJIS (ESTILO DISCORD) -->
+        <div id="emoji-picker-popover" class="emoji-picker-popover" style="display: none;">
+          <div class="emoji-picker-header">
+            <div class="emoji-search-wrapper">
+              <i data-lucide="search" style="width: 14px; height: 14px; color: #949ba4;"></i>
+              <input type="text" id="emoji-search-input" class="emoji-search-input" placeholder="Buscar emojis (ex: fogo, top, rindo)..." autocomplete="off">
+            </div>
+          </div>
+          <div class="emoji-categories-nav">
+            <button type="button" class="emoji-nav-btn active" data-category="faces" title="Expressões & Carinhas">😃</button>
+            <button type="button" class="emoji-nav-btn" data-category="gestures" title="Mãos & Gestos">👍</button>
+            <button type="button" class="emoji-nav-btn" data-category="hearts" title="Corações & Emoções">❤️</button>
+            <button type="button" class="emoji-nav-btn" data-category="gaming" title="Jogos & Diversão">🎮</button>
+            <button type="button" class="emoji-nav-btn" data-category="food" title="Comidas & Bebidas">🍕</button>
+            <button type="button" class="emoji-nav-btn" data-category="nature" title="Animais & Natureza">🐱</button>
+          </div>
+          <div class="emoji-picker-body" id="emoji-picker-body">
+            <!-- Gerado via JavaScript -->
+          </div>
+        </div>
+
         <form id="chat-form" class="chat-input-bar">
           <input type="file" id="chat-file-input" style="display: none;" accept="image/*,video/*,audio/*,.pdf,.zip,.txt">
           <button type="button" class="chat-plus-btn" id="btn-attach-file" title="Adicionar arquivo / imagem">
@@ -987,7 +1008,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261006_v3"></script>
+  <script type="module" src="app.js?v=20261006_v4"></script>
 
 </body>
 </html>
