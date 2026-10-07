@@ -2257,7 +2257,11 @@ document.addEventListener('keydown', (e) => {
 // ==========================================
 // COLAR IMAGEM DIRETO DO CLIPBOARD (CTRL + V)
 // ==========================================
+let isPastingImage = false;
+
 async function handleImagePasteFromClipboard(e) {
+  if (isPastingImage) return;
+
   const clipboardData = e.clipboardData || window.clipboardData;
   if (!clipboardData || !clipboardData.items) return;
 
@@ -2279,9 +2283,12 @@ async function handleImagePasteFromClipboard(e) {
   if (!imageItem) return; // Não é imagem, deixa o comportamento normal de colar texto acontecer
 
   e.preventDefault();
+  if (typeof e.stopPropagation === 'function') e.stopPropagation();
 
   const file = imageItem.getAsFile();
   if (!file) return;
+
+  isPastingImage = true;
 
   const timestamp = Date.now();
   const safeFileName = file.name && file.name !== 'image.png' ? file.name : `screenshot-${timestamp}.png`;
@@ -2316,13 +2323,14 @@ async function handleImagePasteFromClipboard(e) {
   } catch (err) {
     console.error('[Paste ❌] Erro ao enviar imagem colada:', err);
     alert('Erro ao enviar captura de tela do clipboard.');
+  } finally {
+    setTimeout(() => {
+      isPastingImage = false;
+    }, 1500);
   }
 }
 
-// Escuta Ctrl+V no chatInput e globalmente
-if (chatInput) {
-  chatInput.addEventListener('paste', handleImagePasteFromClipboard);
-}
+// Escuta Ctrl+V globalmente (apenas uma vez para evitar duplo disparo por borbulhamento do chatInput para window)
 window.addEventListener('paste', handleImagePasteFromClipboard);
 
 // ==========================================
