@@ -141,6 +141,18 @@ export function registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVo
     broadcastVoiceState();
   });
 
+  // Status de câmera / webcam
+  socket.on('voice:camera-status', (payload = {}) => {
+    const user = users.get(socket.id);
+    if (!user || !user.inVoice || !user.currentVoiceRoom) return;
+    user.isCameraActive = !!payload.isActive;
+    socket.to(user.currentVoiceRoom).emit('voice:peer-camera-status', {
+      ...payload,
+      peerId: socket.id
+    });
+    broadcastVoiceState();
+  });
+
   // Status de microfone mutado e fone desativado (mute / deafen)
   socket.on('voice:mute-status', (payload = {}) => {
     const user = users.get(socket.id);
@@ -158,6 +170,7 @@ export function leaveVoiceRoom(io, socket, user, users, voiceRooms, broadcastVoi
   if (targetUser) {
     targetUser.inVoice = false;
     targetUser.isScreenSharing = false;
+    targetUser.isCameraActive = false;
     targetUser.isSpeaking = false;
     targetUser.isMuted = false;
     targetUser.isDeafened = false;

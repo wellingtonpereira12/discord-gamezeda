@@ -1,6 +1,6 @@
 {
   "appName": "Jogos Bolados",
-  "serverUrl": "https://2.24.64.219:3050",
+  "serverUrl": "https://jogosbolados.duckdns.org",
   "localServerUrl": "http://localhost:3000",
   "versionCheckEndpoint": "/api/desktop/version",
   "versionFallbackEndpoint": "/version.json",

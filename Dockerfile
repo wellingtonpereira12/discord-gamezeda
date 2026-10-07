@@ -7,7 +7,7 @@ RUN apk add --no-cache openssl tzdata && \
     echo "America/Sao_Paulo" > /etc/timezone && \
     openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
     -keyout /app/key.pem -out /app/cert.pem \
-    -subj "/CN=2.24.64.219"
+    -subj "/CN=jogosbolados.duckdns.org"
 
 ENV TZ=America/Sao_Paulo
 

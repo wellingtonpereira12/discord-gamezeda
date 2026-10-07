@@ -24,6 +24,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('window:maximized-change', (event, isMax) => callback(isMax));
   },
 
+  // Seletor de Telas e Janelas (Screen Share HD)
+  onOpenScreenPicker: (callback) => {
+    ipcRenderer.on('electron:open-screen-picker', (event, sources) => callback(sources));
+  },
+  selectScreenSource: (sourceId) => ipcRenderer.send('electron:screen-source-selected', sourceId),
+  cancelScreenPicker: () => ipcRenderer.send('electron:screen-picker-cancelled'),
+
   // Obter versão
   getVersion: () => ipcRenderer.invoke('app:get-version')
 });

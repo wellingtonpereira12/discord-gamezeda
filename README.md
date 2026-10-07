@@ -7,7 +7,7 @@ Site baseado no Discord com chat em tempo real, canais de voz e **compartilhamen
 ## 🌐 Link de Acesso
 
 Acesse direto pelo navegador sem precisar instalar nada:
-👉 **http://2.24.64.219:3050**
+👉 **https://jogosbolados.duckdns.org**
 
 - **Sem cadastro ou senha**: basta digitar seu nome/apelido e entrar direto no grupo **Gamezeda**!
 - **Compartilhamento de tela**: entre no canal `🔊 Gamezeda` e clique em **Compartilhar Tela** para transmitir sua tela/jogo com áudio para quem estiver conectado.

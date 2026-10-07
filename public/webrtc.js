@@ -152,8 +152,13 @@ export class WebRTCManager {
       this.getOrCreatePeer(peerId);
     });
 
-    this.socket.on('webrtc:offer', async ({ senderId, offer, type, screenStreamId, screenAudioTrackId }) => {
+    this.socket.on('webrtc:offer', async ({ senderId, offer, type, screenStreamId, screenAudioTrackId, isScreenStopped, isCameraStopped }) => {
       console.log(`[WebRTC 📞] Oferta de ${senderId} (${type || 'call'})`);
+      if (isScreenStopped || isCameraStopped) {
+        if (this.onRemoteRemove) {
+          this.onRemoteRemove(senderId, 'video');
+        }
+      }
       if (screenStreamId) {
         this.peerScreenStreamIds.set(senderId, screenStreamId);
       }
@@ -366,11 +371,15 @@ export class WebRTCManager {
           this.onRemoteTrack(peerId, incomingStream, event.track);
         }
 
-        event.track.onended = () => {
+        const handleVideoRemoved = () => {
+          console.log(`[WebRTC 📹] Track de vídeo finalizado/mutado de ${peerId}`);
           if (this.onRemoteRemove) {
             this.onRemoteRemove(peerId, 'video');
           }
         };
+
+        event.track.onended = handleVideoRemoved;
+        event.track.onmute = handleVideoRemoved;
       } else if (event.track.kind === 'audio') {
         const isScreenAudio = (knownScreenAudioTrackId && event.track.id === knownScreenAudioTrackId) ||
                               (knownScreenStreamId && incomingStream.id === knownScreenStreamId) ||
@@ -1031,6 +1040,10 @@ export class WebRTCManager {
         }
       }
 
+      try {
+        this.socket.emit('voice:camera-status', { isActive: true });
+      } catch (sockErr) {}
+
       return this.localCameraStream;
     } catch (err) {
       console.error('[WebRTC] Falha ao capturar câmera:', err);
@@ -1049,12 +1062,18 @@ export class WebRTCManager {
           try { pc.removeTrack(senders.cameraVideoSender); } catch (e) {}
           senders.cameraVideoSender = null;
         }
-        await this.renegotiate(pc, peerId);
+        await this.renegotiate(pc, peerId, { isCameraStopped: true });
       }
       tracks.forEach(t => t.stop());
       this.localCameraStream = null;
     }
     this.isCameraActive = false;
+    try {
+      this.socket.emit('voice:camera-status', { isActive: false });
+      if (!this.isScreenSharing) {
+        this.socket.emit('voice:screen-status', { isSharing: false });
+      }
+    } catch (e) {}
   }
 
   async renegotiate(pc, targetId, extraData = {}) {

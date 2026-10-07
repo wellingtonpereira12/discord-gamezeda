@@ -1007,8 +1007,50 @@
     </div>
   </div>
 
+  <!-- MODAL: SELETOR DE TELAS E JANELAS (ELECTRON SCREEN SHARE) -->
+  <div id="modal-screen-picker" class="modal-overlay" style="display: none; z-index: 10010;">
+    <div class="discord-modal screen-picker-modal">
+      <div class="modal-header-with-close">
+        <h3 style="display: flex; align-items: center; gap: 8px;">
+          <i data-lucide="monitor" style="width: 20px; height: 20px; color: #5865F2;"></i>
+          Compartilhe sua tela
+        </h3>
+        <button type="button" class="btn-close-modal" id="btn-close-screen-picker" title="Cancelar (Esc)">&times;</button>
+      </div>
+
+      <!-- Abas: Telas vs Janelas -->
+      <div class="screen-picker-tabs">
+        <button type="button" class="screen-picker-tab active" id="tab-picker-screens">
+          Telas <span class="screen-picker-badge" id="badge-picker-screens">0</span>
+        </button>
+        <button type="button" class="screen-picker-tab" id="tab-picker-windows">
+          Janelas de Aplicativos <span class="screen-picker-badge" id="badge-picker-windows">0</span>
+        </button>
+      </div>
+
+      <!-- Grade de miniaturas das Telas / Janelas -->
+      <div class="screen-picker-grid-container custom-scroll">
+        <div id="screen-picker-grid" class="screen-picker-grid"></div>
+      </div>
+
+      <!-- Rodapé com Qualidade e Botões de Ação -->
+      <div class="screen-picker-footer">
+        <div class="screen-picker-quality">
+          <i data-lucide="sparkles" style="width: 16px; height: 16px; color: #f0b232;"></i>
+          <span>Transmissão em HD 1080p 60 FPS com Áudio do Sistema</span>
+        </div>
+        <div class="screen-picker-actions">
+          <button type="button" class="btn-cancel" id="btn-cancel-screen-picker">Cancelar</button>
+          <button type="button" class="btn-enter" id="btn-confirm-screen-picker" disabled style="margin: 0; padding: 10px 22px;">
+            Compartilhar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261006_v5"></script>
+  <script type="module" src="app.js?v=20261006_v6"></script>
 
 </body>
 </html>

@@ -1033,6 +1033,16 @@ socket.on('voice:update', (data = {}) => {
     });
   }
 
+  // Remove automaticamente streams fantasmas de participantes que saíram
+  if (inVoice && Array.isArray(allVoiceUsers)) {
+    const currentRoomUserIds = new Set(allVoiceUsers.map(u => u.id));
+    for (const [streamId, sData] of activeStreams.entries()) {
+      if (!sData.isLocal && !currentRoomUserIds.has(streamId)) {
+        unregisterStream(streamId);
+      }
+    }
+  }
+
   renderSidebarChannels();
   renderVoiceStageCards();
   renderMembersSidebar();
@@ -1098,6 +1108,13 @@ socket.on('voice:peer-speaking', ({ peerId, isSpeaking }) => {
 
 socket.on('voice:peer-screen-status', ({ peerId, isSharing }) => {
   if (!isSharing) unregisterStream(peerId);
+});
+
+socket.on('voice:peer-camera-status', ({ peerId, isActive }) => {
+  if (!isActive) {
+    unregisterStream(peerId);
+    unregisterStream(`${peerId}-camera`);
+  }
 });
 
 socket.on('session:replaced', ({ message }) => {
@@ -4086,6 +4103,193 @@ function setupDesktopClient() {
     window.electronAPI.isMaximized().then(isMax => {
       updateMaximizeIcon(isMax);
     }).catch(() => {});
+  }
+
+  // ==========================================
+  // SELETOR DE TELAS E JANELAS (ELECTRON SCREEN SHARE HD)
+  // ==========================================
+  if (window.electronAPI.onOpenScreenPicker) {
+    let activeSources = [];
+    let selectedSourceId = null;
+    let activeTab = 'screens'; // 'screens' | 'windows'
+
+    const modalScreenPicker = document.getElementById('modal-screen-picker');
+    const gridScreenPicker = document.getElementById('screen-picker-grid');
+    const btnCloseScreenPicker = document.getElementById('btn-close-screen-picker');
+    const btnCancelScreenPicker = document.getElementById('btn-cancel-screen-picker');
+    const btnConfirmScreenPicker = document.getElementById('btn-confirm-screen-picker');
+    const tabScreens = document.getElementById('tab-picker-screens');
+    const tabWindows = document.getElementById('tab-picker-windows');
+    const badgeScreens = document.getElementById('badge-picker-screens');
+    const badgeWindows = document.getElementById('badge-picker-windows');
+
+    function renderScreenPickerGrid() {
+      if (!gridScreenPicker) return;
+      gridScreenPicker.innerHTML = '';
+
+      const filtered = activeSources.filter(s => activeTab === 'screens' ? s.isScreen : !s.isScreen);
+
+      if (filtered.length === 0) {
+        gridScreenPicker.innerHTML = `
+          <div style="grid-column: 1 / -1; text-align: center; padding: 48px 20px; color: #949ba4; font-size: 13.5px;">
+            Nenhuma ${activeTab === 'screens' ? 'tela' : 'janela de aplicativo'} detectada.
+          </div>
+        `;
+        return;
+      }
+
+      filtered.forEach(source => {
+        const card = document.createElement('div');
+        card.className = `screen-picker-card ${selectedSourceId === source.id ? 'selected' : ''}`;
+        card.dataset.id = source.id;
+
+        const thumbDiv = document.createElement('div');
+        thumbDiv.className = 'screen-picker-thumb';
+        const img = document.createElement('img');
+        img.src = source.thumbnail;
+        img.alt = source.name;
+        img.loading = 'lazy';
+        thumbDiv.appendChild(img);
+
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'screen-picker-info';
+
+        if (source.appIcon) {
+          const icon = document.createElement('img');
+          icon.className = 'screen-picker-icon';
+          icon.src = source.appIcon;
+          icon.alt = '';
+          infoDiv.appendChild(icon);
+        } else {
+          const iconSpan = document.createElement('span');
+          iconSpan.innerHTML = source.isScreen ? '🖥️' : '🪟';
+          iconSpan.style.fontSize = '14px';
+          infoDiv.appendChild(iconSpan);
+        }
+
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'screen-picker-title';
+        titleSpan.textContent = source.name;
+        titleSpan.title = source.name;
+        infoDiv.appendChild(titleSpan);
+
+        card.appendChild(thumbDiv);
+        card.appendChild(infoDiv);
+
+        card.addEventListener('click', () => {
+          selectedSourceId = source.id;
+          const allCards = gridScreenPicker.querySelectorAll('.screen-picker-card');
+          allCards.forEach(c => c.classList.remove('selected'));
+          card.classList.add('selected');
+          if (btnConfirmScreenPicker) btnConfirmScreenPicker.disabled = false;
+        });
+
+        card.addEventListener('dblclick', () => {
+          selectedSourceId = source.id;
+          confirmScreenSelection();
+        });
+
+        gridScreenPicker.appendChild(card);
+      });
+
+      const isCurrentSelectedVisible = filtered.some(s => s.id === selectedSourceId);
+      if (!isCurrentSelectedVisible) {
+        if (filtered.length > 0) {
+          selectedSourceId = filtered[0].id;
+          const firstCard = gridScreenPicker.querySelector(`[data-id="${selectedSourceId}"]`);
+          if (firstCard) firstCard.classList.add('selected');
+          if (btnConfirmScreenPicker) btnConfirmScreenPicker.disabled = false;
+        } else {
+          selectedSourceId = null;
+          if (btnConfirmScreenPicker) btnConfirmScreenPicker.disabled = true;
+        }
+      } else {
+        if (btnConfirmScreenPicker) btnConfirmScreenPicker.disabled = false;
+      }
+    }
+
+    function confirmScreenSelection() {
+      if (!selectedSourceId) return;
+      if (modalScreenPicker) modalScreenPicker.style.display = 'none';
+      window.electronAPI.selectScreenSource(selectedSourceId);
+    }
+
+    function cancelScreenSelection() {
+      if (modalScreenPicker) modalScreenPicker.style.display = 'none';
+      window.electronAPI.cancelScreenPicker();
+    }
+
+    window.electronAPI.onOpenScreenPicker((sources) => {
+      activeSources = sources || [];
+      const screenCount = activeSources.filter(s => s.isScreen).length;
+      const windowCount = activeSources.filter(s => !s.isScreen).length;
+
+      if (badgeScreens) badgeScreens.textContent = screenCount;
+      if (badgeWindows) badgeWindows.textContent = windowCount;
+
+      activeTab = screenCount > 0 ? 'screens' : 'windows';
+      if (tabScreens && tabWindows) {
+        if (activeTab === 'screens') {
+          tabScreens.classList.add('active');
+          tabWindows.classList.remove('active');
+        } else {
+          tabScreens.classList.remove('active');
+          tabWindows.classList.add('active');
+        }
+      }
+
+      const initial = activeSources.find(s => activeTab === 'screens' ? s.isScreen : !s.isScreen) || activeSources[0];
+      selectedSourceId = initial ? initial.id : null;
+
+      renderScreenPickerGrid();
+
+      if (modalScreenPicker) {
+        modalScreenPicker.style.display = 'flex';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+      }
+    });
+
+    if (tabScreens) {
+      tabScreens.addEventListener('click', () => {
+        activeTab = 'screens';
+        tabScreens.classList.add('active');
+        if (tabWindows) tabWindows.classList.remove('active');
+        renderScreenPickerGrid();
+      });
+    }
+
+    if (tabWindows) {
+      tabWindows.addEventListener('click', () => {
+        activeTab = 'windows';
+        tabWindows.classList.add('active');
+        if (tabScreens) tabScreens.classList.remove('active');
+        renderScreenPickerGrid();
+      });
+    }
+
+    if (btnConfirmScreenPicker) {
+      btnConfirmScreenPicker.addEventListener('click', confirmScreenSelection);
+    }
+    if (btnCloseScreenPicker) {
+      btnCloseScreenPicker.addEventListener('click', cancelScreenSelection);
+    }
+    if (btnCancelScreenPicker) {
+      btnCancelScreenPicker.addEventListener('click', cancelScreenSelection);
+    }
+
+    if (modalScreenPicker) {
+      modalScreenPicker.addEventListener('click', (e) => {
+        if (e.target === modalScreenPicker) {
+          cancelScreenSelection();
+        }
+      });
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modalScreenPicker && modalScreenPicker.style.display === 'flex') {
+        cancelScreenSelection();
+      }
+    });
   }
 }
 

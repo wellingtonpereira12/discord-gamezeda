@@ -16,7 +16,7 @@ import { Audio } from 'expo-av';
 import { Camera } from 'expo-camera';
 
 // URL padrão do servidor VPS do Jogos Bolados
-const DEFAULT_SERVER_URL = 'https://2.24.64.219:3050';
+const DEFAULT_SERVER_URL = 'https://jogosbolados.duckdns.org';
 
 export default function App() {
   const webViewRef = useRef(null);

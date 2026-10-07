@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, session, Menu, desktopCapturer } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { checkAndApplyUpdates, launchInstallerAndExit } = require('./updater');
@@ -8,11 +8,16 @@ Menu.setApplicationMenu(null);
 
 let splashWindow = null;
 let mainWindow = null;
+let pendingDisplayMediaCallback = null;
+let cachedScreenSources = [];
+let screenPickerTimeout = null;
+let lastSelectedSource = null;
+let lastSelectedTime = 0;
 
 // Carrega configurações
 let config = {
   appName: 'Jogos Bolados',
-  serverUrl: 'https://2.24.64.219:3050',
+  serverUrl: 'https://jogosbolados.duckdns.org',
   localServerUrl: 'http://localhost:3000'
 };
 
@@ -112,11 +117,67 @@ function createMainWindow(targetUrl) {
     callback(false);
   });
 
-  // Habilita captura de tela moderna no Electron WebRTC
+  // Habilita captura de tela moderna no Electron WebRTC com Seletor HD
   if (mainWindow.webContents.session.setDisplayMediaRequestHandler) {
-    mainWindow.webContents.session.setDisplayMediaRequestHandler((request, callback) => {
-      // Por padrão seleciona o stream principal ou permite captura nativa
-      callback({});
+    mainWindow.webContents.session.setDisplayMediaRequestHandler(async (request, callback) => {
+      try {
+        if (!request.videoRequested) {
+          return callback();
+        }
+
+        // Se for um fallback imediato sem áudio da mesma tela escolhida recentemente (< 4s)
+        if (!request.audioRequested && lastSelectedSource && (Date.now() - lastSelectedTime < 4000)) {
+          return callback({ video: lastSelectedSource });
+        }
+
+        const sources = await desktopCapturer.getSources({
+          types: ['screen', 'window'],
+          thumbnailSize: { width: 480, height: 270 },
+          fetchWindowIcons: true
+        });
+
+        if (!sources || sources.length === 0) {
+          return callback();
+        }
+
+        if (pendingDisplayMediaCallback) {
+          try { pendingDisplayMediaCallback(); } catch (e) {}
+          pendingDisplayMediaCallback = null;
+        }
+        if (screenPickerTimeout) {
+          clearTimeout(screenPickerTimeout);
+          screenPickerTimeout = null;
+        }
+
+        pendingDisplayMediaCallback = callback;
+        cachedScreenSources = sources;
+
+        // Cancela com segurança após 90 segundos caso o usuário deixe o modal aberto
+        screenPickerTimeout = setTimeout(() => {
+          if (pendingDisplayMediaCallback) {
+            try { pendingDisplayMediaCallback(); } catch (e) {}
+            pendingDisplayMediaCallback = null;
+            cachedScreenSources = [];
+          }
+        }, 90000);
+
+        const serialized = sources.map(s => ({
+          id: s.id,
+          name: s.name,
+          thumbnail: s.thumbnail ? s.thumbnail.toDataURL() : '',
+          appIcon: s.appIcon ? s.appIcon.toDataURL() : null,
+          isScreen: s.id.startsWith('screen:')
+        }));
+
+        if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+          mainWindow.webContents.send('electron:open-screen-picker', serialized);
+        } else {
+          callback();
+        }
+      } catch (err) {
+        console.error('[Electron] Erro em setDisplayMediaRequestHandler:', err);
+        callback();
+      }
     });
   }
 
@@ -140,6 +201,15 @@ function createMainWindow(targetUrl) {
   });
 
   mainWindow.on('closed', () => {
+    if (pendingDisplayMediaCallback) {
+      try { pendingDisplayMediaCallback(); } catch (e) {}
+      pendingDisplayMediaCallback = null;
+      cachedScreenSources = [];
+    }
+    if (screenPickerTimeout) {
+      clearTimeout(screenPickerTimeout);
+      screenPickerTimeout = null;
+    }
     mainWindow = null;
   });
 }
@@ -234,6 +304,41 @@ app.whenReady().then(() => {
 
   ipcMain.handle('app:get-version', () => {
     return app.getVersion();
+  });
+
+  // Handlers do Seletor de Telas e Janelas (Screen Share)
+  ipcMain.on('electron:screen-source-selected', (event, sourceId) => {
+    if (screenPickerTimeout) {
+      clearTimeout(screenPickerTimeout);
+      screenPickerTimeout = null;
+    }
+    if (pendingDisplayMediaCallback) {
+      const selectedSource = cachedScreenSources.find(s => s.id === sourceId) || cachedScreenSources[0];
+      if (selectedSource) {
+        lastSelectedSource = selectedSource;
+        lastSelectedTime = Date.now();
+        pendingDisplayMediaCallback({
+          video: selectedSource,
+          audio: 'loopback'
+        });
+      } else {
+        pendingDisplayMediaCallback();
+      }
+      pendingDisplayMediaCallback = null;
+      cachedScreenSources = [];
+    }
+  });
+
+  ipcMain.on('electron:screen-picker-cancelled', () => {
+    if (screenPickerTimeout) {
+      clearTimeout(screenPickerTimeout);
+      screenPickerTimeout = null;
+    }
+    if (pendingDisplayMediaCallback) {
+      try { pendingDisplayMediaCallback(); } catch (e) {}
+      pendingDisplayMediaCallback = null;
+      cachedScreenSources = [];
+    }
   });
 
   startApplication();

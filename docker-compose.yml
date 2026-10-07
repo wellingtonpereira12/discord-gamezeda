@@ -18,6 +18,9 @@ services:
     volumes:
       - discord-uploads:/app/public/uploads
       - ./public/downloads:/app/public/downloads
+      - /etc/letsencrypt/live/jogosbolados.duckdns.org/fullchain.pem:/app/cert.pem:ro
+      - /etc/letsencrypt/live/jogosbolados.duckdns.org/privkey.pem:/app/key.pem:ro
+      - /etc/letsencrypt/archive:/etc/letsencrypt/archive:ro
 
 volumes:
   discord-uploads:

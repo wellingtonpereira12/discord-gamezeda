@@ -11,6 +11,8 @@ const networkSecurityConfigXml = `<?xml version="1.0" encoding="utf-8"?>
     </trust-anchors>
   </base-config>
   <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="true">jogosbolados.duckdns.org</domain>
+    <domain includeSubdomains="true">duckdns.org</domain>
     <domain includeSubdomains="true">2.24.64.219</domain>
     <domain includeSubdomains="true">localhost</domain>
     <trust-anchors>
