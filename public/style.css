@@ -3481,12 +3481,14 @@ body {
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-.channel-type-option.active .channel-type-radio-dot {
+.channel-type-option.active .channel-type-radio-dot,
+.input-mode-card.active .channel-type-radio-dot {
   border-color: #5865F2;
   background: #5865F2;
 }
 
-.channel-type-option.active .channel-type-radio-dot::after {
+.channel-type-option.active .channel-type-radio-dot::after,
+.input-mode-card.active .channel-type-radio-dot::after {
   content: '';
   width: 8px;
   height: 8px;
@@ -5513,6 +5515,18 @@ body.is-electron #btn-download-desktop {
   color: #949ba4;
   margin-top: 6px;
   line-height: 1.35;
+}
+
+.input-mode-card .channel-type-radio-dot {
+  margin-top: 10px;
+}
+
+.input-mode-card:hover .channel-type-radio-dot {
+  border-color: #b5bac1;
+}
+
+.input-mode-card.active .channel-type-radio-dot {
+  border-color: #5865F2;
 }
 
 .btn-record-key {

@@ -4498,37 +4498,125 @@ function applyVoiceInputMode(mode) {
   }
 }
 
+let pttRecordingController = null;
+
+function getPttKeyDisplayName(key) {
+  if (!key) return 'Caps Lock';
+  if (typeof key === 'string' && key.startsWith('Mouse:')) {
+    const btnNum = parseInt(key.split(':')[1], 10);
+    switch (btnNum) {
+      case 1: return 'Mouse 3 (Scroll/Meio)';
+      case 2: return 'Mouse 2 (Direito)';
+      case 3: return 'Mouse 4 (Lateral Voltar)';
+      case 4: return 'Mouse 5 (Lateral Avançar)';
+      default: return `Mouse ${btnNum + 1}`;
+    }
+  }
+  if (key === ' ' || key === 'Space') return 'Espaço';
+  if (key === 'CapsLock') return 'Caps Lock';
+  if (key === 'ControlLeft' || key === 'ControlRight') return 'Ctrl';
+  if (key === 'ShiftLeft' || key === 'ShiftRight') return 'Shift';
+  if (key === 'AltLeft' || key === 'AltRight') return 'Alt';
+  if (typeof key === 'string' && key.startsWith('Key')) return key.replace('Key', '');
+  if (typeof key === 'string' && key.startsWith('Digit')) return key.replace('Digit', '');
+  return key;
+}
+
 function updatePttKeyDisplay() {
   if (pttKeyDisplay) {
-    let name = pttKey;
-    if (name === ' ') name = 'Espaço';
-    else if (name.startsWith('Key')) name = name.replace('Key', '');
-    else if (name.startsWith('Digit')) name = name.replace('Digit', '');
-    pttKeyDisplay.textContent = name;
+    pttKeyDisplay.textContent = getPttKeyDisplayName(pttKey);
   }
 }
 
-function startRecordingPttKey() {
-  if (!btnRecordPttKey) return;
-  isRecordingPttKey = true;
-  btnRecordPttKey.classList.add('recording');
-  if (pttKeyDisplay) pttKeyDisplay.textContent = 'Pressione uma tecla...';
-  if (pttKeyHint) pttKeyHint.textContent = '(Pressione qualquer tecla)';
+function stopRecordingPttKey() {
+  isRecordingPttKey = false;
+  if (btnRecordPttKey) {
+    btnRecordPttKey.classList.remove('recording');
+  }
+  updatePttKeyDisplay();
+  if (pttKeyHint) {
+    pttKeyHint.textContent = '(Clique para gravar)';
+  }
+  if (pttRecordingController) {
+    pttRecordingController.abort();
+    pttRecordingController = null;
+  }
+}
 
-  const onKeyCaptured = (e) => {
+function startRecordingPttKey(e) {
+  if (!btnRecordPttKey) return;
+  if (isRecordingPttKey) {
+    stopRecordingPttKey();
+    return;
+  }
+  if (e) {
     e.preventDefault();
     e.stopPropagation();
-    const captured = e.code || e.key;
+  }
+
+  isRecordingPttKey = true;
+  btnRecordPttKey.classList.add('recording');
+  if (pttKeyDisplay) pttKeyDisplay.textContent = 'Pressione uma tecla ou mouse...';
+  if (pttKeyHint) pttKeyHint.textContent = '(Esc ou Botão Esquerdo cancela)';
+
+  if (pttRecordingController) {
+    pttRecordingController.abort();
+  }
+  pttRecordingController = new AbortController();
+  const { signal } = pttRecordingController;
+
+  const saveCaptured = (captured) => {
     pttKey = captured;
     localStorage.setItem('gamezeda_ptt_key', captured);
-    isRecordingPttKey = false;
-    btnRecordPttKey.classList.remove('recording');
-    updatePttKeyDisplay();
-    if (pttKeyHint) pttKeyHint.textContent = '(Clique para alterar)';
-    window.removeEventListener('keydown', onKeyCaptured, true);
+    stopRecordingPttKey();
   };
 
-  window.addEventListener('keydown', onKeyCaptured, true);
+  // Captura de teclado
+  window.addEventListener('keydown', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    if (ev.code === 'Escape' || ev.key === 'Escape') {
+      stopRecordingPttKey();
+      return;
+    }
+
+    const captured = ev.code || ev.key;
+    saveCaptured(captured);
+  }, { capture: true, signal });
+
+  // Captura de cliques do mouse
+  const startTime = Date.now();
+  window.addEventListener('mousedown', (ev) => {
+    // Ignora o clique de início da gravação no botão se ocorrido dentro de 120ms
+    if (Date.now() - startTime < 120 && ev.button === 0) {
+      return;
+    }
+
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    if (ev.button === 0) {
+      // Botão esquerdo cancela para não prejudicar cliques na interface
+      stopRecordingPttKey();
+      return;
+    }
+
+    // Botão 1 (meio), 2 (direito), 3 (mouse 4), 4 (mouse 5), etc.
+    saveCaptured(`Mouse:${ev.button}`);
+  }, { capture: true, signal });
+
+  // Previne menu de contexto ao gravar botão direito
+  window.addEventListener('contextmenu', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+  }, { capture: true, signal });
+
+  // Previne navegação de histórico ao gravar mouse 3 ou 4
+  window.addEventListener('auxclick', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+  }, { capture: true, signal });
 }
 
 if (labelModeVad) {
@@ -4548,10 +4636,33 @@ if (btnResetPttKey) {
   });
 }
 
+function activatePtt() {
+  if (isPttActive) return;
+  isPttActive = true;
+  if (webrtc) webrtc.setMuted(false);
+  isMuted = false;
+  if (btnToggleMic) btnToggleMic.classList.remove('active-muted');
+  if (btnStageMic) btnStageMic.classList.remove('active-muted');
+  syncMuteStatusToServer();
+  if (sounds && sounds.playPttOn) sounds.playPttOn();
+}
+
+function deactivatePtt() {
+  if (!isPttActive) return;
+  isPttActive = false;
+  if (webrtc) webrtc.setMuted(true);
+  isMuted = true;
+  if (btnToggleMic) btnToggleMic.classList.add('active-muted');
+  if (btnStageMic) btnStageMic.classList.add('active-muted');
+  syncMuteStatusToServer();
+  if (sounds && sounds.playPttOff) sounds.playPttOff();
+}
+
 // Escuta de Teclado Global para Push-to-Talk
 window.addEventListener('keydown', (e) => {
   if (isRecordingPttKey) return;
   if (voiceInputMode !== 'ptt' || !inVoice || !webrtc) return;
+  if (typeof pttKey === 'string' && pttKey.startsWith('Mouse:')) return;
 
   const tag = (e.target && e.target.tagName) ? e.target.tagName : '';
   if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
@@ -4559,43 +4670,80 @@ window.addEventListener('keydown', (e) => {
   const keyMatch = (e.code === pttKey) || (e.key === pttKey) ||
     (pttKey === 'CapsLock' && (e.code === 'CapsLock' || e.key === 'CapsLock'));
 
-  if (keyMatch && !isPttActive) {
-    isPttActive = true;
-    webrtc.setMuted(false);
-    isMuted = false;
-    btnToggleMic.classList.remove('active-muted');
-    btnStageMic.classList.remove('active-muted');
-    syncMuteStatusToServer();
-    sounds.playPttOn();
+  if (keyMatch) {
+    activatePtt();
   }
 });
 
 window.addEventListener('keyup', (e) => {
   if (voiceInputMode !== 'ptt' || !inVoice || !webrtc) return;
+  if (typeof pttKey === 'string' && pttKey.startsWith('Mouse:')) return;
 
   const keyMatch = (e.code === pttKey) || (e.key === pttKey) ||
     (pttKey === 'CapsLock' && (e.code === 'CapsLock' || e.key === 'CapsLock'));
 
-  if (keyMatch && isPttActive) {
-    isPttActive = false;
-    webrtc.setMuted(true);
-    isMuted = true;
-    btnToggleMic.classList.add('active-muted');
-    btnStageMic.classList.add('active-muted');
-    syncMuteStatusToServer();
-    sounds.playPttOff();
+  if (keyMatch) {
+    deactivatePtt();
   }
 });
 
+// Escuta de Mouse Global para Push-to-Talk
+window.addEventListener('mousedown', (e) => {
+  if (isRecordingPttKey) return;
+  if (voiceInputMode !== 'ptt' || !inVoice || !webrtc) return;
+  if (typeof pttKey !== 'string' || !pttKey.startsWith('Mouse:')) return;
+
+  const targetBtn = parseInt(pttKey.split(':')[1], 10);
+  if (e.button === targetBtn) {
+    if (e.button === 3 || e.button === 4) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    activatePtt();
+  }
+}, true);
+
+window.addEventListener('mouseup', (e) => {
+  if (voiceInputMode !== 'ptt' || !inVoice || !webrtc) return;
+  if (typeof pttKey !== 'string' || !pttKey.startsWith('Mouse:')) return;
+
+  const targetBtn = parseInt(pttKey.split(':')[1], 10);
+  if (e.button === targetBtn) {
+    if (e.button === 3 || e.button === 4) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    deactivatePtt();
+  }
+}, true);
+
+// Previne navegação acidental do navegador no Mouse 3 e 4 durante uso do PTT
+window.addEventListener('auxclick', (e) => {
+  if (voiceInputMode === 'ptt' && typeof pttKey === 'string' && pttKey.startsWith('Mouse:')) {
+    const targetBtn = parseInt(pttKey.split(':')[1], 10);
+    if (e.button === targetBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+}, true);
+
+// Previne menu de contexto se o atalho for Botão Direito
+window.addEventListener('contextmenu', (e) => {
+  if (voiceInputMode === 'ptt' && pttKey === 'Mouse:2') {
+    e.preventDefault();
+  }
+}, true);
+
 window.addEventListener('blur', () => {
   if (voiceInputMode === 'ptt' && isPttActive && inVoice && webrtc) {
-    isPttActive = false;
-    webrtc.setMuted(true);
-    isMuted = true;
-    btnToggleMic.classList.add('active-muted');
-    btnStageMic.classList.add('active-muted');
-    syncMuteStatusToServer();
-    sounds.playPttOff();
+    deactivatePtt();
+  }
+});
+
+document.addEventListener('mouseleave', () => {
+  if (voiceInputMode === 'ptt' && isPttActive && inVoice && webrtc && typeof pttKey === 'string' && pttKey.startsWith('Mouse:')) {
+    deactivatePtt();
   }
 });
 
