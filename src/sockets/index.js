@@ -13,7 +13,8 @@ import {
   addAuthorizedDevice,
   removeAuthorizedDevice,
   getCategories,
-  getChannelsFull
+  getChannelsFull,
+  updateUserProfile
 } from '../config/db.js';
 
 export function setupSockets(io) {
@@ -94,16 +95,33 @@ export function setupSockets(io) {
         }
       }
 
+      let userRecord = null;
+      try {
+        userRecord = await findUser(cleanName);
+      } catch (err) {}
+
+      const defaultAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanName)}`;
+      const avatar = userRecord && userRecord.avatar ? userRecord.avatar : defaultAvatar;
+      const bannerColor = userRecord && userRecord.banner_color ? userRecord.banner_color : '#5865F2';
+      const bio = userRecord && userRecord.bio ? userRecord.bio : '';
+      const customStatusText = userRecord && userRecord.custom_status_text ? userRecord.custom_status_text : '';
+      const statusMode = userRecord && userRecord.status_mode ? userRecord.status_mode : 'online';
+
       const user = {
         id: socket.id,
         name: cleanName,
-        avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanName)}`,
+        avatar: avatar,
+        bannerColor: bannerColor,
+        bio: bio,
+        customStatusText: customStatusText,
+        status: statusMode,
         inVoice: false,
         currentVoiceRoom: null,
         isSpeaking: false,
         isScreenSharing: false,
         isMuted: false,
-        isDeafened: false
+        isDeafened: false,
+        activity: null
       };
 
       users.set(socket.id, user);
@@ -111,9 +129,8 @@ export function setupSockets(io) {
 
       // Garante que o usuário e seu dispositivo estão cadastrados
       try {
-        let userRecord = await findUser(cleanName);
         if (!userRecord) {
-          await saveUser({ username: cleanName, avatar: user.avatar, deviceId });
+          await saveUser({ username: cleanName, avatar: user.avatar, bannerColor, bio, customStatusText, statusMode, deviceId });
         } else if (!userRecord.password_hash && deviceId) {
           await addAuthorizedDevice(cleanName, deviceId);
         }
@@ -226,6 +243,52 @@ export function setupSockets(io) {
           }
         }
       }
+    });
+
+    // Atualização de jogo / atividade em tempo real (Discord Game Activity)
+    socket.on('user:activity-update', (activityData) => {
+      const user = users.get(socket.id);
+      if (!user) return;
+
+      if (activityData && activityData.game) {
+        user.activity = {
+          game: String(activityData.game).slice(0, 60),
+          startedAt: Number(activityData.startedAt) || Date.now()
+        };
+      } else {
+        user.activity = null;
+      }
+
+      broadcastOnlineMembers();
+      broadcastVoiceState();
+    });
+
+    // Atualização de perfil do usuário (avatar, banner, bio, status, frase)
+    socket.on('user:update-profile', async (profileData) => {
+      const user = users.get(socket.id);
+      if (!user || !profileData) return;
+
+      if (profileData.avatar !== undefined) user.avatar = profileData.avatar;
+      if (profileData.bannerColor !== undefined) user.bannerColor = profileData.bannerColor;
+      if (profileData.bio !== undefined) user.bio = profileData.bio;
+      if (profileData.customStatusText !== undefined) user.customStatusText = profileData.customStatusText;
+      if (profileData.status !== undefined) user.status = profileData.status;
+
+      try {
+        await updateUserProfile(user.name, {
+          avatar: user.avatar,
+          bannerColor: user.bannerColor,
+          bio: user.bio,
+          customStatusText: user.customStatusText,
+          statusMode: user.status
+        });
+      } catch (err) {
+        console.warn('Erro ao salvar atualização de perfil:', err.message);
+      }
+
+      socket.emit('user:profile-updated', user);
+      broadcastOnlineMembers();
+      broadcastVoiceState();
     });
 
     // Desconexão total

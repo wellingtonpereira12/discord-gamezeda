@@ -1,10 +1,10 @@
-import { saveMessage, getChannelMessages, getChannels } from '../config/db.js';
+import { saveMessage, getChannelMessages, getChannels, editMessage, deleteMessage, toggleReaction, togglePinMessage, getPinnedMessages } from '../config/db.js';
 import { musicBot, BOT_USER, RADIO_STATIONS } from '../services/musicBot.js';
 import { watchPartyService } from '../services/watchParty.js';
 
 export function registerChatHandlers(io, socket, users, voiceRooms, broadcastVoiceState) {
   // Envio de mensagem
-  socket.on('chat:send', async ({ channelId, text, attachmentUrl }) => {
+  socket.on('chat:send', async ({ channelId, text, attachmentUrl, replyTo }) => {
     const user = users.get(socket.id);
     if (!user) return;
     if ((!text || !text.trim()) && !attachmentUrl) return;
@@ -29,6 +29,14 @@ export function registerChatHandlers(io, socket, users, voiceRooms, broadcastVoi
       isSystem: false,
       text: cleanText,
       attachmentUrl: attachmentUrl || null,
+      replyTo: replyTo && replyTo.id ? {
+        id: replyTo.id,
+        sender: replyTo.sender,
+        text: (replyTo.text || '').substring(0, 150)
+      } : null,
+      reactions: {},
+      edited: false,
+      pinned: false,
       timestamp: `Hoje às ${timeStr}`,
       createdAt: now.toISOString()
     };
@@ -47,6 +55,89 @@ export function registerChatHandlers(io, socket, users, voiceRooms, broadcastVoi
     if (cleanText.startsWith('!') || cleanText.startsWith('/')) {
       handleBotCommand(cleanText, user, targetChannel, io, voiceRooms, broadcastVoiceState);
     }
+  });
+
+  // Editar mensagem
+  socket.on('chat:edit', async ({ messageId, channelId, text }) => {
+    const user = users.get(socket.id);
+    if (!user) return;
+    const clean = (text || '').trim();
+    if (!clean) return;
+
+    const validChannels = await getChannels();
+    const targetChannel = validChannels.includes(channelId) ? channelId : 'geral';
+
+    const updated = await editMessage(messageId, targetChannel, clean);
+    if (updated) {
+      io.emit('chat:message-updated', {
+        channelId: targetChannel,
+        message: updated
+      });
+    }
+  });
+
+  // Excluir mensagem
+  socket.on('chat:delete', async ({ messageId, channelId }) => {
+    const user = users.get(socket.id);
+    if (!user) return;
+
+    const validChannels = await getChannels();
+    const targetChannel = validChannels.includes(channelId) ? channelId : 'geral';
+
+    await deleteMessage(messageId, targetChannel);
+    io.emit('chat:message-deleted', {
+      channelId: targetChannel,
+      messageId
+    });
+  });
+
+  // Reagir a mensagem com emoji
+  socket.on('chat:react', async ({ messageId, channelId, emoji }) => {
+    const user = users.get(socket.id);
+    if (!user || !emoji) return;
+
+    const validChannels = await getChannels();
+    const targetChannel = validChannels.includes(channelId) ? channelId : 'geral';
+
+    const updated = await toggleReaction(messageId, targetChannel, emoji, user.name);
+    if (updated) {
+      io.emit('chat:message-updated', {
+        channelId: targetChannel,
+        message: updated
+      });
+    }
+  });
+
+  // Fixar ou desafixar mensagem
+  socket.on('chat:pin', async ({ messageId, channelId }) => {
+    const user = users.get(socket.id);
+    if (!user) return;
+
+    const validChannels = await getChannels();
+    const targetChannel = validChannels.includes(channelId) ? channelId : 'geral';
+
+    const updated = await togglePinMessage(messageId, targetChannel);
+    if (updated) {
+      io.emit('chat:message-updated', {
+        channelId: targetChannel,
+        message: updated
+      });
+      io.emit('chat:pins-updated', {
+        channelId: targetChannel
+      });
+    }
+  });
+
+  // Buscar lista de mensagens fixadas do canal
+  socket.on('chat:get-pins', async ({ channelId }) => {
+    const validChannels = await getChannels();
+    const targetChannel = validChannels.includes(channelId) ? channelId : 'geral';
+
+    const pins = await getPinnedMessages(targetChannel);
+    socket.emit('chat:pins-list', {
+      channelId: targetChannel,
+      pins
+    });
   });
 
   // Buscar histórico de canal específico

@@ -1,5 +1,5 @@
-import { sounds } from './sounds.js?v=20261004_v6';
-import { WebRTCManager } from './webrtc.js?v=20261006_v2';
+import { sounds } from './sounds.js?v=20261007_v7';
+import { WebRTCManager } from './webrtc.js?v=20261007_v7';
 
 if (window.lucide) {
   window.lucide.createIcons();
@@ -99,12 +99,22 @@ const cardMyAvatar = document.getElementById('card-my-avatar');
 const cardMyName = document.getElementById('card-my-name');
 const cardLocalUser = document.getElementById('card-local-user');
 
-// Popover de Perfil / Logout
+// Card / Popout de Perfil Estilo Discord (Fase 2)
 const btnCurrentUserProfile = document.getElementById('btn-current-user-profile');
-const userProfilePopover = document.getElementById('user-profile-popover');
-const popoverAvatar = document.getElementById('popover-avatar');
-const popoverName = document.getElementById('popover-name');
-const btnPopoverLogout = document.getElementById('btn-popover-logout');
+const userProfileCardPopout = document.getElementById('user-profile-card-popout');
+const popoutBanner = document.getElementById('popout-banner');
+const btnCloseProfileCard = document.getElementById('btn-close-profile-card');
+const popoutAvatar = document.getElementById('popout-avatar');
+const popoutStatusBadge = document.getElementById('popout-status-badge');
+const popoutName = document.getElementById('popout-name');
+const popoutCustomStatus = document.getElementById('popout-custom-status');
+const popoutGameBox = document.getElementById('popout-game-box');
+const popoutGameTitle = document.getElementById('popout-game-title');
+const popoutGameElapsed = document.getElementById('popout-game-elapsed');
+const popoutBioSection = document.getElementById('popout-bio-section');
+const popoutBioText = document.getElementById('popout-bio-text');
+const btnPopoutPrimaryAction = document.getElementById('btn-popout-primary-action');
+const btnPopoutLogout = document.getElementById('btn-popout-logout');
 
 // Status de Voz e Ações Rápidas (Layout Fixo estilo Discord)
 const voiceStatusBox = document.getElementById('voice-status-box');
@@ -190,11 +200,21 @@ const screenTileVolumeVal = document.getElementById('screen-tile-volume-val');
 const screenAudioMeter = document.getElementById('screen-audio-meter');
 
 // Controles do Palco
+const videoGrid = document.getElementById('video-grid');
+const btnStageGridMode = document.getElementById('btn-stage-grid-mode');
+const btnStageGridText = document.getElementById('btn-stage-grid-text');
 const btnStageScreen = document.getElementById('btn-stage-screen');
 const btnStageScreenText = document.getElementById('btn-stage-screen-text');
 const btnStageSoundboard = document.getElementById('btn-stage-soundboard');
 const btnStageMic = document.getElementById('btn-stage-mic');
 const btnStageDisconnect = document.getElementById('btn-stage-disconnect');
+
+// Mini Player Flutuante (Picture-in-Picture - Fase 3)
+const streamPipWidget = document.getElementById('stream-pip-widget');
+const streamPipVideo = document.getElementById('stream-pip-video');
+const streamPipName = document.getElementById('stream-pip-name');
+const btnPipFullscreen = document.getElementById('btn-pip-fullscreen');
+const btnPipClose = document.getElementById('btn-pip-close');
 
 // Chat
 const messagesContainer = document.getElementById('messages-container');
@@ -230,11 +250,44 @@ const micTestMeter = document.getElementById('mic-test-meter');
 const btnTestOutputSound = document.getElementById('btn-test-output-sound');
 const settingNoiseSuppressionToggle = document.getElementById('setting-noise-suppression-toggle');
 
-// Configurações - Abas e Cadastro
+// Configurações - Abas e Telas
 const tabBtnVoice = document.getElementById('tab-btn-voice');
+const tabBtnProfile = document.getElementById('tab-btn-profile');
 const tabBtnAccount = document.getElementById('tab-btn-account');
 const tabContentVoice = document.getElementById('tab-content-voice');
+const tabContentProfile = document.getElementById('tab-content-profile');
 const tabContentAccount = document.getElementById('tab-content-account');
+
+// Configurações de Push-to-Talk (Fase 3)
+const labelModeVad = document.getElementById('label-mode-vad');
+const labelModePtt = document.getElementById('label-mode-ptt');
+const pttKeyContainer = document.getElementById('ptt-key-container');
+const btnRecordPttKey = document.getElementById('btn-record-ptt-key');
+const btnResetPttKey = document.getElementById('btn-reset-ptt-key');
+const pttKeyDisplay = document.getElementById('ptt-key-display');
+const pttKeyHint = document.getElementById('ptt-key-hint');
+
+// Configurações de Perfil (Fase 2)
+const settingAvatarPreview = document.getElementById('setting-avatar-preview');
+const settingAvatarInput = document.getElementById('setting-avatar-input');
+const btnChooseAvatar = document.getElementById('btn-choose-avatar');
+const btnResetAvatar = document.getElementById('btn-reset-avatar');
+const settingBannerColor = document.getElementById('setting-banner-color');
+const settingStatusMode = document.getElementById('setting-status-mode');
+const settingCustomStatus = document.getElementById('setting-custom-status');
+const countCustomStatus = document.getElementById('count-custom-status');
+const settingBio = document.getElementById('setting-bio');
+const countBio = document.getElementById('count-bio');
+const profileSaveAlert = document.getElementById('profile-save-alert');
+const btnSaveProfileSettings = document.getElementById('btn-save-profile-settings');
+const previewBanner = document.getElementById('preview-banner');
+const previewAvatar = document.getElementById('preview-avatar');
+const previewStatusBadge = document.getElementById('preview-status-badge');
+const previewUsername = document.getElementById('preview-username');
+const previewCustomStatusText = document.getElementById('preview-custom-status-text');
+const previewBioText = document.getElementById('preview-bio-text');
+
+// Cadastro
 const accountAvatarImg = document.getElementById('account-avatar-img');
 const accountUsernameText = document.getElementById('account-username-text');
 const accountStatusBadge = document.getElementById('account-status-badge');
@@ -283,6 +336,10 @@ let isScreenSharing = false;
 
 const userConfigs = new Map();
 let currentContextPeerId = null;
+
+// Fase 4: Contador de Mensagens Não Lidas & Indicadores de Barra de Tarefas
+const unreadChannelCounts = new Map();
+const originalAppTitle = document.title || 'FakeDC';
 
 // ==========================================
 // CONTROLE DE DRAWERS MOBILE (ESTILO DISCORD MOBILE)
@@ -436,6 +493,15 @@ const webrtc = new WebRTCManager(
   }
 );
 
+webrtc.onLocalScreenStopped = () => {
+  if (isScreenSharing) {
+    unregisterStream('local');
+    isScreenSharing = false;
+    btnStageScreen.classList.remove('active-stream');
+    btnStageScreenText.textContent = 'Compartilhar Tela HD';
+  }
+};
+
 webrtc.onRemoteScreenAudio = (peerId, stream, track) => {
   console.log(`[WebRTC 🔊] Áudio de tela recebido de ${peerId}`);
   if (currentViewedStreamId === peerId) {
@@ -493,6 +559,7 @@ function registerStream(id, stream, name, avatar, isLocal) {
     renderVoiceStageCards();
     renderSidebarChannels();
   }
+  if (typeof updateStreamPiP === 'function') updateStreamPiP();
 }
 
 function unregisterStream(id) {
@@ -513,6 +580,7 @@ function unregisterStream(id) {
   renderStreamSwitcherBar();
   renderVoiceStageCards();
   renderSidebarChannels();
+  if (typeof updateStreamPiP === 'function') updateStreamPiP();
 }
 
 let screenAudioMeterTimer = null;
@@ -757,6 +825,7 @@ function viewStream(id) {
   renderStreamSwitcherBar();
   renderVoiceStageCards();
   renderSidebarChannels();
+  if (typeof updateStreamPiP === 'function') updateStreamPiP();
 }
 
 function renderStreamSwitcherBar() {
@@ -974,6 +1043,28 @@ socket.on('auth:verify-result', ({ success, message }) => {
   }
 });
 
+function syncCurrentUserFromList() {
+  if (currentUser && Array.isArray(allOnlineUsers)) {
+    const myId = socket ? socket.id : null;
+    const myName = currentUser.name.toLowerCase();
+    const me = allOnlineUsers.find(u => (myId && u.id === myId) || (u.name && u.name.toLowerCase() === myName));
+    if (me) {
+      if (me.avatar) {
+        currentUser.avatar = me.avatar;
+        if (myAvatarImg) myAvatarImg.src = me.avatar;
+        if (cardMyAvatar) cardMyAvatar.src = me.avatar;
+      }
+      if (me.bannerColor) currentUser.bannerColor = me.bannerColor;
+      if (me.bio !== undefined) currentUser.bio = me.bio;
+      if (me.customStatusText !== undefined) currentUser.customStatusText = me.customStatusText;
+      if (me.statusMode) {
+        currentUser.statusMode = me.statusMode;
+      }
+      updateMyUserStatus();
+    }
+  }
+}
+
 socket.on('init:state', (data) => {
   if (data.chatMessages) {
     Object.assign(channelMessagesStore, data.chatMessages);
@@ -987,6 +1078,7 @@ socket.on('init:state', (data) => {
   if (data.channels && data.channels.length > 0) {
     allChannels = data.channels;
   }
+  syncCurrentUserFromList();
   renderSidebarChannels();
   renderMembersSidebar();
   renderVoiceStageCards();
@@ -1005,6 +1097,7 @@ socket.on('members:update', (usersList) => {
       }
     });
   }
+  syncCurrentUserFromList();
   renderMembersSidebar();
 });
 
@@ -1033,12 +1126,17 @@ socket.on('voice:update', (data = {}) => {
     });
   }
 
-  // Remove automaticamente streams fantasmas de participantes que saíram
+  // Remove automaticamente streams fantasmas de quem saiu da sala OU quem parou de compartilhar tela
   if (inVoice && Array.isArray(allVoiceUsers)) {
-    const currentRoomUserIds = new Set(allVoiceUsers.map(u => u.id));
+    const activeScreenSharers = new Set(allVoiceUsers.filter(u => u.isScreenSharing).map(u => u.id));
     for (const [streamId, sData] of activeStreams.entries()) {
-      if (!sData.isLocal && !currentRoomUserIds.has(streamId)) {
-        unregisterStream(streamId);
+      if (!sData.isLocal && !streamId.endsWith('-camera')) {
+        if (!activeScreenSharers.has(streamId)) {
+          if (webrtc && typeof webrtc.stopRemoteScreen === 'function') {
+            webrtc.stopRemoteScreen(streamId);
+          }
+          unregisterStream(streamId);
+        }
       }
     }
   }
@@ -1058,6 +1156,10 @@ socket.on('channel:created', (newChannel) => {
 socket.on('channel:deleted', ({ channelId }) => {
   allChannels = allChannels.filter(c => c.id !== channelId);
   delete channelMessagesStore[channelId];
+  if (unreadChannelCounts.has(channelId)) {
+    unreadChannelCounts.delete(channelId);
+    updateAppTitleAndBadges();
+  }
 
   if (currentTextChannel === channelId) {
     switchTextChannel('geral');
@@ -1107,7 +1209,12 @@ socket.on('voice:peer-speaking', ({ peerId, isSpeaking }) => {
 });
 
 socket.on('voice:peer-screen-status', ({ peerId, isSharing }) => {
-  if (!isSharing) unregisterStream(peerId);
+  if (!isSharing) {
+    if (webrtc && typeof webrtc.stopRemoteScreen === 'function') {
+      webrtc.stopRemoteScreen(peerId);
+    }
+    unregisterStream(peerId);
+  }
 });
 
 socket.on('voice:peer-camera-status', ({ peerId, isActive }) => {
@@ -1187,6 +1294,214 @@ function getDeafenIconSvg(size = 14, color = '#ffffff') {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="voice-status-icon icon-deafened" title="Áudio desativado"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 14.8-6.9"/><path d="M21 15v4a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/><path d="M21 11a9 9 0 0 0-3.3-6.9"/><line x1="2" y1="2" x2="22" y2="22"/></svg>`;
 }
 
+// Ícone SVG de Game Controller oficial estilo Discord Rich Presence
+function getGameIconSvg(size = 12, color = '#23a55a') {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="game-controller-icon"><line x1="6" x2="10" y1="12" y2="12"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="15" x2="15.01" y1="13" y2="13"/><line x1="18" x2="18.01" y1="11" y2="11"/><rect width="20" height="12" x="2" y="6" rx="6"/></svg>`;
+}
+
+// Formata o tempo decorrido do jogo ("há 15 minutos", "há 1h 24m") exatamente igual ao Discord
+function formatGameDuration(startedAt) {
+  if (!startedAt) return '';
+  const diffMs = Math.max(0, Date.now() - Number(startedAt));
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHours = Math.floor(diffMin / 60);
+
+  if (diffHours >= 1) {
+    const remainingMin = diffMin % 60;
+    if (remainingMin > 0) {
+      return `há ${diffHours}h ${remainingMin}m`;
+    }
+    return `há ${diffHours} ${diffHours === 1 ? 'hora' : 'horas'}`;
+  }
+  if (diffMin >= 1) {
+    return `há ${diffMin} ${diffMin === 1 ? 'minuto' : 'minutos'}`;
+  }
+  return 'há alguns segundos';
+}
+
+let myGameActivity = null;
+let activePopoutTargetUser = null;
+let popoutGameInterval = null;
+
+function openUserProfileCard(user, triggerEl, clickEvent) {
+  if (!userProfileCardPopout || !user) return;
+  activePopoutTargetUser = user;
+
+  const isSelf = currentUser && (
+    (user.name && user.name.toLowerCase() === currentUser.name.toLowerCase()) ||
+    user.id === socket?.id
+  );
+
+  const bannerColor = user.bannerColor || user.banner_color || '#5865F2';
+  const avatarUrl = user.avatar || user.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(user.name || 'User')}`;
+  const statusMode = (isSelf && currentUser?.statusMode) ? currentUser.statusMode : (user.statusMode || user.status_mode || 'online');
+  const customStatus = (isSelf && currentUser?.customStatusText !== undefined) ? currentUser.customStatusText : (user.customStatusText || user.custom_status_text || '');
+  const bio = (isSelf && currentUser?.bio !== undefined) ? currentUser.bio : (user.bio || '');
+
+  // Preenche dados visuais
+  if (popoutBanner) popoutBanner.style.backgroundColor = bannerColor;
+  if (popoutAvatar) popoutAvatar.src = avatarUrl;
+  if (popoutStatusBadge) {
+    popoutStatusBadge.className = `profile-card-status-badge status-${statusMode}`;
+  }
+  if (popoutName) popoutName.textContent = user.name || 'Usuário';
+  if (popoutCustomStatus) {
+    popoutCustomStatus.textContent = customStatus || '';
+    popoutCustomStatus.style.display = customStatus ? 'block' : 'none';
+  }
+
+  // Atividade de Jogo (Rich Presence)
+  const activity = (isSelf && myGameActivity) ? myGameActivity : user.activity;
+  if (activity && activity.game) {
+    if (popoutGameBox) popoutGameBox.style.display = 'flex';
+    if (popoutGameTitle) popoutGameTitle.textContent = activity.game;
+    const updateElapsed = () => {
+      if (popoutGameElapsed) {
+        popoutGameElapsed.textContent = formatGameDuration(activity.startedAt);
+      }
+    };
+    updateElapsed();
+    if (popoutGameInterval) clearInterval(popoutGameInterval);
+    popoutGameInterval = setInterval(updateElapsed, 5000);
+  } else {
+    if (popoutGameBox) popoutGameBox.style.display = 'none';
+    if (popoutGameInterval) {
+      clearInterval(popoutGameInterval);
+      popoutGameInterval = null;
+    }
+  }
+
+  // Bio / Sobre Mim
+  if (popoutBioText) {
+    popoutBioText.textContent = bio || 'Sem descrição.';
+  }
+
+  // Botões de ação
+  if (isSelf) {
+    if (btnPopoutPrimaryAction) {
+      btnPopoutPrimaryAction.textContent = 'Editar Perfil';
+      btnPopoutPrimaryAction.onclick = (e) => {
+        if (e) e.stopPropagation();
+        closeUserProfileCard();
+        openSettingsModal();
+        switchSettingsTab('profile');
+      };
+    }
+    if (btnPopoutLogout) {
+      btnPopoutLogout.style.display = 'block';
+      btnPopoutLogout.onclick = (e) => {
+        if (e) e.stopPropagation();
+        closeUserProfileCard();
+        performLogout();
+      };
+    }
+  } else {
+    if (btnPopoutPrimaryAction) {
+      btnPopoutPrimaryAction.textContent = 'Mencionar';
+      btnPopoutPrimaryAction.onclick = (e) => {
+        if (e) e.stopPropagation();
+        closeUserProfileCard();
+        if (chatInput) {
+          const mentionText = `@${user.name} `;
+          if (!chatInput.value.includes(mentionText)) {
+            chatInput.value = `${chatInput.value}${mentionText}`;
+          }
+          chatInput.focus();
+        }
+      };
+    }
+    if (btnPopoutLogout) btnPopoutLogout.style.display = 'none';
+  }
+
+  // Posicionamento inteligente na tela
+  userProfileCardPopout.style.display = 'block';
+
+  if (triggerEl && triggerEl.id === 'btn-current-user-profile') {
+    userProfileCardPopout.style.left = '12px';
+    userProfileCardPopout.style.bottom = '64px';
+    userProfileCardPopout.style.top = 'auto';
+  } else if (clickEvent) {
+    const cardWidth = 320;
+    const cardHeight = 360;
+    let posX = clickEvent.clientX + 10;
+    let posY = clickEvent.clientY - 20;
+
+    if (posX + cardWidth > window.innerWidth) {
+      posX = clickEvent.clientX - cardWidth - 10;
+    }
+    if (posY + cardHeight > window.innerHeight) {
+      posY = window.innerHeight - cardHeight - 16;
+    }
+    if (posX < 10) posX = 10;
+    if (posY < 10) posY = 10;
+
+    userProfileCardPopout.style.left = `${posX}px`;
+    userProfileCardPopout.style.top = `${posY}px`;
+    userProfileCardPopout.style.bottom = 'auto';
+  } else if (triggerEl) {
+    const rect = triggerEl.getBoundingClientRect();
+    let posX = rect.right + 10;
+    let posY = rect.top;
+    if (posX + 320 > window.innerWidth) posX = rect.left - 330;
+    if (posY + 360 > window.innerHeight) posY = window.innerHeight - 370;
+    if (posX < 10) posX = 10;
+    if (posY < 10) posY = 10;
+    userProfileCardPopout.style.left = `${posX}px`;
+    userProfileCardPopout.style.top = `${posY}px`;
+    userProfileCardPopout.style.bottom = 'auto';
+  }
+
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function closeUserProfileCard() {
+  if (userProfileCardPopout) {
+    userProfileCardPopout.style.display = 'none';
+  }
+  if (popoutGameInterval) {
+    clearInterval(popoutGameInterval);
+    popoutGameInterval = null;
+  }
+  activePopoutTargetUser = null;
+}
+
+if (btnCloseProfileCard) {
+  btnCloseProfileCard.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeUserProfileCard();
+  });
+}
+
+function updateMyUserStatus() {
+  const statusEl = document.getElementById('my-userstatus');
+  if (!statusEl) return;
+  const statusMode = currentUser?.statusMode || 'online';
+  const myStatusDot = document.querySelector('.user-avatar-wrap .status-dot');
+  if (myStatusDot) {
+    myStatusDot.className = `status-dot status-${statusMode}`;
+  }
+
+  if (myGameActivity && myGameActivity.game) {
+    statusEl.innerHTML = `
+      <span class="my-status-game" title="Jogando ${escapeHtml(myGameActivity.game)} (${formatGameDuration(myGameActivity.startedAt)})">
+        ${getGameIconSvg(11, '#23a55a')}
+        <span>Jogando <strong>${escapeHtml(myGameActivity.game)}</strong></span>
+      </span>
+    `;
+  } else if (currentUser && currentUser.customStatusText) {
+    statusEl.innerHTML = `<span style="font-style: italic; color: #dbdee1;">${escapeHtml(currentUser.customStatusText)}</span>`;
+  } else {
+    const statusLabels = {
+      online: 'Online',
+      idle: 'Ausente',
+      dnd: 'Não Perturbar',
+      invisible: 'Invisível'
+    };
+    statusEl.textContent = statusLabels[statusMode] || 'Online';
+  }
+}
+
 function createMemberItem(user, isVoice) {
   const div = document.createElement('div');
   div.className = 'member-item';
@@ -1196,15 +1511,45 @@ function createMemberItem(user, isVoice) {
   const isBot = !!user.isBot || user.id === 'bot-alfredo' || user.id === 'bot-rythm';
   const userIsMuted = isLocal ? isMuted : !!user.isMuted;
   const userIsDeafened = isLocal ? isDeafened : !!user.isDeafened;
+  const statusMode = (isLocal && currentUser?.statusMode) ? currentUser.statusMode : (user.statusMode || 'online');
 
-  const activityText = isVoice
-    ? '🔊 Em voz'
-    : (isBot ? '🎵 !play para ouvir' : 'Online');
+  // Atividade de Jogo (Rich Presence / Game Activity)
+  const currentAct = (isLocal && myGameActivity) ? myGameActivity : user.activity;
+  const hasGame = !!(currentAct && currentAct.game);
+
+  let activityHtml = '';
+  if (hasGame) {
+    activityHtml = `
+      <div class="member-game-status" title="Jogando ${escapeHtml(currentAct.game)} (${formatGameDuration(currentAct.startedAt)})">
+        <span class="member-game-title">
+          ${getGameIconSvg(12, '#23a55a')}
+          <span><strong>Jogando</strong> ${escapeHtml(currentAct.game)}</span>
+        </span>
+        <span class="member-game-time" data-game-started="${currentAct.startedAt}">
+          ${formatGameDuration(currentAct.startedAt)}
+        </span>
+      </div>
+    `;
+  } else {
+    let activityText = 'Online';
+    if (isVoice) activityText = '🔊 Em voz';
+    else if (isBot) activityText = '🎵 !play para ouvir';
+    else if (user.customStatusText) activityText = user.customStatusText;
+    else if (statusMode === 'idle') activityText = 'Ausente';
+    else if (statusMode === 'dnd') activityText = 'Não Perturbar';
+    else if (statusMode === 'invisible') activityText = 'Invisível';
+
+    activityHtml = `
+      <span class="member-activity" style="${isVoice ? 'color: #23a55a;' : (isBot ? 'color: #5865F2;' : '')}">
+        ${escapeHtml(activityText)}
+      </span>
+    `;
+  }
 
   div.innerHTML = `
     <div class="member-avatar-wrap">
       <img class="member-avatar" src="${user.avatar}" alt="${user.name}">
-      <div class="status-dot"></div>
+      <div class="status-dot status-${statusMode}"></div>
     </div>
     <div class="member-info">
       <div style="display: flex; align-items: center; gap: 4px;">
@@ -1217,11 +1562,14 @@ function createMemberItem(user, isVoice) {
           </div>
         ` : ''}
       </div>
-      <span class="member-activity" style="${isVoice ? 'color: #23a55a;' : (isBot ? 'color: #5865F2;' : '')}">
-        ${escapeHtml(activityText)}
-      </span>
+      ${activityHtml}
     </div>
   `;
+
+  // Clique abre o Card de Perfil estilo Discord
+  div.addEventListener('click', (e) => {
+    openUserProfileCard(user, div, e);
+  });
 
   if (!isLocal) {
     div.addEventListener('contextmenu', (e) => openContextMenu(e, user.id, user.name));
@@ -1306,20 +1654,29 @@ function renderSidebarChannels() {
       if (!isVoice) {
         // Canal de Texto
         const item = document.createElement('div');
-        item.className = `channel-item ${currentTextChannel === channel.id ? 'active' : ''}`;
+        const unreadCount = unreadChannelCounts.get(channel.id) || 0;
+        const isCurrentActive = currentTextChannel === channel.id && document.hasFocus() && document.visibilityState === 'visible';
+        const effectiveCount = isCurrentActive ? 0 : unreadCount;
+        const hasUnread = effectiveCount > 0;
+
+        item.className = `channel-item ${currentTextChannel === channel.id ? 'active' : ''} ${hasUnread ? 'has-unread' : ''}`;
         item.setAttribute('data-channel', channel.id);
 
         item.innerHTML = `
+          ${hasUnread ? '<span class="channel-unread-pill"></span>' : ''}
           <div class="channel-item-left">
             <span class="channel-icon">#</span>
             <span class="channel-item-name">${escapeHtml(channel.name)}</span>
           </div>
-          <div class="channel-item-actions">
-            ${channel.id !== 'geral' ? `
-              <button type="button" class="btn-channel-delete" title="Excluir Canal" data-channel-id="${channel.id}" data-channel-name="${escapeHtml(channel.name)}">
-                <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
-              </button>
-            ` : ''}
+          <div class="channel-item-right">
+            ${effectiveCount > 0 ? `<span class="channel-unread-badge">${effectiveCount > 99 ? '99+' : effectiveCount}</span>` : ''}
+            <div class="channel-item-actions">
+              ${channel.id !== 'geral' ? `
+                <button type="button" class="btn-channel-delete" title="Excluir Canal" data-channel-id="${channel.id}" data-channel-name="${escapeHtml(channel.name)}">
+                  <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                </button>
+              ` : ''}
+            </div>
           </div>
         `;
 
@@ -1460,6 +1817,12 @@ function renderVoiceStageCards() {
             ${isDeafened ? getDeafenIconSvg(13) : ''}
           </div>
         ` : ''}
+        ${myGameActivity && myGameActivity.game ? `
+          <div class="voice-card-game-badge" title="Jogando ${escapeHtml(myGameActivity.game)} (${formatGameDuration(myGameActivity.startedAt)})">
+            ${getGameIconSvg(11, '#23a55a')}
+            <span>${escapeHtml(myGameActivity.game)}</span>
+          </div>
+        ` : ''}
       `;
     }
   }
@@ -1478,13 +1841,21 @@ function renderVoiceStageCards() {
     card.id = `voice-card-${user.id}`;
     card.innerHTML = `
       <img src="${user.avatar}" alt="${user.name}">
-      <div class="card-name" style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-        <span>${escapeHtml(user.name)}</span>
-        ${isBot ? '<span class="bot-tag">BOT</span>' : ''}
-        ${(user.isMuted || user.isDeafened) ? `
-          <div class="voice-user-status-icons">
-            ${user.isMuted ? getMuteIconSvg(13) : ''}
-            ${user.isDeafened ? getDeafenIconSvg(13) : ''}
+      <div class="card-name" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+          <span>${escapeHtml(user.name)}</span>
+          ${isBot ? '<span class="bot-tag">BOT</span>' : ''}
+          ${(user.isMuted || user.isDeafened) ? `
+            <div class="voice-user-status-icons">
+              ${user.isMuted ? getMuteIconSvg(13) : ''}
+              ${user.isDeafened ? getDeafenIconSvg(13) : ''}
+            </div>
+          ` : ''}
+        </div>
+        ${user.activity && user.activity.game ? `
+          <div class="voice-card-game-badge" title="Jogando ${escapeHtml(user.activity.game)} (${formatGameDuration(user.activity.startedAt)})">
+            ${getGameIconSvg(11, '#23a55a')}
+            <span>${escapeHtml(user.activity.game)}</span>
           </div>
         ` : ''}
       </div>
@@ -1499,8 +1870,176 @@ function renderVoiceStageCards() {
   });
 }
 
+// ==========================================
+// FASE 4: NOTIFICAÇÕES & DESKTOP (TOASTS, CONTADORES E FLASH TASKBAR)
+// ==========================================
+
+function updateAppTitleAndBadges() {
+  const isAppFocused = document.hasFocus() && document.visibilityState === 'visible';
+  let totalUnread = 0;
+
+  unreadChannelCounts.forEach((count, chId) => {
+    if (chId === currentTextChannel && isAppFocused) {
+      unreadChannelCounts.delete(chId);
+      return;
+    }
+    totalUnread += count;
+  });
+
+  // 1. Atualizar Título da Janela / Aba (Ex: "(3) FakeDC")
+  if (totalUnread > 0) {
+    document.title = `(${totalUnread}) ${originalAppTitle}`;
+  } else {
+    document.title = originalAppTitle;
+  }
+
+  // 2. Atualizar Badges e Pills nos Canais de Texto da Barra Lateral
+  document.querySelectorAll('[data-channel]').forEach(chEl => {
+    const chId = chEl.getAttribute('data-channel');
+    const isCurrentActive = chId === currentTextChannel && isAppFocused;
+    const count = isCurrentActive ? 0 : (unreadChannelCounts.get(chId) || 0);
+    const hasUnread = count > 0;
+
+    chEl.classList.toggle('has-unread', hasUnread);
+
+    // Pill indicadora esquerda
+    let pill = chEl.querySelector('.channel-unread-pill');
+    if (hasUnread) {
+      if (!pill) {
+        pill = document.createElement('span');
+        pill.className = 'channel-unread-pill';
+        chEl.insertBefore(pill, chEl.firstChild);
+      }
+    } else if (pill) {
+      pill.remove();
+    }
+
+    // Badge numérica à direita
+    let badge = chEl.querySelector('.channel-unread-badge');
+    let rightContainer = chEl.querySelector('.channel-item-right');
+    if (hasUnread) {
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'channel-unread-badge';
+        if (rightContainer) {
+          rightContainer.insertBefore(badge, rightContainer.firstChild);
+        } else {
+          chEl.appendChild(badge);
+        }
+      }
+      badge.textContent = count > 99 ? '99+' : count;
+    } else if (badge) {
+      badge.remove();
+    }
+  });
+
+  // 3. Controle de piscar ícone na barra de tarefas do Windows (Electron flashFrame)
+  if (totalUnread === 0 && window.electronAPI && typeof window.electronAPI.flashFrame === 'function') {
+    window.electronAPI.flashFrame(false);
+  }
+}
+
+function triggerDesktopNotification(channelId, message, isMentioned) {
+  // Respeita status Não Perturbar (DND)
+  if (currentUser && currentUser.statusMode === 'dnd') {
+    return;
+  }
+
+  const isAppFocused = document.hasFocus() && document.visibilityState === 'visible';
+  if (channelId === currentTextChannel && isAppFocused) {
+    return;
+  }
+
+  const senderName = message.sender || 'Alguém';
+  const title = isMentioned
+    ? `📌 Menção de ${senderName} em #${channelId}`
+    : `#${channelId} - ${senderName}`;
+
+  let bodyText = message.text || '';
+  if (!bodyText && message.attachmentUrl) {
+    bodyText = 'Enviou um anexo 📎';
+  }
+  if (bodyText.length > 120) {
+    bodyText = bodyText.substring(0, 117) + '...';
+  }
+
+  // 1. Notificação Nativa do Windows Toast via Electron
+  if (window.electronAPI && typeof window.electronAPI.showNotification === 'function') {
+    window.electronAPI.showNotification({
+      title: title,
+      body: bodyText,
+      channelId: channelId
+    });
+    if (typeof window.electronAPI.flashFrame === 'function') {
+      window.electronAPI.flashFrame(true);
+    }
+    return;
+  }
+
+  // 2. Notificação Web Nativa do Navegador (Chrome, Firefox, Edge, etc.)
+  if ('Notification' in window) {
+    if (Notification.permission === 'granted') {
+      try {
+        const notif = new Notification(title, {
+          body: bodyText,
+          icon: '/logo.png',
+          tag: `channel-${channelId}`
+        });
+        notif.onclick = () => {
+          window.focus();
+          if (channelId) switchTextChannel(channelId);
+          notif.close();
+        };
+      } catch (err) {
+        console.warn('[Notification Web] Erro ao disparar:', err);
+      }
+    } else if (Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }
+}
+
+// Ouvinte para clique na notificação nativa do Windows no Electron
+if (window.electronAPI && typeof window.electronAPI.onNotificationClicked === 'function') {
+  window.electronAPI.onNotificationClicked(({ channelId }) => {
+    if (channelId) {
+      switchTextChannel(channelId);
+    }
+  });
+}
+
+// Limpeza de não lidas e cessar flashFrame ao focar na janela
+window.addEventListener('focus', () => {
+  if (currentTextChannel && unreadChannelCounts.has(currentTextChannel)) {
+    unreadChannelCounts.delete(currentTextChannel);
+  }
+  updateAppTitleAndBadges();
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && document.hasFocus()) {
+    if (currentTextChannel && unreadChannelCounts.has(currentTextChannel)) {
+      unreadChannelCounts.delete(currentTextChannel);
+    }
+    updateAppTitleAndBadges();
+  }
+});
+
+// Solicitação inicial suave de permissão de notificação no navegador
+if (!window.electronAPI && 'Notification' in window && Notification.permission === 'default') {
+  const requestNotifOnFirstInteraction = () => {
+    Notification.requestPermission().catch(() => {});
+    window.removeEventListener('click', requestNotifOnFirstInteraction);
+  };
+  window.addEventListener('click', requestNotifOnFirstInteraction, { once: true });
+}
+
 function switchTextChannel(chName) {
   currentTextChannel = chName;
+  if (unreadChannelCounts.has(chName)) {
+    unreadChannelCounts.delete(chName);
+  }
+  updateAppTitleAndBadges();
 
   document.querySelectorAll('[data-channel]').forEach(c => {
     c.classList.toggle('active', c.getAttribute('data-channel') === chName);
@@ -1516,6 +2055,7 @@ function switchTextChannel(chName) {
   if (messagesContainer) messagesContainer.style.display = 'flex';
   const chatInputWrap = document.querySelector('.chat-input-wrapper');
   if (chatInputWrap) chatInputWrap.style.display = 'block';
+  if (typeof updateStreamPiP === 'function') updateStreamPiP();
 
   if (!channelMessagesStore[chName]) {
     socket.emit('chat:get-channel', { channelId: chName });
@@ -1556,17 +2096,63 @@ function renderCurrentChannelMessages(filterText = '') {
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
+// ==========================================
+// FASE 1: ESTADO E ELEMENTOS SOCIAIS DO CHAT
+// ==========================================
+let activeReplyTarget = null;
+let editingMessageId = null;
+let messageToDelete = null;
+let reactingMessageId = null;
+let targetReactionMessageId = null;
+let mentionSelectedIndex = 0;
+let currentMentionCandidates = [];
+
+const replyBar = document.getElementById('reply-bar');
+const replyTargetSender = document.getElementById('reply-target-sender');
+const replyTargetSnippet = document.getElementById('reply-target-snippet');
+const btnCancelReply = document.getElementById('btn-cancel-reply');
+
+const mentionAutocompletePopover = document.getElementById('mention-autocomplete-popover');
+const mentionAutocompleteList = document.getElementById('mention-autocomplete-list');
+
+const quickReactionPicker = document.getElementById('quick-reaction-picker');
+const btnQuickReactMore = document.getElementById('btn-quick-react-more');
+
+const deleteMessageModal = document.getElementById('delete-message-modal');
+const btnCloseDeleteMessageModal = document.getElementById('btn-close-delete-message-modal');
+const btnCancelDeleteMessage = document.getElementById('btn-cancel-delete-message');
+const btnConfirmDeleteMessage = document.getElementById('btn-confirm-delete-message');
+const deleteMessagePreview = document.getElementById('delete-message-preview');
+
+const btnPinnedMessages = document.getElementById('btn-pinned-messages');
+const pinnedMessagesPopover = document.getElementById('pinned-messages-popover');
+const btnClosePinnedPopover = document.getElementById('btn-close-pinned-popover');
+const pinnedMessagesList = document.getElementById('pinned-messages-list');
+
+// Envio de mensagem de texto com suporte a resposta (reply)
 chatForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const text = chatInput.value.trim();
   if (!text) return;
 
-  socket.emit('chat:send', {
+  const payload = {
     channelId: currentTextChannel,
     text: text
-  });
+  };
+
+  if (activeReplyTarget) {
+    payload.replyTo = {
+      id: activeReplyTarget.id,
+      sender: activeReplyTarget.sender,
+      text: activeReplyTarget.text
+    };
+  }
+
+  socket.emit('chat:send', payload);
 
   chatInput.value = '';
+  clearReplyTarget();
+  closeMentionAutocomplete();
 });
 
 if (chatInput) {
@@ -1578,31 +2164,414 @@ if (chatInput) {
       }
     }, 200);
   });
+
+  // Autocomplete de Menções ao digitar @
+  chatInput.addEventListener('input', () => {
+    handleMentionAutocomplete();
+  });
+
+  // Navegação no Autocomplete e Cancelamento de Resposta
+  chatInput.addEventListener('keydown', (e) => {
+    if (mentionAutocompletePopover && mentionAutocompletePopover.style.display === 'flex') {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (currentMentionCandidates.length > 0) {
+          mentionSelectedIndex = (mentionSelectedIndex + 1) % currentMentionCandidates.length;
+          renderMentionAutocompleteList();
+        }
+        return;
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (currentMentionCandidates.length > 0) {
+          mentionSelectedIndex = (mentionSelectedIndex - 1 + currentMentionCandidates.length) % currentMentionCandidates.length;
+          renderMentionAutocompleteList();
+        }
+        return;
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        if (currentMentionCandidates[mentionSelectedIndex]) {
+          e.preventDefault();
+          insertMention(currentMentionCandidates[mentionSelectedIndex].name);
+          return;
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeMentionAutocomplete();
+        return;
+      }
+    }
+
+    if (e.key === 'Escape' && activeReplyTarget) {
+      clearReplyTarget();
+    }
+  });
 }
 
+// Resposta: definir alvo
+function setReplyTarget(msg) {
+  if (!msg) return;
+  activeReplyTarget = msg;
+  if (replyTargetSender) replyTargetSender.textContent = msg.sender || 'Alguém';
+  if (replyTargetSnippet) replyTargetSnippet.textContent = (msg.text || '').substring(0, 80) || '(Anexo)';
+  if (replyBar) replyBar.style.display = 'flex';
+  if (chatInput) {
+    chatInput.focus();
+    chatInput.placeholder = `Responder a @${msg.sender}...`;
+  }
+}
+
+// Resposta: cancelar
+function clearReplyTarget() {
+  activeReplyTarget = null;
+  if (replyBar) replyBar.style.display = 'none';
+  if (chatInput) {
+    chatInput.placeholder = `Conversar em #${currentTextChannel}`;
+  }
+}
+
+if (btnCancelReply) {
+  btnCancelReply.addEventListener('click', clearReplyTarget);
+}
+
+// Autocomplete de Menções
+function handleMentionAutocomplete() {
+  if (!chatInput || !mentionAutocompletePopover || !mentionAutocompleteList) return;
+  const cursorPos = chatInput.selectionStart;
+  const textBefore = chatInput.value.substring(0, cursorPos);
+  const match = textBefore.match(/(?:^|\s)@([a-zA-Z0-9_À-ÿ-]*)$/);
+
+  if (!match) {
+    closeMentionAutocomplete();
+    return;
+  }
+
+  const query = match[1].toLowerCase();
+
+  const candidates = [
+    { name: 'everyone', sub: 'Notifica todos os membros', avatar: '/assets/logo.png', isSpecial: true },
+    { name: 'aqui', sub: 'Notifica apenas membros online', avatar: '/assets/logo.png', isSpecial: true }
+  ];
+
+  const seen = new Set(['everyone', 'aqui']);
+  if (Array.isArray(allOnlineUsers)) {
+    allOnlineUsers.forEach(u => {
+      const lower = (u.name || '').toLowerCase();
+      if (lower && !seen.has(lower)) {
+        seen.add(lower);
+        candidates.push({
+          name: u.name,
+          sub: u.inVoice ? 'No canal de voz' : 'Online',
+          avatar: u.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(u.name)}`
+        });
+      }
+    });
+  }
+
+  currentMentionCandidates = candidates.filter(c => c.name.toLowerCase().includes(query));
+
+  if (currentMentionCandidates.length === 0) {
+    closeMentionAutocomplete();
+    return;
+  }
+
+  mentionSelectedIndex = 0;
+  renderMentionAutocompleteList();
+  mentionAutocompletePopover.style.display = 'flex';
+}
+
+function renderMentionAutocompleteList() {
+  if (!mentionAutocompleteList) return;
+  mentionAutocompleteList.innerHTML = '';
+  currentMentionCandidates.forEach((item, idx) => {
+    const row = document.createElement('div');
+    row.className = `mention-opt-item ${idx === mentionSelectedIndex ? 'selected' : ''}`;
+    row.innerHTML = `
+      <img src="${item.avatar}" class="mention-opt-avatar" alt="${item.name}">
+      <div class="mention-opt-info">
+        <span class="mention-opt-name">@${escapeHtml(item.name)}</span>
+        <span class="mention-opt-sub">${escapeHtml(item.sub)}</span>
+      </div>
+    `;
+    row.addEventListener('click', () => {
+      insertMention(item.name);
+    });
+    mentionAutocompleteList.appendChild(row);
+  });
+}
+
+function insertMention(name) {
+  if (!chatInput) return;
+  const cursorPos = chatInput.selectionStart;
+  const text = chatInput.value;
+  const textBefore = text.substring(0, cursorPos);
+  const textAfter = text.substring(cursorPos);
+  const match = textBefore.match(/(?:^|\s)@([a-zA-Z0-9_À-ÿ-]*)$/);
+
+  if (match) {
+    const atIndex = textBefore.lastIndexOf('@' + match[1]);
+    const newBefore = textBefore.substring(0, atIndex) + `@${name} `;
+    chatInput.value = newBefore + textAfter;
+    chatInput.selectionStart = chatInput.selectionEnd = newBefore.length;
+  }
+
+  closeMentionAutocomplete();
+  chatInput.focus();
+}
+
+function closeMentionAutocomplete() {
+  if (mentionAutocompletePopover) mentionAutocompletePopover.style.display = 'none';
+  currentMentionCandidates = [];
+  mentionSelectedIndex = 0;
+}
+
+// Reações Rápidas com Emojis
+function openQuickReactionPicker(msgId, targetBtn) {
+  reactingMessageId = msgId;
+  if (!quickReactionPicker || !targetBtn) return;
+
+  const rect = targetBtn.getBoundingClientRect();
+  const pickerWidth = 360;
+  let left = rect.left - pickerWidth + 40;
+  if (left < 10) left = 10;
+  let top = rect.top - 46;
+  if (top < 10) top = rect.bottom + 6;
+
+  quickReactionPicker.style.left = `${left}px`;
+  quickReactionPicker.style.top = `${top}px`;
+  quickReactionPicker.style.display = 'flex';
+}
+
+function closeQuickReactionPicker() {
+  if (quickReactionPicker) quickReactionPicker.style.display = 'none';
+  reactingMessageId = null;
+}
+
+if (quickReactionPicker) {
+  quickReactionPicker.querySelectorAll('.quick-react-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const emoji = btn.getAttribute('data-emoji');
+      if (emoji && reactingMessageId) {
+        socket.emit('chat:react', {
+          messageId: reactingMessageId,
+          channelId: currentTextChannel,
+          emoji
+        });
+      }
+      closeQuickReactionPicker();
+    });
+  });
+}
+
+if (btnQuickReactMore) {
+  btnQuickReactMore.addEventListener('click', (e) => {
+    e.stopPropagation();
+    targetReactionMessageId = reactingMessageId;
+    closeQuickReactionPicker();
+    openEmojiPicker();
+  });
+}
+
+// Exclusão de Mensagem (Modal)
+function openDeleteMessageModal(msg) {
+  if (!msg) return;
+  messageToDelete = msg;
+  if (deleteMessagePreview) {
+    deleteMessagePreview.textContent = (msg.text || '').substring(0, 150) || '(Anexo de arquivo)';
+  }
+  if (deleteMessageModal) deleteMessageModal.style.display = 'flex';
+}
+
+function closeDeleteMessageModal() {
+  messageToDelete = null;
+  if (deleteMessageModal) deleteMessageModal.style.display = 'none';
+}
+
+if (btnCloseDeleteMessageModal) btnCloseDeleteMessageModal.addEventListener('click', closeDeleteMessageModal);
+if (btnCancelDeleteMessage) btnCancelDeleteMessage.addEventListener('click', closeDeleteMessageModal);
+if (btnConfirmDeleteMessage) {
+  btnConfirmDeleteMessage.addEventListener('click', () => {
+    if (messageToDelete) {
+      socket.emit('chat:delete', {
+        messageId: messageToDelete.id,
+        channelId: currentTextChannel
+      });
+      closeDeleteMessageModal();
+    }
+  });
+}
+
+// Mensagens Fixadas (Pins Popover)
+function togglePinnedMessagesPopover() {
+  if (!pinnedMessagesPopover) return;
+  const isHidden = pinnedMessagesPopover.style.display === 'none';
+  if (isHidden) {
+    pinnedMessagesPopover.style.display = 'flex';
+    socket.emit('chat:get-pins', { channelId: currentTextChannel });
+  } else {
+    closePinnedMessagesPopover();
+  }
+}
+
+function closePinnedMessagesPopover() {
+  if (pinnedMessagesPopover) pinnedMessagesPopover.style.display = 'none';
+}
+
+if (btnPinnedMessages) {
+  btnPinnedMessages.addEventListener('click', (e) => {
+    e.stopPropagation();
+    togglePinnedMessagesPopover();
+  });
+}
+if (btnClosePinnedPopover) {
+  btnClosePinnedPopover.addEventListener('click', closePinnedMessagesPopover);
+}
+
+socket.on('chat:pins-list', ({ channelId, pins }) => {
+  if (channelId !== currentTextChannel || !pinnedMessagesList) return;
+  pinnedMessagesList.innerHTML = '';
+  if (!pins || pins.length === 0) {
+    pinnedMessagesList.innerHTML = `
+      <div style="padding: 24px 16px; text-align: center; color: #949ba4; font-size: 13px;">
+        Nenhuma mensagem fixada no canal <strong>#${escapeHtml(currentTextChannel)}</strong> ainda 📌
+      </div>
+    `;
+    return;
+  }
+
+  pins.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'pinned-msg-card';
+    card.innerHTML = `
+      <div class="pinned-msg-top">
+        <span class="pinned-msg-author">${escapeHtml(p.sender)}</span>
+        <span class="pinned-msg-time">${escapeHtml(p.timestamp || '')}</span>
+      </div>
+      <div class="pinned-msg-text">${formatChatText(p.text || '')}</div>
+      <div class="pinned-msg-actions">
+        <button type="button" class="pinned-msg-jump-btn" data-jump-id="${escapeHtml(p.id)}">Pular para mensagem</button>
+        <button type="button" class="pinned-msg-unpin-btn" data-unpin-id="${escapeHtml(p.id)}">Desafixar</button>
+      </div>
+    `;
+
+    const jumpBtn = card.querySelector('.pinned-msg-jump-btn');
+    if (jumpBtn) {
+      jumpBtn.addEventListener('click', () => {
+        jumpToMessage(p.id);
+        closePinnedMessagesPopover();
+      });
+    }
+
+    const unpinBtn = card.querySelector('.pinned-msg-unpin-btn');
+    if (unpinBtn) {
+      unpinBtn.addEventListener('click', () => {
+        socket.emit('chat:pin', { messageId: p.id, channelId: currentTextChannel });
+      });
+    }
+
+    pinnedMessagesList.appendChild(card);
+  });
+});
+
+function jumpToMessage(msgId) {
+  const el = document.querySelector(`[data-msg-id="${msgId}"]`);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('is-highlighted');
+    setTimeout(() => el.classList.remove('is-highlighted'), 1500);
+  } else {
+    if (typeof showSoundToast === 'function') {
+      showSoundToast('Mensagem não visível no histórico recente deste canal.');
+    }
+  }
+}
+
+// Sockets de Mensagens
 socket.on('chat:new-message', ({ channelId, message }) => {
   if (!channelMessagesStore[channelId]) {
     channelMessagesStore[channelId] = [];
   }
   channelMessagesStore[channelId].push(message);
 
-  if (channelId === currentTextChannel) {
+  const isCurrentChannel = channelId === currentTextChannel;
+  if (isCurrentChannel) {
     messagesContainer.classList.remove('is-empty');
     appendMessageToContainer(message);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    if (message.sender !== (currentUser && currentUser.name)) {
-      sounds.playMessage();
+  }
+
+  // Se a mensagem for de outro usuário, processa notificações e contador de não lidas
+  const isSelf = currentUser && message.sender === currentUser.name;
+  if (!isSelf) {
+    const isMentioned = currentUser && currentUser.name && (
+      (message.text && message.text.toLowerCase().includes('@' + currentUser.name.toLowerCase())) ||
+      (message.text && (message.text.includes('@everyone') || message.text.includes('@aqui') || message.text.includes('@todos')))
+    );
+
+    const isDnd = currentUser && currentUser.statusMode === 'dnd';
+
+    // Sons de notificação (silenciado se estiver em status Não Perturbar)
+    if (!isDnd) {
+      if (isMentioned && typeof sounds.playMention === 'function') {
+        sounds.playMention();
+      } else if (typeof sounds.playMessage === 'function') {
+        sounds.playMessage();
+      }
     }
-  } else {
-    const chEl = document.querySelector(`[data-channel="${channelId}"]`);
-    if (chEl) chEl.style.fontWeight = '700';
+
+    const isAppFocused = document.hasFocus() && document.visibilityState === 'visible';
+    const isViewing = isCurrentChannel && isAppFocused;
+
+    // Se o usuário não está com a tela focada neste canal agora, marca como não lida e notifica
+    if (!isViewing) {
+      const currentCount = unreadChannelCounts.get(channelId) || 0;
+      unreadChannelCounts.set(channelId, currentCount + 1);
+      updateAppTitleAndBadges();
+      triggerDesktopNotification(channelId, message, isMentioned);
+    }
+  }
+});
+
+// Atualização de Mensagem (Edição, Reações, Pin)
+socket.on('chat:message-updated', ({ channelId, message }) => {
+  if (channelMessagesStore[channelId]) {
+    const idx = channelMessagesStore[channelId].findIndex(m => m.id === message.id);
+    if (idx !== -1) {
+      channelMessagesStore[channelId][idx] = message;
+    } else {
+      channelMessagesStore[channelId].push(message);
+    }
+  }
+  if (channelId === currentTextChannel) {
+    updateMessageInDOM(message);
+  }
+});
+
+// Exclusão de Mensagem
+socket.on('chat:message-deleted', ({ channelId, messageId }) => {
+  if (channelMessagesStore[channelId]) {
+    channelMessagesStore[channelId] = channelMessagesStore[channelId].filter(m => m.id !== messageId);
+  }
+  if (channelId === currentTextChannel) {
+    const msgEl = document.querySelector(`[data-msg-id="${messageId}"]`);
+    if (msgEl) {
+      msgEl.style.opacity = '0';
+      msgEl.style.transform = 'scale(0.95)';
+      msgEl.style.transition = 'all 0.2s ease';
+      setTimeout(() => msgEl.remove(), 200);
+    }
+  }
+});
+
+// Pins atualizados
+socket.on('chat:pins-updated', ({ channelId }) => {
+  if (channelId === currentTextChannel && pinnedMessagesPopover && pinnedMessagesPopover.style.display === 'flex') {
+    socket.emit('chat:get-pins', { channelId: currentTextChannel });
   }
 });
 
 function formatMessageDisplayTime(msg) {
   if (!msg) return '';
 
-  // 1. Se o ID carrega o timestamp Unix (ex: msg-1791246309127-... ou sys-1791246309127)
   if (typeof msg.id === 'string') {
     const match = msg.id.match(/^(?:msg|sys)-(\d{13})/);
     if (match) {
@@ -1623,7 +2592,6 @@ function formatMessageDisplayTime(msg) {
     }
   }
 
-  // 2. Se tiver createdAt válido (ISO string ou Date do banco)
   if (msg.createdAt) {
     const d = new Date(msg.createdAt);
     if (!isNaN(d.getTime())) {
@@ -1635,7 +2603,6 @@ function formatMessageDisplayTime(msg) {
     }
   }
 
-  // 3. Fallback para msg.timestamp original
   if (msg.timestamp) {
     return msg.timestamp;
   }
@@ -1646,15 +2613,263 @@ function formatMessageDisplayTime(msg) {
 function formatChatText(text) {
   if (!text) return '';
   let str = escapeHtml(text);
-  // Markdown links: [Title](URL)
-  str = str.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color: #00a8fc; text-decoration: underline; font-weight: 600;">$1</a>');
-  // Markdown bold: **text**
+
+  const tokens = [];
+  const makeToken = (html) => {
+    const placeholder = `___CHAT_TOKEN_${tokens.length}___`;
+    tokens.push(html);
+    return placeholder;
+  };
+
+  // 1. Preservar blocos de código inline com crases: `código`
+  str = str.replace(/`([^`]+)`/g, (match, code) => {
+    return makeToken(`<code class="chat-inline-code">${code}</code>`);
+  });
+
+  // 2. Markdown links explícitos: [Texto](URL)
+  str = str.replace(/\[([^\]]+)\]\(((?:https?:\/\/|www\.)[^\s)]+)\)/g, (match, label, url) => {
+    const href = url.startsWith('www.') ? `https://${url}` : url;
+    return makeToken(`<a href="${href}" target="_blank" rel="noopener noreferrer" class="chat-link">${label}</a>`);
+  });
+
+  // 3. URLs brutas (https://, http://, www.) transformadas automaticamente em links
+  const urlRegex = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/g;
+  str = str.replace(urlRegex, (rawUrl) => {
+    let cleanUrl = rawUrl;
+    let trailingPunct = '';
+
+    while (cleanUrl.length > 0 && /[.,;:!?)}\]*_]$/.test(cleanUrl)) {
+      trailingPunct = cleanUrl.slice(-1) + trailingPunct;
+      cleanUrl = cleanUrl.slice(0, -1);
+    }
+
+    if (!cleanUrl) return rawUrl;
+
+    const href = cleanUrl.startsWith('www.') ? `https://${cleanUrl}` : cleanUrl;
+    return makeToken(`<a href="${href}" target="_blank" rel="noopener noreferrer" class="chat-link">${cleanUrl}</a>`) + trailingPunct;
+  });
+
+  // 4. Menções @usuario e @everyone/@aqui
+  const mentionRegex = /@([a-zA-Z0-9_À-ÿ-]+|everyone|here|aqui|todos)/g;
+  str = str.replace(mentionRegex, (match, target) => {
+    const isGlobal = /^(everyone|here|aqui|todos)$/i.test(target);
+    const cls = isGlobal ? 'mention-tag mention-everyone' : 'mention-tag';
+    return makeToken(`<span class="${cls}">@${target}</span>`);
+  });
+
+  // 5. Markdown bold: **texto**
   str = str.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #fff;">$1</strong>');
-  // Markdown inline code: `code`
-  str = str.replace(/`([^`]+)`/g, '<code style="background: rgba(0,0,0,0.35); padding: 1.5px 5px; border-radius: 3px; font-size: 12px; color: #eb459e; font-family: monospace;">$1</code>');
-  // Newlines to <br>
+
+  // 6. Quebras de linha para <br>
   str = str.replace(/\n/g, '<br>');
+
+  // 7. Restaurar tokens
+  for (let i = 0; i < tokens.length; i++) {
+    str = str.replace(`___CHAT_TOKEN_${i}___`, tokens[i]);
+  }
+
   return str;
+}
+
+// Renderizar linha de reações
+function renderReactionsHtml(msg) {
+  const reactions = msg.reactions && typeof msg.reactions === 'object' ? msg.reactions : {};
+  const reactionEntries = Object.entries(reactions).filter(([emoji, users]) => Array.isArray(users) && users.length > 0);
+  if (reactionEntries.length === 0) return '';
+
+  let html = '<div class="message-reactions-row">';
+  for (const [emoji, users] of reactionEntries) {
+    const userReacted = currentUser && users.includes(currentUser.name);
+    html += `
+      <button type="button" class="message-reaction-chip ${userReacted ? 'active' : ''}" data-emoji="${escapeHtml(emoji)}" title="${escapeHtml(users.join(', '))}">
+        <span class="reaction-emoji">${escapeHtml(emoji)}</span>
+        <span class="reaction-count">${users.length}</span>
+      </button>
+    `;
+  }
+  html += `
+    <button type="button" class="message-reaction-add-btn" title="Adicionar Reação">+</button>
+  </div>`;
+  return html;
+}
+
+// Edição In-Place da Mensagem
+function startEditingMessage(msg) {
+  if (!msg || !currentUser || msg.sender !== currentUser.name) return;
+  editingMessageId = msg.id;
+
+  const msgTextEl = document.getElementById(`msg-text-${msg.id}`);
+  if (!msgTextEl) return;
+
+  const rawText = msg.text || '';
+  msgTextEl.innerHTML = `
+    <div class="message-edit-wrapper">
+      <textarea class="message-edit-textarea" id="edit-textarea-${msg.id}">${escapeHtml(rawText)}</textarea>
+      <div class="message-edit-footer">
+        <span>escape para <a href="#" class="message-edit-btn-cancel" id="btn-cancel-edit-${msg.id}">cancelar</a> • enter para <strong>salvar</strong></span>
+        <div class="message-edit-actions">
+          <button type="button" class="message-edit-btn-cancel" id="btn-cancel-edit-btn-${msg.id}">Cancelar</button>
+          <button type="button" class="message-edit-btn-save" id="btn-save-edit-${msg.id}">Salvar</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const textarea = document.getElementById(`edit-textarea-${msg.id}`);
+  if (textarea) {
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        cancelEditingMessage(msg);
+      } else if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        saveEditedMessage(msg.id, textarea.value);
+      }
+    });
+  }
+
+  const cancelLink = document.getElementById(`btn-cancel-edit-${msg.id}`);
+  const cancelBtn = document.getElementById(`btn-cancel-edit-btn-${msg.id}`);
+  const saveBtn = document.getElementById(`btn-save-edit-${msg.id}`);
+
+  if (cancelLink) cancelLink.addEventListener('click', (e) => { e.preventDefault(); cancelEditingMessage(msg); });
+  if (cancelBtn) cancelBtn.addEventListener('click', () => cancelEditingMessage(msg));
+  if (saveBtn) saveBtn.addEventListener('click', () => {
+    if (textarea) saveEditedMessage(msg.id, textarea.value);
+  });
+}
+
+function cancelEditingMessage(msg) {
+  editingMessageId = null;
+  const msgTextEl = document.getElementById(`msg-text-${msg.id}`);
+  if (msgTextEl) {
+    msgTextEl.innerHTML = formatChatText(msg.text);
+  }
+}
+
+function saveEditedMessage(msgId, newText) {
+  const clean = (newText || '').trim();
+  if (!clean) return;
+  socket.emit('chat:edit', {
+    messageId: msgId,
+    channelId: currentTextChannel,
+    text: clean
+  });
+  editingMessageId = null;
+}
+
+// Vincular eventos a chips de reação dentro de uma mensagem
+function bindReactionChipEvents(div, msg) {
+  div.querySelectorAll('.message-reaction-chip').forEach(chip => {
+    chip.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const emoji = chip.getAttribute('data-emoji');
+      if (emoji) {
+        socket.emit('chat:react', { messageId: msg.id, channelId: currentTextChannel, emoji });
+      }
+    });
+  });
+
+  const addReactBtn = div.querySelector('.message-reaction-add-btn');
+  if (addReactBtn) {
+    addReactBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openQuickReactionPicker(msg.id, addReactBtn);
+    });
+  }
+}
+
+// Vincular eventos da barra de ações da mensagem
+function bindMessageElementEvents(div, msg) {
+  const replyPreview = div.querySelector('.message-reply-preview');
+  if (replyPreview) {
+    replyPreview.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const replyId = replyPreview.getAttribute('data-reply-id');
+      if (replyId) jumpToMessage(replyId);
+    });
+  }
+
+  const btnReact = div.querySelector('.msg-action-btn[data-action="react"]');
+  if (btnReact) {
+    btnReact.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openQuickReactionPicker(msg.id, btnReact);
+    });
+  }
+
+  const btnReply = div.querySelector('.msg-action-btn[data-action="reply"]');
+  if (btnReply) {
+    btnReply.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setReplyTarget(msg);
+    });
+  }
+
+  const btnPin = div.querySelector('.msg-action-btn[data-action="pin"]');
+  if (btnPin) {
+    btnPin.addEventListener('click', (e) => {
+      e.stopPropagation();
+      socket.emit('chat:pin', { messageId: msg.id, channelId: currentTextChannel });
+    });
+  }
+
+  const btnEdit = div.querySelector('.msg-action-btn[data-action="edit"]');
+  if (btnEdit) {
+    btnEdit.addEventListener('click', (e) => {
+      e.stopPropagation();
+      startEditingMessage(msg);
+    });
+  }
+
+  const btnDelete = div.querySelector('.msg-action-btn[data-action="delete"]');
+  if (btnDelete) {
+    btnDelete.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openDeleteMessageModal(msg);
+    });
+  }
+
+  bindReactionChipEvents(div, msg);
+}
+
+// Atualizar mensagem existente no DOM sem recarregar tudo
+function updateMessageInDOM(msg) {
+  const div = document.querySelector(`[data-msg-id="${msg.id}"]`);
+  if (!div) return;
+
+  if (editingMessageId !== msg.id) {
+    const textEl = div.querySelector(`#msg-text-${msg.id}`);
+    if (textEl) {
+      textEl.innerHTML = formatChatText(msg.text);
+    }
+  }
+
+  const editSlot = div.querySelector('.message-edited-slot');
+  if (editSlot) {
+    editSlot.innerHTML = msg.edited ? '<span class="message-edited-tag" title="Editada">(editado)</span>' : '';
+  }
+
+  const pinSlot = div.querySelector('.message-pin-slot');
+  if (pinSlot) {
+    pinSlot.innerHTML = msg.pinned ? '<span class="pinned-chat-badge">📌 Fixada</span>' : '';
+  }
+
+  const pinBtn = div.querySelector('.msg-action-btn[data-action="pin"]');
+  if (pinBtn) {
+    pinBtn.classList.toggle('active-pin', !!msg.pinned);
+    pinBtn.title = msg.pinned ? 'Desafixar mensagem' : 'Fixar mensagem';
+    const svg = pinBtn.querySelector('svg');
+    if (svg) svg.setAttribute('fill', msg.pinned ? 'currentColor' : 'none');
+  }
+
+  const reactContainer = div.querySelector(`#reactions-container-${msg.id}`);
+  if (reactContainer) {
+    reactContainer.innerHTML = renderReactionsHtml(msg);
+    bindReactionChipEvents(div, msg);
+  }
 }
 
 function appendMessageToContainer(msg) {
@@ -1663,6 +2878,7 @@ function appendMessageToContainer(msg) {
   if (msg.isSystem) {
     const sysDiv = document.createElement('div');
     sysDiv.className = 'system-message';
+    sysDiv.setAttribute('data-msg-id', msg.id);
 
     let formattedText = escapeHtml(msg.text);
     if (msg.sender && msg.text && msg.text.startsWith(msg.sender)) {
@@ -1685,8 +2901,20 @@ function appendMessageToContainer(msg) {
 
   const div = document.createElement('div');
   div.className = 'message-item';
+  div.setAttribute('data-msg-id', msg.id);
   const isBot = !!msg.isBot || msg.sender === 'Alfredo' || msg.sender === 'Rythm';
+  const isOwner = currentUser && currentUser.name && msg.sender === currentUser.name;
 
+  // Destaque se foi mencionado
+  const isMentioned = currentUser && currentUser.name && (
+    (msg.text && msg.text.toLowerCase().includes('@' + currentUser.name.toLowerCase())) ||
+    (msg.text && (msg.text.includes('@everyone') || msg.text.includes('@aqui') || msg.text.includes('@todos')))
+  );
+  if (isMentioned) {
+    div.classList.add('is-mentioned');
+  }
+
+  // Anexo
   let attachmentHtml = '';
   if (msg.attachmentUrl) {
     const isImg = /\.(png|jpe?g|gif|webp|svg)$/i.test(msg.attachmentUrl);
@@ -1700,18 +2928,62 @@ function appendMessageToContainer(msg) {
     }
   }
 
+  // Citação de Resposta (Reply Preview)
+  let replyHtml = '';
+  if (msg.replyTo && msg.replyTo.sender) {
+    replyHtml = `
+      <div class="message-reply-preview" data-reply-id="${escapeHtml(msg.replyTo.id || '')}" title="Pular para mensagem original">
+        <span class="message-reply-author">@${escapeHtml(msg.replyTo.sender)}</span>
+        <span class="message-reply-snippet">${escapeHtml(msg.replyTo.text || '')}</span>
+      </div>
+    `;
+  }
+
+  // Reações
+  const reactionsHtml = renderReactionsHtml(msg);
+
+  // Barra de Ações Flutuante (Hover)
+  const actionsHtml = `
+    <div class="message-actions-bar">
+      <button type="button" class="msg-action-btn" data-action="react" title="Adicionar Reação">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+      </button>
+      <button type="button" class="msg-action-btn" data-action="reply" title="Responder">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"></polyline><path d="M20 18v-2a4 4 0 0 0-4-4H4"></path></svg>
+      </button>
+      <button type="button" class="msg-action-btn ${msg.pinned ? 'active-pin' : ''}" data-action="pin" title="${msg.pinned ? 'Desafixar mensagem' : 'Fixar mensagem'}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="${msg.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"></line><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"></path></svg>
+      </button>
+      ${isOwner ? `
+      <button type="button" class="msg-action-btn" data-action="edit" title="Editar mensagem">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+      </button>
+      <button type="button" class="msg-action-btn danger" data-action="delete" title="Excluir mensagem">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+      </button>
+      ` : ''}
+    </div>
+  `;
+
   div.innerHTML = `
+    ${actionsHtml}
     <img class="message-avatar" src="${msg.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + encodeURIComponent(msg.sender)}" alt="${msg.sender}">
     <div class="message-content">
+      ${replyHtml}
       <div class="message-header">
         <span class="message-author" style="color: ${isBot ? '#23a55a' : '#5865F2'};">${escapeHtml(msg.sender)}</span>
         ${isBot ? '<span class="bot-tag">BOT</span>' : ''}
         <span class="message-time">${escapeHtml(displayTime)}</span>
+        <span class="message-edited-slot">${msg.edited ? '<span class="message-edited-tag" title="Editada">(editado)</span>' : ''}</span>
+        <span class="message-pin-slot">${msg.pinned ? '<span class="pinned-chat-badge">📌 Fixada</span>' : ''}</span>
       </div>
-      <div class="message-text">${formatChatText(msg.text)}</div>
+      <div class="message-text" id="msg-text-${msg.id}">${formatChatText(msg.text)}</div>
       ${attachmentHtml}
+      <div class="message-reactions-container" id="reactions-container-${msg.id}">${reactionsHtml}</div>
     </div>
   `;
+
+  bindMessageElementEvents(div, msg);
   messagesContainer.appendChild(div);
 }
 
@@ -1731,17 +3003,47 @@ chatFileInput.addEventListener('change', async (e) => {
     });
     const data = await res.json();
     if (data.success) {
-      socket.emit('chat:send', {
+      const payload = {
         channelId: currentTextChannel,
         text: `Enviou um arquivo: ${file.name}`,
         attachmentUrl: data.url
-      });
+      };
+      if (activeReplyTarget) {
+        payload.replyTo = {
+          id: activeReplyTarget.id,
+          sender: activeReplyTarget.sender,
+          text: activeReplyTarget.text
+        };
+        clearReplyTarget();
+      }
+      socket.emit('chat:send', payload);
     }
   } catch (err) {
     alert('Erro ao enviar arquivo.');
   }
   chatFileInput.value = '';
 });
+
+// Clique em avatar ou autor de mensagem no chat abre o perfil estilo Discord
+if (messagesContainer) {
+  messagesContainer.addEventListener('click', (e) => {
+    const avatarEl = e.target.closest('.message-avatar');
+    const authorEl = e.target.closest('.message-author');
+    if (avatarEl || authorEl) {
+      const msgEl = e.target.closest('.chat-message');
+      if (msgEl) {
+        const sender = (authorEl ? authorEl.textContent : (avatarEl ? avatarEl.getAttribute('alt') : '')).trim();
+        if (sender) {
+          const found = allOnlineUsers.find(u => u.name && u.name.toLowerCase() === sender.toLowerCase()) || {
+            name: sender,
+            avatar: avatarEl?.src || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(sender)}`
+          };
+          openUserProfileCard(found, authorEl || avatarEl, e);
+        }
+      }
+    }
+  });
+}
 
 // Busca no Chat
 chatSearchInput.addEventListener('input', (e) => {
@@ -2183,7 +3485,17 @@ function renderEmojiPicker(filterQuery = '') {
       btn.title = item.keywords.split(' ')[0] || item.char;
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        insertEmojiAtCursor(item.char);
+        if (targetReactionMessageId) {
+          socket.emit('chat:react', {
+            messageId: targetReactionMessageId,
+            channelId: currentTextChannel,
+            emoji: item.char
+          });
+          targetReactionMessageId = null;
+          closeEmojiPicker();
+        } else {
+          insertEmojiAtCursor(item.char);
+        }
       });
       grid.appendChild(btn);
     });
@@ -2213,6 +3525,7 @@ function openEmojiPicker() {
 function closeEmojiPicker() {
   if (!emojiPickerPopover) return;
   emojiPickerPopover.style.display = 'none';
+  targetReactionMessageId = null;
   if (emojiSearchInput) emojiSearchInput.value = '';
 }
 
@@ -2368,6 +3681,7 @@ async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda',
     if (isMobileView()) {
       closeAllDrawers();
     }
+    if (typeof updateStreamPiP === 'function') updateStreamPiP();
     return;
   }
 
@@ -2395,7 +3709,7 @@ async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda',
   voiceStatusBox.style.display = 'flex';
   const voiceSubEl = voiceStatusBox.querySelector('.voice-status-sub');
   if (voiceSubEl) {
-    voiceSubEl.textContent = `${roomName} / Jogos Bolados`;
+    voiceSubEl.textContent = `${roomName} / FakeDC`;
   }
 
   videoStage.style.display = 'flex';
@@ -2403,6 +3717,7 @@ async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda',
   const wrapper = document.querySelector('.chat-input-wrapper');
   if (wrapper) wrapper.style.display = 'none';
   myUserStatusEl.textContent = '🔊 Em voz';
+  if (typeof updateStreamPiP === 'function') updateStreamPiP();
 
   // Atualiza classe active nos canais
   document.querySelectorAll('[data-channel]').forEach(c => c.classList.remove('active'));
@@ -2455,7 +3770,15 @@ async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda',
   sounds.playJoin();
 
   // Conecta o microfone em paralelo sem travar a interface nem exigir segundo clique
-  webrtc.startAudio().catch(err => {
+  webrtc.startAudio().then(() => {
+    if (voiceInputMode === 'ptt') {
+      webrtc.setMuted(true);
+      isMuted = true;
+      btnToggleMic.classList.add('active-muted');
+      btnStageMic.classList.add('active-muted');
+      syncMuteStatusToServer();
+    }
+  }).catch(err => {
     console.warn('[WebRTC] Aviso ao inicializar áudio:', err);
   });
 }
@@ -2502,6 +3825,7 @@ function leaveVoice(playAudio = true, switchChat = true) {
     const wrapper = document.querySelector('.chat-input-wrapper');
     if (wrapper) wrapper.style.display = 'block';
   }
+  if (typeof updateStreamPiP === 'function') updateStreamPiP();
 
   if (btnStageScreen) btnStageScreen.classList.remove('active-stream');
   if (btnStageScreenText) btnStageScreenText.textContent = 'Compartilhar Tela HD';
@@ -2680,7 +4004,17 @@ async function toggleScreenShare(forceVideoOnly = false) {
 
 quickScreenShareBtn.addEventListener('click', () => toggleScreenShare(false));
 btnStageScreen.addEventListener('click', () => toggleScreenShare(false));
-btnStopScreenTile.addEventListener('click', () => toggleScreenShare(false));
+btnStopScreenTile.addEventListener('click', () => {
+  if (currentViewedStreamId === 'local' || isScreenSharing) {
+    toggleScreenShare(false);
+  } else {
+    currentViewedStreamId = null;
+    mainScreenTile.style.display = 'none';
+    sharedScreenVideo.srcObject = null;
+    if (streamSwitcherBar) streamSwitcherBar.style.display = 'none';
+    renderVoiceStageCards();
+  }
+});
 
 const audioFallbackModal = document.getElementById('audio-fallback-modal');
 const btnFallbackShareScreen = document.getElementById('btn-fallback-share-screen');
@@ -2858,7 +4192,8 @@ function syncMuteStatusToServer() {
   renderMembersSidebar();
 }
 
-btnToggleMic.addEventListener('click', () => {
+function handleToggleMic() {
+  if (!webrtc) return;
   isMuted = webrtc.toggleMute();
   if (isMuted) {
     sounds.playMute();
@@ -2870,10 +4205,9 @@ btnToggleMic.addEventListener('click', () => {
     btnStageMic.classList.remove('active-muted');
   }
   syncMuteStatusToServer();
-});
-btnStageMic.addEventListener('click', () => btnToggleMic.click());
+}
 
-btnToggleDeaf.addEventListener('click', () => {
+function handleToggleDeaf() {
   isDeafened = !isDeafened;
   btnToggleDeaf.classList.toggle('active-muted', isDeafened);
   if (typeof webrtc !== 'undefined' && webrtc && typeof webrtc.setDeafened === 'function') {
@@ -2882,22 +4216,70 @@ btnToggleDeaf.addEventListener('click', () => {
   document.querySelectorAll('audio').forEach(a => {
     a.muted = isDeafened;
   });
+  if (isDeafened) {
+    sounds.playMute();
+  } else {
+    sounds.playUnmute();
+  }
   syncMuteStatusToServer();
-});
+}
+
+btnToggleMic.addEventListener('click', handleToggleMic);
+btnStageMic.addEventListener('click', handleToggleMic);
+btnToggleDeaf.addEventListener('click', handleToggleDeaf);
+
+// Atalhos Globais do Electron (Ctrl+Shift+M e Ctrl+Shift+D em jogos em tela cheia)
+if (window.electronAPI && typeof window.electronAPI.onShortcutToggleMic === 'function') {
+  window.electronAPI.onShortcutToggleMic(() => {
+    handleToggleMic();
+  });
+}
+if (window.electronAPI && typeof window.electronAPI.onShortcutToggleDeaf === 'function') {
+  window.electronAPI.onShortcutToggleDeaf(() => {
+    handleToggleDeaf();
+  });
+}
 
 // ==========================================
 // MODAL DE CONFIGURAÇÕES DE DISPOSITIVOS E CADASTRO
 // ==========================================
 function switchSettingsTab(tabName) {
+  // Limpa estados das abas
+  [tabBtnVoice, tabBtnProfile, tabBtnAccount].forEach(b => {
+    if (b) b.classList.remove('active');
+  });
+  [tabContentVoice, tabContentProfile, tabContentAccount].forEach(c => {
+    if (c) c.style.display = 'none';
+  });
+
   if (tabName === 'voice') {
     if (tabBtnVoice) tabBtnVoice.classList.add('active');
-    if (tabBtnAccount) tabBtnAccount.classList.remove('active');
     if (tabContentVoice) tabContentVoice.style.display = 'block';
-    if (tabContentAccount) tabContentAccount.style.display = 'none';
+  } else if (tabName === 'profile') {
+    if (tabBtnProfile) tabBtnProfile.classList.add('active');
+    if (tabContentProfile) tabContentProfile.style.display = 'block';
+    if (profileSaveAlert) profileSaveAlert.style.display = 'none';
+
+    if (currentUser) {
+      if (settingAvatarPreview) settingAvatarPreview.src = currentUser.avatar;
+      if (previewAvatar) previewAvatar.src = currentUser.avatar;
+      if (previewUsername) previewUsername.textContent = currentUser.name;
+      if (settingBannerColor) settingBannerColor.value = currentUser.bannerColor || '#5865F2';
+      if (previewBanner) previewBanner.style.backgroundColor = currentUser.bannerColor || '#5865F2';
+      if (settingStatusMode) settingStatusMode.value = currentUser.statusMode || 'online';
+      if (previewStatusBadge) previewStatusBadge.className = `profile-card-status-badge status-${currentUser.statusMode || 'online'}`;
+      if (settingCustomStatus) settingCustomStatus.value = currentUser.customStatusText || '';
+      if (previewCustomStatusText) {
+        previewCustomStatusText.textContent = currentUser.customStatusText || '';
+        previewCustomStatusText.style.display = currentUser.customStatusText ? 'block' : 'none';
+      }
+      if (countCustomStatus) countCustomStatus.textContent = `${(currentUser.customStatusText || '').length}/80`;
+      if (settingBio) settingBio.value = currentUser.bio || '';
+      if (previewBioText) previewBioText.textContent = currentUser.bio || 'Sem descrição.';
+      if (countBio) countBio.textContent = `${(currentUser.bio || '').length}/200`;
+    }
   } else if (tabName === 'account') {
     if (tabBtnAccount) tabBtnAccount.classList.add('active');
-    if (tabBtnVoice) tabBtnVoice.classList.remove('active');
-    if (tabContentVoice) tabContentVoice.style.display = 'none';
     if (tabContentAccount) tabContentAccount.style.display = 'block';
     if (accountFormAlert) accountFormAlert.style.display = 'none';
 
@@ -2911,6 +4293,10 @@ function switchSettingsTab(tabName) {
 
 if (tabBtnVoice) {
   tabBtnVoice.addEventListener('click', () => switchSettingsTab('voice'));
+}
+
+if (tabBtnProfile) {
+  tabBtnProfile.addEventListener('click', () => switchSettingsTab('profile'));
 }
 
 if (tabBtnAccount) {
@@ -3069,6 +4455,394 @@ if (settingNoiseSuppressionToggle) {
 }
 
 // ==========================================
+// CONFIGURAÇÕES DE ENTRADA DE VOZ (PUSH-TO-TALK & VAD - FASE 3)
+// ==========================================
+let voiceInputMode = localStorage.getItem('gamezeda_voice_input_mode') || 'vad'; // 'vad' ou 'ptt'
+let pttKey = localStorage.getItem('gamezeda_ptt_key') || 'CapsLock';
+let isPttActive = false;
+let isRecordingPttKey = false;
+let pttAvatarFile = null;
+
+function applyVoiceInputMode(mode) {
+  voiceInputMode = mode;
+  localStorage.setItem('gamezeda_voice_input_mode', mode);
+
+  if (labelModeVad && labelModePtt) {
+    labelModeVad.classList.toggle('active', mode === 'vad');
+    labelModePtt.classList.toggle('active', mode === 'ptt');
+    const radVad = labelModeVad.querySelector('input[type="radio"]');
+    const radPtt = labelModePtt.querySelector('input[type="radio"]');
+    if (radVad) radVad.checked = (mode === 'vad');
+    if (radPtt) radPtt.checked = (mode === 'ptt');
+  }
+
+  if (pttKeyContainer) {
+    pttKeyContainer.style.display = (mode === 'ptt') ? 'block' : 'none';
+  }
+
+  // Se estiver em voz, ajusta o estado inicial do microfone
+  if (inVoice && webrtc) {
+    if (mode === 'ptt') {
+      isMuted = true;
+      webrtc.setMuted(true);
+      btnToggleMic.classList.add('active-muted');
+      btnStageMic.classList.add('active-muted');
+      syncMuteStatusToServer();
+    } else {
+      isMuted = false;
+      webrtc.setMuted(false);
+      btnToggleMic.classList.remove('active-muted');
+      btnStageMic.classList.remove('active-muted');
+      syncMuteStatusToServer();
+    }
+  }
+}
+
+function updatePttKeyDisplay() {
+  if (pttKeyDisplay) {
+    let name = pttKey;
+    if (name === ' ') name = 'Espaço';
+    else if (name.startsWith('Key')) name = name.replace('Key', '');
+    else if (name.startsWith('Digit')) name = name.replace('Digit', '');
+    pttKeyDisplay.textContent = name;
+  }
+}
+
+function startRecordingPttKey() {
+  if (!btnRecordPttKey) return;
+  isRecordingPttKey = true;
+  btnRecordPttKey.classList.add('recording');
+  if (pttKeyDisplay) pttKeyDisplay.textContent = 'Pressione uma tecla...';
+  if (pttKeyHint) pttKeyHint.textContent = '(Pressione qualquer tecla)';
+
+  const onKeyCaptured = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const captured = e.code || e.key;
+    pttKey = captured;
+    localStorage.setItem('gamezeda_ptt_key', captured);
+    isRecordingPttKey = false;
+    btnRecordPttKey.classList.remove('recording');
+    updatePttKeyDisplay();
+    if (pttKeyHint) pttKeyHint.textContent = '(Clique para alterar)';
+    window.removeEventListener('keydown', onKeyCaptured, true);
+  };
+
+  window.addEventListener('keydown', onKeyCaptured, true);
+}
+
+if (labelModeVad) {
+  labelModeVad.addEventListener('click', () => applyVoiceInputMode('vad'));
+}
+if (labelModePtt) {
+  labelModePtt.addEventListener('click', () => applyVoiceInputMode('ptt'));
+}
+if (btnRecordPttKey) {
+  btnRecordPttKey.addEventListener('click', startRecordingPttKey);
+}
+if (btnResetPttKey) {
+  btnResetPttKey.addEventListener('click', () => {
+    pttKey = 'CapsLock';
+    localStorage.setItem('gamezeda_ptt_key', 'CapsLock');
+    updatePttKeyDisplay();
+  });
+}
+
+// Escuta de Teclado Global para Push-to-Talk
+window.addEventListener('keydown', (e) => {
+  if (isRecordingPttKey) return;
+  if (voiceInputMode !== 'ptt' || !inVoice || !webrtc) return;
+
+  const tag = (e.target && e.target.tagName) ? e.target.tagName : '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+
+  const keyMatch = (e.code === pttKey) || (e.key === pttKey) ||
+    (pttKey === 'CapsLock' && (e.code === 'CapsLock' || e.key === 'CapsLock'));
+
+  if (keyMatch && !isPttActive) {
+    isPttActive = true;
+    webrtc.setMuted(false);
+    isMuted = false;
+    btnToggleMic.classList.remove('active-muted');
+    btnStageMic.classList.remove('active-muted');
+    syncMuteStatusToServer();
+    sounds.playPttOn();
+  }
+});
+
+window.addEventListener('keyup', (e) => {
+  if (voiceInputMode !== 'ptt' || !inVoice || !webrtc) return;
+
+  const keyMatch = (e.code === pttKey) || (e.key === pttKey) ||
+    (pttKey === 'CapsLock' && (e.code === 'CapsLock' || e.key === 'CapsLock'));
+
+  if (keyMatch && isPttActive) {
+    isPttActive = false;
+    webrtc.setMuted(true);
+    isMuted = true;
+    btnToggleMic.classList.add('active-muted');
+    btnStageMic.classList.add('active-muted');
+    syncMuteStatusToServer();
+    sounds.playPttOff();
+  }
+});
+
+window.addEventListener('blur', () => {
+  if (voiceInputMode === 'ptt' && isPttActive && inVoice && webrtc) {
+    isPttActive = false;
+    webrtc.setMuted(true);
+    isMuted = true;
+    btnToggleMic.classList.add('active-muted');
+    btnStageMic.classList.add('active-muted');
+    syncMuteStatusToServer();
+    sounds.playPttOff();
+  }
+});
+
+applyVoiceInputMode(voiceInputMode);
+updatePttKeyDisplay();
+
+// ==========================================
+// CONFIGURAÇÕES DE PERFIL & CUSTOMIZAÇÃO (FASE 2)
+// ==========================================
+function updateProfilePreview() {
+  const bannerColor = settingBannerColor ? settingBannerColor.value : '#5865F2';
+  const statusMode = settingStatusMode ? settingStatusMode.value : 'online';
+  const customStatus = settingCustomStatus ? settingCustomStatus.value.trim() : '';
+  const bio = settingBio ? settingBio.value.trim() : '';
+
+  if (previewBanner) previewBanner.style.backgroundColor = bannerColor;
+  if (previewStatusBadge) {
+    previewStatusBadge.className = `profile-card-status-badge status-${statusMode}`;
+  }
+  if (previewUsername && currentUser) {
+    previewUsername.textContent = currentUser.name || 'Seu Nome';
+  }
+  if (previewCustomStatusText) {
+    previewCustomStatusText.textContent = customStatus || '';
+    previewCustomStatusText.style.display = customStatus ? 'block' : 'none';
+  }
+  if (previewBioText) {
+    previewBioText.textContent = bio || 'Sem descrição.';
+  }
+  if (countCustomStatus && settingCustomStatus) {
+    countCustomStatus.textContent = `${settingCustomStatus.value.length}/80`;
+  }
+  if (countBio && settingBio) {
+    countBio.textContent = `${settingBio.value.length}/200`;
+  }
+}
+
+if (btnChooseAvatar && settingAvatarInput) {
+  btnChooseAvatar.addEventListener('click', () => settingAvatarInput.click());
+}
+
+if (settingAvatarInput) {
+  settingAvatarInput.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) {
+      pttAvatarFile = file;
+      const previewUrl = URL.createObjectURL(file);
+      if (settingAvatarPreview) settingAvatarPreview.src = previewUrl;
+      if (previewAvatar) previewAvatar.src = previewUrl;
+    }
+  });
+}
+
+if (btnResetAvatar) {
+  btnResetAvatar.addEventListener('click', () => {
+    if (!currentUser) return;
+    pttAvatarFile = null;
+    const defaultAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(currentUser.name)}`;
+    if (settingAvatarPreview) settingAvatarPreview.src = defaultAvatar;
+    if (previewAvatar) previewAvatar.src = defaultAvatar;
+    if (settingAvatarInput) settingAvatarInput.value = '';
+    updateProfilePreview();
+  });
+}
+
+if (settingBannerColor) {
+  settingBannerColor.addEventListener('input', updateProfilePreview);
+}
+
+document.querySelectorAll('.banner-color-preset').forEach(presetBtn => {
+  presetBtn.addEventListener('click', () => {
+    const color = presetBtn.getAttribute('data-color');
+    if (color && settingBannerColor) {
+      settingBannerColor.value = color;
+      updateProfilePreview();
+    }
+  });
+});
+
+if (settingStatusMode) {
+  settingStatusMode.addEventListener('change', updateProfilePreview);
+}
+
+if (settingCustomStatus) {
+  settingCustomStatus.addEventListener('input', updateProfilePreview);
+}
+
+if (settingBio) {
+  settingBio.addEventListener('input', updateProfilePreview);
+}
+
+async function saveProfileSettings() {
+  if (!currentUser) return;
+  if (btnSaveProfileSettings) {
+    btnSaveProfileSettings.disabled = true;
+    btnSaveProfileSettings.innerHTML = 'Salvando alterações...';
+  }
+
+  let avatarUrl = currentUser.avatar;
+
+  // Se houver nova imagem de avatar selecionada do PC
+  if (pttAvatarFile) {
+    try {
+      const formData = new FormData();
+      formData.append('avatar', pttAvatarFile);
+      const res = await fetch('/api/user/avatar', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success && data.url) {
+        avatarUrl = data.url;
+      }
+    } catch (err) {
+      console.error('Erro ao enviar avatar:', err);
+    }
+  } else if (settingAvatarPreview && settingAvatarPreview.src && settingAvatarPreview.src.includes('dicebear.com')) {
+    avatarUrl = settingAvatarPreview.src;
+  }
+
+  const bannerColor = settingBannerColor ? settingBannerColor.value : '#5865F2';
+  const statusMode = settingStatusMode ? settingStatusMode.value : 'online';
+  const customStatusText = settingCustomStatus ? settingCustomStatus.value.trim() : '';
+  const bio = settingBio ? settingBio.value.trim() : '';
+
+  socket.emit('user:update-profile', {
+    avatarUrl,
+    bannerColor,
+    statusMode,
+    customStatusText,
+    bio
+  });
+}
+
+if (btnSaveProfileSettings) {
+  btnSaveProfileSettings.addEventListener('click', saveProfileSettings);
+}
+
+socket.on('user:profile-updated', (result) => {
+  if (btnSaveProfileSettings) {
+    btnSaveProfileSettings.disabled = false;
+    btnSaveProfileSettings.innerHTML = '<i data-lucide="check" style="width: 16px; height: 16px;"></i> <span>Salvar Alterações do Perfil</span>';
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  if (result?.success && result?.user) {
+    const updated = result.user;
+    currentUser.avatar = updated.avatar || currentUser.avatar;
+    currentUser.bannerColor = updated.bannerColor || currentUser.bannerColor;
+    currentUser.statusMode = updated.statusMode || currentUser.statusMode;
+    currentUser.customStatusText = updated.customStatusText !== undefined ? updated.customStatusText : currentUser.customStatusText;
+    currentUser.bio = updated.bio !== undefined ? updated.bio : currentUser.bio;
+
+    if (myAvatarImg) myAvatarImg.src = currentUser.avatar;
+    if (cardMyAvatar) cardMyAvatar.src = currentUser.avatar;
+    updateMyUserStatus();
+
+    if (profileSaveAlert) {
+      profileSaveAlert.textContent = 'Perfil atualizado com sucesso!';
+      profileSaveAlert.className = 'account-alert success';
+      profileSaveAlert.style.display = 'block';
+      setTimeout(() => {
+        if (profileSaveAlert) profileSaveAlert.style.display = 'none';
+      }, 4000);
+    }
+
+    pttAvatarFile = null;
+    renderMembersSidebar();
+  }
+});
+
+// ==========================================
+// MODO GRADE / FOCO NO PALCO DE VÍDEO (FASE 3)
+// ==========================================
+let isGridModeActive = localStorage.getItem('gamezeda_grid_mode') === 'true';
+
+function applyGridMode(active) {
+  isGridModeActive = active;
+  localStorage.setItem('gamezeda_grid_mode', active ? 'true' : 'false');
+  if (videoGrid) {
+    videoGrid.classList.toggle('grid-mode', isGridModeActive);
+  }
+  if (btnStageGridMode) {
+    btnStageGridMode.classList.toggle('active', isGridModeActive);
+  }
+  if (btnStageGridText) {
+    btnStageGridText.textContent = isGridModeActive ? 'Modo Foco' : 'Modo Grade';
+  }
+}
+
+if (btnStageGridMode) {
+  btnStageGridMode.addEventListener('click', () => {
+    applyGridMode(!isGridModeActive);
+  });
+}
+applyGridMode(isGridModeActive);
+
+// ==========================================
+// MINI PLAYER FLUTUANTE (PICTURE-IN-PICTURE - FASE 3)
+// ==========================================
+function updateStreamPiP() {
+  if (!streamPipWidget || !streamPipVideo) return;
+
+  const isVideoStageVisible = videoStage && videoStage.style.display !== 'none';
+  const hasActiveStream = inVoice && activeStreams && activeStreams.size > 0;
+
+  if (!isVideoStageVisible && hasActiveStream) {
+    const streamId = currentViewedStreamId || Array.from(activeStreams.keys())[0];
+    const sData = activeStreams.get(streamId);
+    if (sData && sData.stream) {
+      if (streamPipVideo.srcObject !== sData.stream) {
+        streamPipVideo.srcObject = sData.stream;
+      }
+      if (streamPipName) {
+        streamPipName.textContent = `${sData.name} (Ao Vivo)`;
+      }
+      streamPipWidget.style.display = 'flex';
+      return;
+    }
+  }
+
+  streamPipWidget.style.display = 'none';
+  if (streamPipVideo.srcObject) {
+    streamPipVideo.srcObject = null;
+  }
+}
+
+if (btnPipFullscreen) {
+  btnPipFullscreen.addEventListener('click', () => {
+    if (videoStage) videoStage.style.display = 'flex';
+    if (messagesContainer) messagesContainer.style.display = 'none';
+    const wrapper = document.querySelector('.chat-input-wrapper');
+    if (wrapper) wrapper.style.display = 'none';
+    updateStreamPiP();
+  });
+}
+
+if (btnPipClose) {
+  btnPipClose.addEventListener('click', () => {
+    if (streamPipWidget) streamPipWidget.style.display = 'none';
+    if (streamPipVideo && streamPipVideo.srcObject) {
+      streamPipVideo.srcObject = null;
+    }
+  });
+}
+
+// ==========================================
 // SOUNDBOARD DO SERVIDOR (POPOVER ESTILO DISCORD)
 // ==========================================
 async function openSoundboardModal(e) {
@@ -3126,9 +4900,14 @@ function renderSoundboardGrid(filterText = '') {
         <span class="soundboard-tile-emoji">${sound.emoji || '🔊'}</span>
         <span class="soundboard-tile-name">${escapeHtml(sound.name)}</span>
       </div>
-      <button type="button" class="soundboard-tile-preview" title="Ouvir prévia (somente para você)">
-        <i data-lucide="volume-2" style="width: 14px; height: 14px;"></i>
-      </button>
+      <div class="soundboard-tile-actions">
+        <button type="button" class="soundboard-tile-action-btn soundboard-tile-edit" title="Editar som (nome, emoji ou áudio)">
+          <i data-lucide="pencil" style="width: 13px; height: 13px;"></i>
+        </button>
+        <button type="button" class="soundboard-tile-action-btn soundboard-tile-preview" title="Ouvir prévia (somente para você)">
+          <i data-lucide="volume-2" style="width: 14px; height: 14px;"></i>
+        </button>
+      </div>
     `;
 
     // Clicar em cima (na área principal) -> toca na chamada (play geral)
@@ -3147,7 +4926,16 @@ function renderSoundboardGrid(filterText = '') {
       }
     });
 
-    // Clicar no botão do lado -> ouve apenas a prévia local!
+    // Clicar no botão de editar -> abre modal de edição com dados preenchidos
+    const btnEdit = tile.querySelector('.soundboard-tile-edit');
+    if (btnEdit) {
+      btnEdit.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openEditSoundModal(sound);
+      });
+    }
+
+    // Clicar no botão de prévia -> ouve apenas a prévia local!
     const btnPreview = tile.querySelector('.soundboard-tile-preview');
     if (btnPreview) {
       btnPreview.addEventListener('click', (e) => {
@@ -3170,7 +4958,7 @@ function renderSoundboardGrid(filterText = '') {
   `;
   addTile.addEventListener('click', (e) => {
     e.stopPropagation();
-    addSoundModal.style.display = 'flex';
+    openAddSoundModal();
   });
   soundboardGrid.appendChild(addTile);
 
@@ -3207,7 +4995,7 @@ if (btnOpenSoundboardHeader) btnOpenSoundboardHeader.addEventListener('click', o
 
 if (btnDownloadDesktop) {
   btnDownloadDesktop.addEventListener('click', () => {
-    showSoundToast('Iniciando download do Jogos Bolados para Windows...');
+    showSoundToast('Iniciando download do FakeDC para Windows...');
     window.location.href = '/download/windows';
   });
 }
@@ -3347,35 +5135,179 @@ if (soundboardSearchInput) {
   });
 }
 
-// Adicionar Som (Upload)
+// ==========================================
+// CADASTRO E EDIÇÃO DE SONS NO SOUNDBOARD
+// ==========================================
+let editingSoundId = null;
+
+const addSoundModalTitle = document.getElementById('add-sound-modal-title');
+const soundEditIdInput = document.getElementById('sound-edit-id');
+const soundFileInput = document.getElementById('sound-file-input');
+const soundFileLabel = document.getElementById('sound-file-label');
+const soundFileHelp = document.getElementById('sound-file-help');
+const soundNameInput = document.getElementById('sound-name-input');
+const soundEmojiInput = document.getElementById('sound-emoji-input');
+const soundEmojiDisplay = document.getElementById('sound-emoji-display');
+const btnSoundEmojiTrigger = document.getElementById('btn-sound-emoji-trigger');
+const soundEmojiPopover = document.getElementById('sound-emoji-popover');
+const soundEmojiSearchInput = document.getElementById('sound-emoji-search-input');
+const soundEmojiPopoverGrid = document.getElementById('sound-emoji-popover-grid');
+const btnSubmitSound = document.getElementById('btn-submit-sound');
+
+function setSoundEmojiValue(emojiChar) {
+  const clean = emojiChar || '🔊';
+  if (soundEmojiInput) soundEmojiInput.value = clean;
+  if (soundEmojiDisplay) soundEmojiDisplay.textContent = clean;
+}
+
+function openAddSoundModal() {
+  editingSoundId = null;
+  if (soundEditIdInput) soundEditIdInput.value = '';
+  if (addSoundModalTitle) addSoundModalTitle.textContent = 'Cadastrar Efeito Sonoro';
+  if (btnSubmitSound) btnSubmitSound.textContent = 'Salvar e Enviar Som';
+  if (soundFileLabel) soundFileLabel.textContent = 'Arquivo de Áudio (MP3, WAV, OGG máx 5MB)';
+  if (soundFileHelp) soundFileHelp.style.display = 'none';
+  if (soundFileInput) {
+    soundFileInput.value = '';
+    soundFileInput.required = true;
+  }
+  if (soundNameInput) soundNameInput.value = '';
+  setSoundEmojiValue('🔊');
+  closeSoundEmojiPopover();
+  if (addSoundModal) addSoundModal.style.display = 'flex';
+  if (soundNameInput) soundNameInput.focus();
+}
+
+function openEditSoundModal(sound) {
+  if (!sound) return;
+  editingSoundId = sound.id;
+  if (soundEditIdInput) soundEditIdInput.value = sound.id;
+  if (addSoundModalTitle) addSoundModalTitle.textContent = 'Editar Efeito Sonoro';
+  if (btnSubmitSound) btnSubmitSound.textContent = 'Salvar Alterações';
+  if (soundFileLabel) soundFileLabel.textContent = 'Substituir Áudio (Opcional)';
+  if (soundFileHelp) soundFileHelp.style.display = 'block';
+  if (soundFileInput) {
+    soundFileInput.value = '';
+    soundFileInput.required = false;
+  }
+  if (soundNameInput) soundNameInput.value = sound.name || '';
+  setSoundEmojiValue(sound.emoji || '🔊');
+  closeSoundEmojiPopover();
+  if (addSoundModal) addSoundModal.style.display = 'flex';
+  if (soundNameInput) soundNameInput.focus();
+}
+
+// Leque de opções de Emojis do Soundboard
+function renderSoundEmojiPopover(filterQuery = '') {
+  if (!soundEmojiPopoverGrid) return;
+  soundEmojiPopoverGrid.innerHTML = '';
+  const cleanFilter = (filterQuery || '').trim().toLowerCase();
+
+  let count = 0;
+  for (const cat of EMOJI_CATEGORIES) {
+    for (const item of cat.emojis) {
+      if (cleanFilter && !item.keywords.includes(cleanFilter) && !item.char.includes(cleanFilter)) {
+        continue;
+      }
+      count++;
+      const opt = document.createElement('button');
+      opt.type = 'button';
+      opt.className = 'sound-emoji-opt-btn';
+      opt.textContent = item.char;
+      opt.title = item.keywords.split(' ')[0] || item.char;
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setSoundEmojiValue(item.char);
+        closeSoundEmojiPopover();
+      });
+      soundEmojiPopoverGrid.appendChild(opt);
+    }
+  }
+
+  if (count === 0) {
+    soundEmojiPopoverGrid.innerHTML = `
+      <div style="grid-column: 1 / -1; color: #949ba4; font-size: 12px; padding: 16px; text-align: center;">
+        Nenhum emoji encontrado para "${escapeHtml(cleanFilter)}".
+      </div>
+    `;
+  }
+}
+
+function toggleSoundEmojiPopover() {
+  if (!soundEmojiPopover) return;
+  const isHidden = soundEmojiPopover.style.display === 'none';
+  if (isHidden) {
+    soundEmojiPopover.style.display = 'flex';
+    if (soundEmojiSearchInput) soundEmojiSearchInput.value = '';
+    renderSoundEmojiPopover('');
+    if (soundEmojiSearchInput) soundEmojiSearchInput.focus();
+  } else {
+    closeSoundEmojiPopover();
+  }
+}
+
+function closeSoundEmojiPopover() {
+  if (soundEmojiPopover) soundEmojiPopover.style.display = 'none';
+}
+
+if (btnSoundEmojiTrigger) {
+  btnSoundEmojiTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleSoundEmojiPopover();
+  });
+}
+
+if (soundEmojiSearchInput) {
+  soundEmojiSearchInput.addEventListener('input', (e) => {
+    renderSoundEmojiPopover(e.target.value);
+  });
+}
+
+// Fechar o leque de emojis ao clicar fora dele
+document.addEventListener('click', (e) => {
+  if (soundEmojiPopover && soundEmojiPopover.style.display === 'flex') {
+    const clickedInsidePopover = soundEmojiPopover.contains(e.target);
+    const clickedTrigger = btnSoundEmojiTrigger && btnSoundEmojiTrigger.contains(e.target);
+    if (!clickedInsidePopover && !clickedTrigger) {
+      closeSoundEmojiPopover();
+    }
+  }
+});
+
 btnOpenAddSoundModal.addEventListener('click', () => {
-  addSoundModal.style.display = 'flex';
+  openAddSoundModal();
 });
 
 btnCloseAddSound.addEventListener('click', () => {
   addSoundModal.style.display = 'none';
+  closeSoundEmojiPopover();
 });
 
 addSoundForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const fileInput = document.getElementById('sound-file-input');
-  const nameInput = document.getElementById('sound-name-input');
-  const emojiInput = document.getElementById('sound-emoji-input');
+  const isEditing = Boolean(editingSoundId);
 
-  if (!fileInput.files[0]) return;
+  if (!isEditing && (!soundFileInput.files || !soundFileInput.files[0])) {
+    alert('Selecione um arquivo de áudio para cadastrar o som.');
+    return;
+  }
 
   const formData = new FormData();
-  formData.append('audio', fileInput.files[0]);
-  formData.append('name', nameInput.value.trim());
-  formData.append('emoji', emojiInput.value.trim() || '🔊');
+  if (soundFileInput.files && soundFileInput.files[0]) {
+    formData.append('audio', soundFileInput.files[0]);
+  }
+  formData.append('name', soundNameInput.value.trim());
+  formData.append('emoji', soundEmojiInput.value.trim() || '🔊');
   formData.append('created_by', currentUser ? currentUser.name : 'Anônimo');
 
   try {
-    const btnSubmit = document.getElementById('btn-submit-sound');
-    btnSubmit.disabled = true;
-    btnSubmit.textContent = 'Enviando...';
+    if (btnSubmitSound) {
+      btnSubmitSound.disabled = true;
+      btnSubmitSound.textContent = isEditing ? 'Salvando alterações...' : 'Enviando...';
+    }
 
-    const res = await fetch('/api/soundboard', {
+    const url = isEditing ? `/api/soundboard/${editingSoundId}/edit` : '/api/soundboard';
+    const res = await fetch(url, {
       method: 'POST',
       body: formData
     });
@@ -3383,17 +5315,31 @@ addSoundForm.addEventListener('submit', async (e) => {
 
     if (data.success) {
       addSoundModal.style.display = 'none';
+      closeSoundEmojiPopover();
       addSoundForm.reset();
+      editingSoundId = null;
       await loadSoundboardSounds();
-      showSoundToast('Novo som cadastrado com sucesso!');
+      showSoundToast(isEditing ? `Som "${soundNameInput.value.trim()}" atualizado com sucesso!` : 'Novo som cadastrado com sucesso!');
     } else {
-      alert(data.error || 'Erro ao cadastrar som.');
+      alert(data.error || 'Erro ao processar som.');
     }
-    btnSubmit.disabled = false;
-    btnSubmit.textContent = 'Salvar e Enviar Som';
   } catch (err) {
     alert('Erro na comunicação com o servidor.');
+  } finally {
+    if (btnSubmitSound) {
+      btnSubmitSound.disabled = false;
+      btnSubmitSound.textContent = isEditing ? 'Salvar Alterações' : 'Salvar e Enviar Som';
+    }
   }
+});
+
+// Sincronização em tempo real de novos sons e edições
+socket.on('soundboard:added', () => {
+  loadSoundboardSounds();
+});
+
+socket.on('soundboard:updated', () => {
+  loadSoundboardSounds();
 });
 
 // ==========================================
@@ -3471,25 +5417,11 @@ function toggleUserPopover(e) {
   }
   if (!currentUser) return;
 
-  const isVisible = userProfilePopover && userProfilePopover.style.display === 'flex';
+  const isVisible = userProfileCardPopout && userProfileCardPopout.style.display === 'block';
   if (isVisible) {
-    closeUserPopover();
+    closeUserProfileCard();
   } else {
-    openUserPopover();
-  }
-}
-
-function openUserPopover() {
-  if (!userProfilePopover || !currentUser) return;
-  if (popoverAvatar) popoverAvatar.src = currentUser.avatar;
-  if (popoverName) popoverName.textContent = currentUser.name;
-  userProfilePopover.style.display = 'flex';
-  if (window.lucide) window.lucide.createIcons();
-}
-
-function closeUserPopover() {
-  if (userProfilePopover) {
-    userProfilePopover.style.display = 'none';
+    openUserProfileCard(currentUser, btnCurrentUserProfile, e);
   }
 }
 
@@ -3508,7 +5440,7 @@ function performLogout() {
 
   socket.emit('logout', { deviceId: oldDeviceId });
 
-  closeUserPopover();
+  closeUserProfileCard();
   closeSettingsModal();
   closeSoundboardModal();
   closeAudioDriverFallbackModal();
@@ -3540,9 +5472,9 @@ if (btnPopoverLogout) {
 
 document.addEventListener('click', (e) => {
   if (userContextMenu && !userContextMenu.contains(e.target)) closeContextMenu();
-  if (userProfilePopover && userProfilePopover.style.display === 'flex') {
-    if (!userProfilePopover.contains(e.target) && !btnCurrentUserProfile.contains(e.target)) {
-      closeUserPopover();
+  if (userProfileCardPopout && userProfileCardPopout.style.display === 'block') {
+    if (!userProfileCardPopout.contains(e.target) && !btnCurrentUserProfile?.contains(e.target)) {
+      closeUserProfileCard();
     }
   }
   if (serverDropdownMenu && serverDropdownMenu.style.display === 'flex') {
@@ -3571,23 +5503,44 @@ document.addEventListener('click', (e) => {
 });
 
 // =========================================================================
-// DESABILITAR MENU DE CONTEXTO PADRÃO DO NAVEGADOR EM TODO O SITE (DISCORD)
+// DESABILITAR MENU DE CONTEXTO PADRÃO DO NAVEGADOR EM ÁREAS DE INTERFACE,
+// MAS PERMITIR EM CHAT, LINKS, INPUTS OU TEXTO SELECIONADO (PARA COPIAR/COLAR)
 // =========================================================================
 document.addEventListener('contextmenu', (e) => {
-  e.preventDefault();
   const isCustomTrigger = e.target.closest('.voice-user-pill') ||
                           e.target.closest('.user-voice-card') ||
                           e.target.closest('.member-item') ||
                           e.target.closest('#main-screen-tile');
-  // Se clicar com botão direito fora de um gatilho de usuário, fecha o menu de contexto
-  if (!isCustomTrigger) {
-    closeContextMenu();
-  }
-}, true);
 
-window.addEventListener('contextmenu', (e) => {
+  // Se for um gatilho de usuário com menu próprio, não interceptamos aqui
+  if (isCustomTrigger) {
+    return;
+  }
+
+  // Verifica se o usuário tem algum texto selecionado na tela
+  const hasTextSelection = Boolean(window.getSelection && window.getSelection().toString().trim().length > 0);
+
+  // Verifica se o clique foi dentro da área de mensagens do chat, links ou inputs
+  const isEditableOrChat = Boolean(
+    e.target.closest('.messages-container') ||
+    e.target.closest('.message-item') ||
+    e.target.closest('.chat-link') ||
+    e.target.closest('a') ||
+    e.target.closest('input') ||
+    e.target.closest('textarea') ||
+    e.target.closest('.chat-input-wrapper')
+  );
+
+  // Se o usuário selecionou texto ou está no chat/links/inputs, libera o menu nativo do navegador para Copiar/Colar
+  if (hasTextSelection || isEditableOrChat) {
+    closeContextMenu();
+    return;
+  }
+
+  // Para o restante da interface de botões e fundo, bloqueia o menu nativo do navegador
   e.preventDefault();
-}, true);
+  closeContextMenu();
+});
 
 // Fecha o menu de contexto ao clicar com botão direito ou esquerdo em qualquer lugar fora dele
 document.addEventListener('mousedown', (e) => {
@@ -3609,12 +5562,33 @@ document.addEventListener('mousedown', (e) => {
       closeContextMenu();
     }
   }
+
+  // Fechar popover de mensagens fixadas ao clicar fora
+  if (pinnedMessagesPopover && pinnedMessagesPopover.style.display === 'flex') {
+    if (!pinnedMessagesPopover.contains(e.target) && (!btnPinnedMessages || !btnPinnedMessages.contains(e.target))) {
+      closePinnedMessagesPopover();
+    }
+  }
+
+  // Fechar popover de reações rápidas ao clicar fora
+  if (quickReactionPicker && quickReactionPicker.style.display === 'flex') {
+    if (!quickReactionPicker.contains(e.target) && !e.target.closest('.msg-action-btn[data-action="react"]') && !e.target.closest('.message-reaction-add-btn')) {
+      closeQuickReactionPicker();
+    }
+  }
+
+  // Fechar autocomplete de menções ao clicar fora
+  if (mentionAutocompletePopover && mentionAutocompletePopover.style.display === 'flex') {
+    if (!mentionAutocompletePopover.contains(e.target) && e.target !== chatInput) {
+      closeMentionAutocomplete();
+    }
+  }
 });
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' || e.key === 'Esc') {
     closeContextMenu();
-    closeUserPopover();
+    closeUserProfileCard();
     closeServerDropdown();
     closeSettingsModal();
     closeSoundboardModal();
@@ -3625,6 +5599,12 @@ document.addEventListener('keydown', (e) => {
     closeDeleteModal();
     closeSwitchVoiceModal();
     closeMobileModal();
+    closeSoundEmojiPopover();
+    closeDeleteMessageModal();
+    closePinnedMessagesPopover();
+    closeQuickReactionPicker();
+    closeMentionAutocomplete();
+    clearReplyTarget();
     if (addSoundModal) addSoundModal.style.display = 'none';
   }
 });
@@ -4398,7 +6378,52 @@ function setupDesktopClient() {
       cancelScreenSelection();
     }
   });
+
+  // Detecção Automática de Jogos em Execução no Windows (Discord Game Activity)
+  if (typeof window.electronAPI.onGameActivity === 'function') {
+    window.electronAPI.onGameActivity((activity) => {
+      myGameActivity = activity;
+      if (socket && socket.connected) {
+        socket.emit('user:activity-update', activity);
+      }
+      updateMyUserStatus();
+      renderMembersSidebar();
+      renderVoiceStageCards();
+    });
+
+    if (typeof window.electronAPI.getGameActivity === 'function') {
+      window.electronAPI.getGameActivity().then((activity) => {
+        if (activity) {
+          myGameActivity = activity;
+          if (socket && socket.connected) {
+            socket.emit('user:activity-update', activity);
+          }
+          updateMyUserStatus();
+          renderMembersSidebar();
+          renderVoiceStageCards();
+        }
+      }).catch(() => {});
+    }
+  }
 }
+
+// Atualiza dinamicamente na tela o tempo decorrido de quem está jogando ("há 15 min" -> "há 16 min")
+setInterval(() => {
+  document.querySelectorAll('[data-game-started]').forEach((el) => {
+    const started = Number(el.getAttribute('data-game-started'));
+    if (started) {
+      el.textContent = formatGameDuration(started);
+    }
+  });
+  updateMyUserStatus();
+}, 25000);
+
+// Ao conectar ou reconectar o socket, sincroniza o jogo ativo com o servidor
+socket.on('connect', () => {
+  if (myGameActivity && socket && socket.connected) {
+    socket.emit('user:activity-update', myGameActivity);
+  }
+});
 
 // Inicializa integração com cliente desktop se estiver no Electron
 setupDesktopClient();

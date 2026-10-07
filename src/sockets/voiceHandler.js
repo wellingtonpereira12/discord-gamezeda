@@ -130,14 +130,18 @@ export function registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVo
   });
 
   // Status de compartilhamento de tela
-  socket.on('voice:screen-status', (payload) => {
+  socket.on('voice:screen-status', (payload = {}) => {
     const user = users.get(socket.id);
-    if (!user || !user.inVoice || !user.currentVoiceRoom) return;
-    user.isScreenSharing = payload.isSharing;
-    socket.to(user.currentVoiceRoom).emit('voice:peer-screen-status', {
-      ...payload,
-      peerId: socket.id
-    });
+    if (!user) return;
+    const isSharing = !!payload.isSharing;
+    user.isScreenSharing = isSharing;
+    if (user.currentVoiceRoom) {
+      socket.to(user.currentVoiceRoom).emit('voice:peer-screen-status', {
+        ...payload,
+        isSharing,
+        peerId: socket.id
+      });
+    }
     broadcastVoiceState();
   });
 

@@ -33,5 +33,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
   cancelScreenPicker: () => ipcRenderer.send('electron:screen-picker-cancelled'),
 
   // Obter versão
-  getVersion: () => ipcRenderer.invoke('app:get-version')
+  getVersion: () => ipcRenderer.invoke('app:get-version'),
+
+  // Detecção Automática de Jogos (Discord Game Activity / Rich Presence)
+  onGameActivity: (callback) => {
+    ipcRenderer.on('electron:game-activity', (event, data) => callback(data));
+  },
+  getGameActivity: () => ipcRenderer.invoke('electron:get-game-activity'),
+
+  // Atalhos Globais de Teclado (Discord Global Shortcuts)
+  onShortcutToggleMic: (callback) => {
+    ipcRenderer.on('shortcut:toggle-mic', () => callback());
+  },
+  onShortcutToggleDeaf: (callback) => {
+    ipcRenderer.on('shortcut:toggle-deaf', () => callback());
+  },
+
+  // Notificações Nativas e Foco na Barra de Tarefas (Fase 4)
+  flashFrame: (flag) => ipcRenderer.send('window:flash-frame', flag),
+  showFocus: () => ipcRenderer.send('window:show-focus'),
+  showNotification: (data) => ipcRenderer.send('notification:show', data),
+  onNotificationClicked: (callback) => {
+    ipcRenderer.on('notification:clicked', (event, data) => callback(data));
+  }
 });

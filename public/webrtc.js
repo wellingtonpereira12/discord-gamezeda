@@ -156,7 +156,13 @@ export class WebRTCManager {
 
     this.socket.on('webrtc:offer', async ({ senderId, offer, type, screenStreamId, screenAudioTrackId, isScreenStopped, isCameraStopped }) => {
       console.log(`[WebRTC 📞] Oferta de ${senderId} (${type || 'call'})`);
-      if (isScreenStopped || isCameraStopped) {
+      if (isScreenStopped) {
+        this.stopRemoteScreen(senderId);
+        if (this.onRemoteRemove) {
+          this.onRemoteRemove(senderId, 'video');
+        }
+      }
+      if (isCameraStopped) {
         if (this.onRemoteRemove) {
           this.onRemoteRemove(senderId, 'video');
         }
@@ -901,8 +907,8 @@ export class WebRTCManager {
     console.log(`[WebRTC 🤖 RNNoise] Supressão de ruído: ${this.noiseSuppressionEnabled ? 'ATIVADA' : 'DESATIVADA'}`);
   }
 
-  toggleMute() {
-    this.isMuted = !this.isMuted;
+  setMuted(muted) {
+    this.isMuted = !!muted;
     if (this.localAudioStream) {
       this.localAudioStream.getAudioTracks().forEach(track => {
         track.enabled = !this.isMuted;
@@ -917,6 +923,10 @@ export class WebRTCManager {
       this.outputGainNode.gain.value = this.isMuted ? 0.0 : 1.0;
     }
     return this.isMuted;
+  }
+
+  toggleMute() {
+    return this.setMuted(!this.isMuted);
   }
 
   // Compartilhamento de Tela 100% Compatível e Robusto (W3C Standard)
@@ -991,7 +1001,6 @@ export class WebRTCManager {
       throw err;
     }
   }
-
   // Captura direta de tela/janela para aplicativo Electron Desktop
   async startScreenShareWithDesktopSource(sourceId) {
     try {
@@ -1135,11 +1144,52 @@ export class WebRTCManager {
     return this.localScreenStream;
   }
 
-  async stopScreenShare() {
-    if (this.localScreenStream) {
-      const tracks = this.localScreenStream.getTracks();
+  stopRemoteScreen(peerId) {
+    if (!peerId) return;
+    const screenAudio = this.remoteScreenAudios.get(peerId);
+    if (screenAudio) {
+      try {
+        screenAudio.pause();
+        screenAudio.srcObject = null;
+      } catch (e) {}
+      this.remoteScreenAudios.delete(peerId);
+    }
+    this.peerScreenStreamIds.delete(peerId);
+    this.peerScreenAudioTrackIds.delete(peerId);
+  }
 
-      for (const [peerId, pc] of this.peers.entries()) {
+  async stopScreenShare() {
+    this.isScreenSharing = false;
+
+    // 1. Notifica o servidor IMEDIATAMENTE via Socket.io para que todos os peers saibam instantaneamente
+    try {
+      this.socket.emit('voice:screen-status', { isSharing: false });
+    } catch (sockErr) {
+      console.warn('[WebRTC] Falha ao emitir voice:screen-status:', sockErr);
+    }
+
+    // 2. Interrompe IMEDIATAMENTE todas as tracks de mídia locais
+    if (this.localScreenStream) {
+      try {
+        const tracks = this.localScreenStream.getTracks();
+        tracks.forEach(track => {
+          try { track.stop(); } catch (e) {}
+        });
+      } catch (trackErr) {
+        console.warn('[WebRTC] Falha ao parar tracks de tela:', trackErr);
+      }
+      this.localScreenStream = null;
+      this.localScreenAudioTrackId = null;
+    }
+
+    // 3. Notifica a UI local caso o encerramento tenha sido acionado pelo banner nativo do sistema/navegador
+    if (this.onLocalScreenStopped) {
+      try { this.onLocalScreenStopped(); } catch (uiErr) {}
+    }
+
+    // 4. Remove senders de cada peer e renegocia a conexão individualmente de forma resiliente
+    for (const [peerId, pc] of this.peers.entries()) {
+      try {
         const senders = this.getPeerSenders(peerId);
 
         if (senders.screenVideoSender) {
@@ -1153,15 +1203,10 @@ export class WebRTCManager {
         }
 
         await this.renegotiate(pc, peerId, { isScreenStopped: true });
+      } catch (peerErr) {
+        console.warn(`[WebRTC] Falha ao renegociar encerramento de tela com ${peerId}:`, peerErr);
       }
-
-      tracks.forEach(track => track.stop());
-      this.localScreenStream = null;
-      this.localScreenAudioTrackId = null;
     }
-
-    this.isScreenSharing = false;
-    this.socket.emit('voice:screen-status', { isSharing: false });
   }
 
   async startCamera() {

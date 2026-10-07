@@ -37,6 +37,7 @@ if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
 const io = new Server(server, {
   cors: { origin: "*" }
 });
+app.set('io', io);
 
 // Middleware
 app.use(express.json());
@@ -70,59 +71,72 @@ app.get('/api/desktop/version', (req, res) => {
     }
   }
   return res.json({
-    name: 'Jogos Bolados',
+    name: 'FakeDC',
     version: '1.0.0',
     downloadUrl: '/download/windows',
-    installerName: 'Jogos-Bolados-Setup.exe'
+    installerName: 'FakeDC-Setup.exe'
   });
 });
 
-// Rota de Download do Executável Windows (Jogos Bolados PC)
+// Rota de Download do Executável Windows (FakeDC PC)
 app.get('/download/windows', (req, res) => {
-  const localExePath = path.join(__dirname, 'public', 'downloads', 'Jogos-Bolados-Setup.exe');
+  const localExePath = path.join(__dirname, 'public', 'downloads', 'FakeDC-Setup.exe');
   if (fs.existsSync(localExePath)) {
-    return res.download(localExePath, 'Jogos-Bolados-Setup.exe');
+    return res.download(localExePath, 'FakeDC-Setup.exe');
+  }
+  const legacyExePath = path.join(__dirname, 'public', 'downloads', 'Jogos-Bolados-Setup.exe');
+  if (fs.existsSync(legacyExePath)) {
+    return res.download(legacyExePath, 'FakeDC-Setup.exe');
   }
   // Se ainda não existir localmente no container, redireciona para a release mais recente no GitHub
-  const githubReleaseUrl = 'https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/Jogos-Bolados-Setup.exe';
+  const githubReleaseUrl = 'https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe';
   return res.redirect(302, githubReleaseUrl);
 });
 
 // Rota de Download do Aplicativo Android (APK)
 app.get('/download/android', (req, res) => {
-  const localApkPath = path.join(__dirname, 'public', 'downloads', 'Jogos-Bolados.apk');
+  const localApkPath = path.join(__dirname, 'public', 'downloads', 'FakeDC.apk');
   if (fs.existsSync(localApkPath)) {
     res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-    return res.download(localApkPath, 'Jogos-Bolados.apk');
+    return res.download(localApkPath, 'FakeDC.apk');
+  }
+  const legacyApkPath = path.join(__dirname, 'public', 'downloads', 'Jogos-Bolados.apk');
+  if (fs.existsSync(legacyApkPath)) {
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    return res.download(legacyApkPath, 'FakeDC.apk');
   }
   // Fallback: Redireciona para o release mobile-latest no GitHub
-  const githubReleaseUrl = 'https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/mobile-latest/Jogos-Bolados.apk';
+  const githubReleaseUrl = 'https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/mobile-latest/FakeDC.apk';
   return res.redirect(302, githubReleaseUrl);
 });
 
 // Rota de Download / Acesso do Aplicativo iOS
 app.get('/download/ios', (req, res) => {
-  const localIpaPath = path.join(__dirname, 'public', 'downloads', 'Jogos-Bolados.ipa');
+  const localIpaPath = path.join(__dirname, 'public', 'downloads', 'FakeDC.ipa');
   if (fs.existsSync(localIpaPath)) {
-    return res.download(localIpaPath, 'Jogos-Bolados.ipa');
+    return res.download(localIpaPath, 'FakeDC.ipa');
+  }
+  const legacyIpaPath = path.join(__dirname, 'public', 'downloads', 'Jogos-Bolados.ipa');
+  if (fs.existsSync(legacyIpaPath)) {
+    return res.download(legacyIpaPath, 'FakeDC.ipa');
   }
   // Fallback: Redireciona para o release mobile-latest no GitHub
-  const githubReleaseUrl = 'https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/mobile-latest/Jogos-Bolados.ipa';
+  const githubReleaseUrl = 'https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/mobile-latest/FakeDC.ipa';
   return res.redirect(302, githubReleaseUrl);
 });
 
 // Rota de Informações de Versão Mobile
 app.get('/api/mobile/version', (req, res) => {
   return res.json({
-    name: 'Jogos Bolados Mobile',
+    name: 'FakeDC Mobile',
     version: '1.0.0',
     android: {
       downloadUrl: '/download/android',
-      filename: 'Jogos-Bolados.apk'
+      filename: 'FakeDC.apk'
     },
     ios: {
       downloadUrl: '/download/ios',
-      filename: 'Jogos-Bolados.ipa'
+      filename: 'FakeDC.ipa'
     }
   });
 });

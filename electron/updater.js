@@ -238,7 +238,7 @@ async function checkAndApplyUpdates({ currentVersion, serverUrl, onStatus, onPro
   }
 
   if (!versionInfo || !versionInfo.version) {
-    if (onStatus) onStatus({ step: 'up-to-date', message: 'Iniciando Jogos Bolados...' });
+    if (onStatus) onStatus({ step: 'up-to-date', message: 'Iniciando FakeDC...' });
     return { updateAvailable: false };
   }
 
@@ -260,7 +260,7 @@ async function checkAndApplyUpdates({ currentVersion, serverUrl, onStatus, onPro
         if (onStatus) {
           onStatus({
             step: 'up-to-date',
-            message: 'Iniciando Jogos Bolados...',
+            message: 'Iniciando FakeDC...',
             currentVersion
           });
         }
