@@ -252,11 +252,11 @@ async function checkAndApplyUpdates({ currentVersion, serverUrl, onStatus, onPro
 
   // Se versão remota é superior à atual
   if (compareVersions(remoteVersion, currentVersion) > 0) {
-    // Proteção Anti-Loop Infinito: se a atualização para esta versão já foi tentada recentemente
-    if (state.lastAttemptedVersion === remoteVersion && (state.attemptCount || 0) >= 1) {
+    // Proteção Anti-Loop: se a atualização falhou 3 ou mais vezes para a mesma versão
+    if (state.lastAttemptedVersion === remoteVersion && (state.attemptCount || 0) >= 3) {
       const timeSinceAttempt = Date.now() - (state.lastAttemptTime || 0);
-      if (timeSinceAttempt < 15 * 60 * 1000) { // 15 minutos
-        console.warn(`[Updater] Atualização para v${remoteVersion} já foi tentada recentemente sem alteração de versão. Ignorando para evitar loop.`);
+      if (timeSinceAttempt < 3 * 60 * 1000) { // 3 minutos
+        console.warn(`[Updater] Atualização para v${remoteVersion} já foi tentada 3 vezes. Abrindo versão atual.`);
         if (onStatus) {
           onStatus({
             step: 'up-to-date',
@@ -282,7 +282,8 @@ async function checkAndApplyUpdates({ currentVersion, serverUrl, onStatus, onPro
       downloadUrl = `${serverUrl.replace(/\/+$/, '')}${downloadUrl.startsWith('/') ? '' : '/'}${downloadUrl}`;
     }
 
-    const tempInstaller = path.join(os.tmpdir(), `Jogos-Bolados-Setup-v${remoteVersion}.exe`);
+    const installerBaseName = versionInfo.installerName ? versionInfo.installerName.replace(/\.exe$/i, '') : 'FakeDC-Setup';
+    const tempInstaller = path.join(os.tmpdir(), `${installerBaseName}-v${remoteVersion}.exe`);
 
     try {
       await downloadFile(downloadUrl, tempInstaller, onProgress);
@@ -330,8 +331,9 @@ function launchInstallerAndExit(installerPath) {
   console.log(`[Updater] Executando instalador: ${installerPath}`);
   try {
     if (process.platform === 'win32') {
-      // Espera 2 segundos via cmd para dar tempo ao processo Electron fechar completamente e liberar locks nos arquivos
-      const cmd = `timeout /t 2 /nobreak >nul & start "" "${installerPath}"`;
+      // Espera 2 segundos para liberar locks de arquivos, executa com /S para instalação silenciosa e reabre o app
+      const appExe = process.execPath;
+      const cmd = `timeout /t 2 /nobreak >nul & "${installerPath}" /S & timeout /t 3 /nobreak >nul & start "" "${appExe}"`;
       const child = spawn('cmd.exe', ['/c', cmd], {
         detached: true,
         stdio: 'ignore',

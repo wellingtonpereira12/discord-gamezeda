@@ -48,8 +48,8 @@
       ]
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false,
       "shortcutName": "FakeDC",
       "uninstallDisplayName": "FakeDC",
       "installerIcon": "build/icon.ico",
