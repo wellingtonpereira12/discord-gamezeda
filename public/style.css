@@ -3209,13 +3209,23 @@ body {
 /* Rodapé do Modal com Botão Pronto */
 .modal-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   gap: 12px;
   margin-top: 22px;
   padding-top: 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
+
+@keyframes spin-cw {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.anim-spin {
+  animation: spin-cw 0.8s linear infinite !important;
+}
+
 
 .btn-modal-done {
   background: #4e5058;

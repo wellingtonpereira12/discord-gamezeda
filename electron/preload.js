@@ -32,8 +32,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectScreenSource: (sourceId) => ipcRenderer.send('electron:screen-source-selected', sourceId),
   cancelScreenPicker: () => ipcRenderer.send('electron:screen-picker-cancelled'),
 
-  // Obter versão
+  // Obter versão e atualização manual
   getVersion: () => ipcRenderer.invoke('app:get-version'),
+  checkForUpdates: () => ipcRenderer.invoke('app:check-for-updates'),
 
   // Detecção Automática de Jogos (Discord Game Activity / Rich Presence)
   onGameActivity: (callback) => {

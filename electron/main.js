@@ -375,6 +375,39 @@ app.whenReady().then(() => {
     return getAppVersion();
   });
 
+  ipcMain.handle('app:check-for-updates', async () => {
+    try {
+      const currentVersion = getAppVersion();
+      const serverUrl = config.serverUrl || 'https://jogosbolados.duckdns.org';
+      logDebug('[FakeDC] Verificação manual de atualizações solicitada...');
+      const updateResult = await checkAndApplyUpdates({
+        currentVersion,
+        serverUrl,
+        onStatus: (status) => {
+          logDebug('[FakeDC Update Status]', status);
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('updater:status', status);
+          }
+        },
+        onProgress: (progress) => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('updater:progress', progress);
+          }
+        }
+      });
+
+      if (updateResult && updateResult.updateAvailable && updateResult.installerPath) {
+        logDebug('[FakeDC] Atualização encontrada! Iniciando instalador:', updateResult.installerPath);
+        launchInstallerAndExit(updateResult.installerPath);
+        return { updateAvailable: true, message: 'Nova versão baixada! Reiniciando para atualizar...' };
+      }
+      return { updateAvailable: false, message: `Seu aplicativo já está atualizado (v${currentVersion})!` };
+    } catch (err) {
+      logDebug('[FakeDC] Erro ao verificar atualização manual:', err.message);
+      return { updateAvailable: false, error: err.message, message: 'Não foi possível verificar atualizações no momento.' };
+    }
+  });
+
   // Handlers do Seletor de Telas e Janelas (Screen Share)
   ipcMain.handle('electron:get-screen-sources', async () => {
     try {

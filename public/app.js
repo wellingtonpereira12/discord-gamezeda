@@ -1,5 +1,5 @@
 import { sounds } from './sounds.js?v=20261007_v7';
-import { WebRTCManager } from './webrtc.js?v=20261007_v8';
+import { WebRTCManager } from './webrtc.js?v=20261007_v1.1.2';
 
 if (window.lucide) {
   window.lucide.createIcons();
@@ -249,6 +249,16 @@ const settingAudioOutput = document.getElementById('setting-audio-output');
 const micTestMeter = document.getElementById('mic-test-meter');
 const btnTestOutputSound = document.getElementById('btn-test-output-sound');
 const settingNoiseSuppressionToggle = document.getElementById('setting-noise-suppression-toggle');
+
+// Configurações de Qualidade de Transmissão de Tela (Screen Share) & Atualizações
+const settingStreamResolution = document.getElementById('setting-stream-resolution');
+const settingStreamFps = document.getElementById('setting-stream-fps');
+const settingStreamBitrate = document.getElementById('setting-stream-bitrate');
+const settingStreamDegradation = document.getElementById('setting-stream-degradation');
+const settingsAppVersion = document.getElementById('settings-app-version');
+const btnForceUpdate = document.getElementById('btn-force-update');
+const btnForceUpdateIcon = document.getElementById('btn-force-update-icon');
+const btnForceUpdateText = document.getElementById('btn-force-update-text');
 
 // Configurações - Abas e Telas
 const tabBtnVoice = document.getElementById('tab-btn-voice');
@@ -4412,10 +4422,148 @@ async function openSettingsModal(defaultTab = 'voice') {
 
   // Sincroniza toggle de supressão de ruído RNNoise
   updateNoiseSuppressionUI(webrtc.noiseSuppressionEnabled);
+
+  // Sincroniza campos de qualidade de transmissão de tela
+  syncStreamQualityUI();
+
+  // Carrega e exibe a versão ativa do app
+  loadAndDisplayAppVersion();
 }
 
 function closeSettingsModal() {
   settingsModal.style.display = 'none';
+}
+
+function syncStreamQualityUI() {
+  if (!webrtc) return;
+  if (settingStreamResolution) {
+    settingStreamResolution.value = webrtc.streamResolution || '1080p';
+  }
+  if (settingStreamFps) {
+    settingStreamFps.value = String(webrtc.streamFps || 60);
+  }
+  if (settingStreamBitrate) {
+    settingStreamBitrate.value = webrtc.streamBitrate || '8M';
+  }
+  if (settingStreamDegradation) {
+    settingStreamDegradation.value = webrtc.streamDegradation || 'maintain-framerate';
+  }
+}
+
+let cachedAppVersion = null;
+async function loadAndDisplayAppVersion() {
+  if (!settingsAppVersion) return;
+  if (cachedAppVersion) {
+    settingsAppVersion.textContent = 'v' + cachedAppVersion;
+    return;
+  }
+
+  try {
+    if (window.electronAPI && typeof window.electronAPI.getVersion === 'function') {
+      const v = await window.electronAPI.getVersion();
+      if (v) {
+        cachedAppVersion = String(v).replace(/^v/, '');
+        settingsAppVersion.textContent = 'v' + cachedAppVersion;
+        return;
+      }
+    }
+
+    const res = await fetch('/version.json?t=' + Date.now());
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.version) {
+        cachedAppVersion = String(data.version).replace(/^v/, '');
+        settingsAppVersion.textContent = 'v' + cachedAppVersion;
+      }
+    }
+  } catch (err) {
+    console.warn('Erro ao obter versão do app:', err);
+  }
+}
+
+// Inicializa a versão no background assim que carregar
+loadAndDisplayAppVersion();
+
+function onStreamQualitySettingChange() {
+  if (!webrtc) return;
+  const resolution = settingStreamResolution ? settingStreamResolution.value : '1080p';
+  const fps = settingStreamFps ? settingStreamFps.value : 60;
+  const bitrate = settingStreamBitrate ? settingStreamBitrate.value : '8M';
+  const degradation = settingStreamDegradation ? settingStreamDegradation.value : 'maintain-framerate';
+
+  webrtc.setStreamQuality({ resolution, fps, bitrate, degradation });
+
+  const fpsLabel = fps + ' FPS';
+  const resLabel = resolution === 'source' ? 'Nativa' : resolution.toUpperCase();
+  showSoundToast(`🎥 Transmissão: ${resLabel} @ ${fpsLabel} (${bitrate})`);
+}
+
+if (settingStreamResolution) {
+  settingStreamResolution.addEventListener('change', onStreamQualitySettingChange);
+}
+if (settingStreamFps) {
+  settingStreamFps.addEventListener('change', onStreamQualitySettingChange);
+}
+if (settingStreamBitrate) {
+  settingStreamBitrate.addEventListener('change', onStreamQualitySettingChange);
+}
+if (settingStreamDegradation) {
+  settingStreamDegradation.addEventListener('change', onStreamQualitySettingChange);
+}
+
+// Botão de Forçar Atualização / Limpeza de Cache
+if (btnForceUpdate) {
+  btnForceUpdate.addEventListener('click', async () => {
+    if (btnForceUpdate.disabled) return;
+    btnForceUpdate.disabled = true;
+    if (btnForceUpdateIcon) btnForceUpdateIcon.classList.add('anim-spin');
+    if (btnForceUpdateText) btnForceUpdateText.textContent = 'Buscando...';
+
+    try {
+      if (window.electronAPI && typeof window.electronAPI.checkForUpdates === 'function') {
+        showSoundToast('🔍 Verificando atualizações no servidor...');
+        const res = await window.electronAPI.checkForUpdates();
+        if (res && res.updateAvailable) {
+          showSoundToast('🚀 Nova versão encontrada! Baixando atualização...');
+        } else {
+          showSoundToast(res && res.message ? res.message : 'Você já está na versão mais recente!');
+        }
+      } else {
+        // Modo Web Browser
+        showSoundToast('🔄 Limpando cache e atualizando...');
+        if ('caches' in window) {
+          try {
+            const cacheKeys = await caches.keys();
+            await Promise.all(cacheKeys.map(k => caches.delete(k)));
+          } catch (e) {
+            console.warn('Erro ao limpar CacheStorage:', e);
+          }
+        }
+        if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+          try {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (const r of registrations) {
+              await r.unregister();
+            }
+          } catch (e) {
+            console.warn('Erro ao desregistrar ServiceWorker:', e);
+          }
+        }
+        setTimeout(() => {
+          window.location.href = window.location.pathname + '?nocache=' + Date.now();
+        }, 500);
+      }
+    } catch (err) {
+      console.error('Erro ao forçar atualização:', err);
+      showSoundToast('⚠️ Erro ao verificar atualização: ' + (err.message || 'Falha de conexão'));
+    } finally {
+      setTimeout(() => {
+        btnForceUpdate.disabled = false;
+        if (btnForceUpdateIcon) btnForceUpdateIcon.classList.remove('anim-spin');
+        if (btnForceUpdateText) btnForceUpdateText.textContent = 'Forçar Atualização';
+      }, 2500);
+    }
+  });
 }
 
 async function populateDeviceSelectors() {

@@ -1,6 +1,6 @@
 {
   "name": "FakeDC",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "releaseDate": "2026-10-07",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe",
@@ -12,5 +12,5 @@
     "iosUrl": "/download/ios",
     "iosIpa": "FakeDC.ipa"
   },
-  "notes": "Versão oficial FakeDC Desktop para Windows e Mobile para Android (.apk) e iOS com suporte a WebRTC HD e supressão de ruído RNNoise."
+  "notes": "FakeDC v1.1.2: Seleção de qualidade de transmissão (60 FPS, 1080p+, Bitrates customizáveis, Modo Gamer com aceleração por hardware GPU) e botão de Forçar Atualização nas configurações."
 }

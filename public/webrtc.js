@@ -61,6 +61,12 @@ export class WebRTCManager {
     this.selectedInputDeviceId = localStorage.getItem('discord_input_device') || 'default';
     this.selectedOutputDeviceId = localStorage.getItem('discord_output_device') || 'default';
 
+    // Qualidade de Transmissão de Tela (Resolução, FPS, Bitrate e Modo Gamer)
+    this.streamResolution = localStorage.getItem('discord_stream_resolution') || '1080p';
+    this.streamFps = parseInt(localStorage.getItem('discord_stream_fps') || '60', 10);
+    this.streamBitrate = parseInt(localStorage.getItem('discord_stream_bitrate') || '12000000', 10);
+    this.streamDegradation = localStorage.getItem('discord_stream_degradation') || 'maintain-framerate';
+
     // Supressor de Ruído Neural RNNoise (Xiph.Org)
     this.noiseSuppressionEnabled = localStorage.getItem('discord_rnnoise_enabled') !== 'false';
     this.rnnoiseNode = null;
@@ -295,7 +301,7 @@ export class WebRTCManager {
 
   optimizeSdp(sdp) {
     if (!sdp) return sdp;
-    // Localiza o payload type do Opus (geralmente 111) e injeta estéreo e alta taxa de bits
+    // 1. Áudio Opus HD (256 kbps estéreo, FEC e baixa latência)
     const opusMatch = sdp.match(/a=rtpmap:(\d+)\s+opus\/48000/i);
     if (opusMatch) {
       const pt = opusMatch[1];
@@ -314,11 +320,41 @@ export class WebRTCManager {
           `$1a=fmtp:${pt} minptime=10;useinbandfec=1;stereo=1;sprop-stereo=1;maxaveragebitrate=256000\r\n`);
       }
     }
+
+    // 2. Injeta taxa de dados máxima de vídeo no SDP (b=AS e b=TIAS) para desabilitar restrições padrão do browser
+    const targetKbps = Math.floor((this.streamBitrate || 12000000) / 1000);
+    if (sdp.includes('m=video')) {
+      sdp = sdp.replace(/(m=video[^\r\n]*\r?\n)/g, `$1b=AS:${targetKbps}\r\nb=TIAS:${targetKbps * 1000}\r\n`);
+    }
+
     return sdp;
+  }
+
+  preferHardwareCodec(pc) {
+    try {
+      if (typeof pc.getTransceivers !== 'function' || typeof RTCRtpSender.getCapabilities !== 'function') return;
+      const capabilities = RTCRtpSender.getCapabilities('video');
+      if (!capabilities || !capabilities.codecs) return;
+
+      // Prioriza codecs acelerados por GPU: H.264 (NVENC, AMD, Intel) e VP9
+      const h264Codecs = capabilities.codecs.filter(c => c.mimeType.toLowerCase() === 'video/h264');
+      const vp9Codecs = capabilities.codecs.filter(c => c.mimeType.toLowerCase() === 'video/vp9');
+      const otherCodecs = capabilities.codecs.filter(c => !['video/h264', 'video/vp9'].includes(c.mimeType.toLowerCase()));
+      const preferred = [...h264Codecs, ...vp9Codecs, ...otherCodecs];
+
+      for (const t of pc.getTransceivers()) {
+        if (t.sender && t.sender.track && t.sender.track.kind === 'video' && typeof t.setCodecPreferences === 'function') {
+          try {
+            t.setCodecPreferences(preferred);
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
   }
 
   async applyBitrateParameters(pc) {
     try {
+      this.preferHardwareCodec(pc);
       const senders = pc.getSenders();
       for (const sender of senders) {
         if (sender.track && sender.track.kind === 'video') {
@@ -326,9 +362,13 @@ export class WebRTCManager {
           if (!params.encodings || params.encodings.length === 0) {
             params.encodings = [{}];
           }
-          params.encodings[0].maxBitrate = 8000000;
-          params.encodings[0].maxFramerate = 60;
-          params.encodings[0].degradationPreference = 'maintain-resolution';
+          const targetBitrate = this.streamBitrate || 12000000;
+          const targetFps = this.streamFps || 60;
+          const targetDegradation = this.streamDegradation || 'maintain-framerate';
+
+          params.encodings[0].maxBitrate = targetBitrate;
+          params.encodings[0].maxFramerate = targetFps;
+          params.encodings[0].degradationPreference = targetDegradation;
           await sender.setParameters(params);
         } else if (sender.track && sender.track.kind === 'audio') {
           const params = sender.getParameters();
@@ -977,21 +1017,91 @@ export class WebRTCManager {
     return this.setMuted(!this.isMuted);
   }
 
+  // Configuração dinâmica de qualidade de transmissão de tela
+  getStreamConstraints() {
+    const resolutionMap = {
+      '720p': { width: 1280, height: 720 },
+      '1080p': { width: 1920, height: 1080 },
+      '1440p': { width: 2560, height: 1440 },
+      'source': { width: 3840, height: 2160 }
+    };
+    const res = resolutionMap[this.streamResolution] || resolutionMap['1080p'];
+    const targetFps = this.streamFps || 60;
+    return {
+      res,
+      targetFps,
+      videoConstraints: {
+        frameRate: { ideal: targetFps, max: targetFps },
+        width: { ideal: res.width, max: 3840 },
+        height: { ideal: res.height, max: 2160 },
+        cursor: 'always'
+      }
+    };
+  }
+
+  setStreamQuality(resolution, fps, bitrate, degradation) {
+    if (resolution) {
+      this.streamResolution = resolution;
+      localStorage.setItem('discord_stream_resolution', resolution);
+    }
+    if (fps) {
+      this.streamFps = parseInt(fps, 10);
+      localStorage.setItem('discord_stream_fps', this.streamFps);
+    }
+    if (bitrate) {
+      this.streamBitrate = parseInt(bitrate, 10);
+      localStorage.setItem('discord_stream_bitrate', this.streamBitrate);
+    }
+    if (degradation) {
+      this.streamDegradation = degradation;
+      localStorage.setItem('discord_stream_degradation', degradation);
+    }
+    this.applyStreamQualityToActiveSenders();
+  }
+
+  async applyStreamQualityToActiveSenders() {
+    if (!this.isScreenSharing || !this.localScreenStream) return;
+    const videoTrack = this.localScreenStream.getVideoTracks()[0];
+    const { res, targetFps } = this.getStreamConstraints();
+
+    if (videoTrack) {
+      try {
+        if ('contentHint' in videoTrack) {
+          videoTrack.contentHint = (this.streamDegradation === 'maintain-resolution') ? 'detail' : 'motion';
+        }
+      } catch (e) {}
+      try {
+        if (typeof videoTrack.applyConstraints === 'function') {
+          await videoTrack.applyConstraints({
+            frameRate: { ideal: targetFps, max: targetFps },
+            width: { ideal: res.width, max: 3840 },
+            height: { ideal: res.height, max: 2160 }
+          });
+        }
+      } catch (e) {}
+    }
+
+    for (const [peerId, pc] of this.peers.entries()) {
+      await this.applyBitrateParameters(pc);
+    }
+  }
+
   // Compartilhamento de Tela 100% Compatível e Robusto (W3C Standard)
   async startScreenShare(forceVideoOnly = false) {
     try {
       let stream;
+      const { videoConstraints } = this.getStreamConstraints();
       if (forceVideoOnly) {
-        console.log('[WebRTC] Solicitando getDisplayMedia forçado sem áudio ({ video: true, audio: false })...');
+        console.log('[WebRTC] Solicitando getDisplayMedia forçado sem áudio...');
         stream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
+          video: videoConstraints,
           audio: false
         });
       } else {
-        console.log('[WebRTC] Solicitando getDisplayMedia({ video: true, audio: true })...');
+        console.log(`[WebRTC] Solicitando getDisplayMedia 60 FPS (${this.streamResolution}, ${this.streamFps}fps)...`);
         try {
           stream = await navigator.mediaDevices.getDisplayMedia({
-            video: true,
+            video: videoConstraints,
             audio: {
               echoCancellation: false,
               noiseSuppression: false,
@@ -1011,7 +1121,7 @@ export class WebRTCManager {
             console.warn('[WebRTC] Driver de som do Windows bloqueou a captura (NotReadableError). Tentando fallback imediato para vídeo...');
             try {
               stream = await navigator.mediaDevices.getDisplayMedia({
-                video: true,
+                video: videoConstraints,
                 audio: false
               });
               console.log('[WebRTC] Fallback para vídeo concluído com sucesso!');
@@ -1049,11 +1159,13 @@ export class WebRTCManager {
       throw err;
     }
   }
+
   // Captura direta de tela/janela para aplicativo Electron Desktop
   async startScreenShareWithDesktopSource(sourceId) {
     try {
       let stream;
-      console.log('[WebRTC] Capturando fonte desktop selecionada no Electron:', sourceId);
+      const { res, targetFps } = this.getStreamConstraints();
+      console.log(`[WebRTC] Capturando fonte desktop no Electron (${res.width}x${res.height} @ ${targetFps}fps):`, sourceId);
 
       // 1. Tenta capturar vídeo HD com áudio do sistema (loopback)
       try {
@@ -1067,9 +1179,9 @@ export class WebRTCManager {
             mandatory: {
               chromeMediaSource: 'desktop',
               chromeMediaSourceId: sourceId,
-              maxWidth: 1920,
-              maxHeight: 1080,
-              maxFrameRate: 60
+              maxWidth: res.width,
+              maxHeight: res.height,
+              maxFrameRate: targetFps
             }
           }
         });
@@ -1083,9 +1195,9 @@ export class WebRTCManager {
             mandatory: {
               chromeMediaSource: 'desktop',
               chromeMediaSourceId: sourceId,
-              maxWidth: 1920,
-              maxHeight: 1080,
-              maxFrameRate: 60
+              maxWidth: res.width,
+              maxHeight: res.height,
+              maxFrameRate: targetFps
             }
           }
         });
@@ -1139,9 +1251,20 @@ export class WebRTCManager {
     }
 
     if (screenVideoTrack) {
+      const { res, targetFps } = this.getStreamConstraints();
       try {
         if ('contentHint' in screenVideoTrack) {
-          screenVideoTrack.contentHint = 'motion';
+          screenVideoTrack.contentHint = (this.streamDegradation === 'maintain-resolution') ? 'detail' : 'motion';
+        }
+      } catch (e) {}
+
+      try {
+        if (typeof screenVideoTrack.applyConstraints === 'function') {
+          screenVideoTrack.applyConstraints({
+            frameRate: { ideal: targetFps, max: targetFps },
+            width: { ideal: res.width, max: 3840 },
+            height: { ideal: res.height, max: 2160 }
+          }).catch(() => {});
         }
       } catch (e) {}
 
