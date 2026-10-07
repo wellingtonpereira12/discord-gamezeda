@@ -975,81 +975,7 @@ export class WebRTCManager {
         return null;
       }
 
-      this.localScreenStream = stream;
-      this.isScreenSharing = true;
-
-      const screenVideoTrack = stream.getVideoTracks()[0];
-      const screenAudioTrack = stream.getAudioTracks()[0];
-
-      if (screenAudioTrack) {
-        console.log('[WebRTC 🔊] Áudio do sistema capturado com sucesso! ID:', screenAudioTrack.id);
-        this.localScreenAudioTrackId = screenAudioTrack.id;
-        try {
-          if (screenAudioTrack.applyConstraints) {
-            screenAudioTrack.applyConstraints({
-              echoCancellation: false,
-              noiseSuppression: false,
-              autoGainControl: false
-            }).catch(() => {});
-          }
-        } catch (e) {}
-      } else {
-        console.warn('[WebRTC ℹ️] Tela compartilhada sem trilha de áudio.');
-        this.localScreenAudioTrackId = null;
-      }
-
-      if (screenVideoTrack) {
-        try {
-          if ('contentHint' in screenVideoTrack) {
-            screenVideoTrack.contentHint = 'motion';
-          }
-        } catch (e) {}
-
-        screenVideoTrack.onended = () => {
-          this.stopScreenShare();
-        };
-      }
-
-      for (const [peerId, pc] of this.peers.entries()) {
-        try {
-          const senders = this.getPeerSenders(peerId);
-
-          if (senders.screenVideoSender) {
-            try { pc.removeTrack(senders.screenVideoSender); } catch(e) {}
-            senders.screenVideoSender = null;
-          }
-          if (senders.screenAudioSender) {
-            try { pc.removeTrack(senders.screenAudioSender); } catch(e) {}
-            senders.screenAudioSender = null;
-          }
-
-          if (screenVideoTrack) {
-            senders.screenVideoSender = pc.addTrack(screenVideoTrack, this.localScreenStream);
-          }
-          if (screenAudioTrack) {
-            senders.screenAudioSender = pc.addTrack(screenAudioTrack, this.localScreenStream);
-          }
-
-          await this.renegotiate(pc, peerId, {
-            screenStreamId: this.localScreenStream.id,
-            screenAudioTrackId: screenAudioTrack ? screenAudioTrack.id : null
-          });
-          await this.applyBitrateParameters(pc);
-        } catch (peerErr) {
-          console.warn(`[WebRTC] Falha ao adicionar tracks ao peer ${peerId}:`, peerErr);
-        }
-      }
-
-      try {
-        this.socket.emit('voice:screen-status', {
-          isSharing: true,
-          hasAudio: !!screenAudioTrack,
-          screenStreamId: this.localScreenStream.id,
-          screenAudioTrackId: screenAudioTrack ? screenAudioTrack.id : null
-        });
-      } catch (sockErr) {}
-
-      return this.localScreenStream;
+      return await this.setupLocalScreenStream(stream);
     } catch (err) {
       console.error('[WebRTC] Falha ao capturar tela:', err);
       try {
@@ -1064,6 +990,149 @@ export class WebRTCManager {
       this.isScreenSharing = false;
       throw err;
     }
+  }
+
+  // Captura direta de tela/janela para aplicativo Electron Desktop
+  async startScreenShareWithDesktopSource(sourceId) {
+    try {
+      let stream;
+      console.log('[WebRTC] Capturando fonte desktop selecionada no Electron:', sourceId);
+
+      // 1. Tenta capturar vídeo HD com áudio do sistema (loopback)
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            mandatory: {
+              chromeMediaSource: 'desktop'
+            }
+          },
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: sourceId,
+              maxWidth: 1920,
+              maxHeight: 1080,
+              maxFrameRate: 60
+            }
+          }
+        });
+        console.log('[WebRTC 🔊] Captura de tela com áudio do sistema iniciada!');
+      } catch (audioErr) {
+        console.warn('[WebRTC] Captura com áudio falhou ou bloqueada, tentando fallback vídeo puro:', audioErr);
+        // 2. Fallback imediato apenas vídeo
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: sourceId,
+              maxWidth: 1920,
+              maxHeight: 1080,
+              maxFrameRate: 60
+            }
+          }
+        });
+        console.log('[WebRTC 📺] Captura de tela sem áudio iniciada!');
+      }
+
+      if (!stream) {
+        return null;
+      }
+
+      return await this.setupLocalScreenStream(stream);
+    } catch (err) {
+      console.error('[WebRTC] Falha ao capturar tela no Electron:', err);
+      try {
+        this.socket.emit('client:error', {
+          action: 'startScreenShareWithDesktopSource',
+          message: err.message || String(err),
+          name: err.name,
+          stack: err.stack
+        });
+      } catch (e) {}
+      this.isScreenSharing = false;
+      throw err;
+    }
+  }
+
+  async setupLocalScreenStream(stream) {
+    if (!stream) return null;
+
+    this.localScreenStream = stream;
+    this.isScreenSharing = true;
+
+    const screenVideoTrack = stream.getVideoTracks()[0];
+    const screenAudioTrack = stream.getAudioTracks()[0];
+
+    if (screenAudioTrack) {
+      console.log('[WebRTC 🔊] Áudio do sistema capturado com sucesso! ID:', screenAudioTrack.id);
+      this.localScreenAudioTrackId = screenAudioTrack.id;
+      try {
+        if (screenAudioTrack.applyConstraints) {
+          screenAudioTrack.applyConstraints({
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          }).catch(() => {});
+        }
+      } catch (e) {}
+    } else {
+      console.warn('[WebRTC ℹ️] Tela compartilhada sem trilha de áudio.');
+      this.localScreenAudioTrackId = null;
+    }
+
+    if (screenVideoTrack) {
+      try {
+        if ('contentHint' in screenVideoTrack) {
+          screenVideoTrack.contentHint = 'motion';
+        }
+      } catch (e) {}
+
+      screenVideoTrack.onended = () => {
+        this.stopScreenShare();
+      };
+    }
+
+    for (const [peerId, pc] of this.peers.entries()) {
+      try {
+        const senders = this.getPeerSenders(peerId);
+
+        if (senders.screenVideoSender) {
+          try { pc.removeTrack(senders.screenVideoSender); } catch(e) {}
+          senders.screenVideoSender = null;
+        }
+        if (senders.screenAudioSender) {
+          try { pc.removeTrack(senders.screenAudioSender); } catch(e) {}
+          senders.screenAudioSender = null;
+        }
+
+        if (screenVideoTrack) {
+          senders.screenVideoSender = pc.addTrack(screenVideoTrack, this.localScreenStream);
+        }
+        if (screenAudioTrack) {
+          senders.screenAudioSender = pc.addTrack(screenAudioTrack, this.localScreenStream);
+        }
+
+        await this.renegotiate(pc, peerId, {
+          screenStreamId: this.localScreenStream.id,
+          screenAudioTrackId: screenAudioTrack ? screenAudioTrack.id : null
+        });
+        await this.applyBitrateParameters(pc);
+      } catch (peerErr) {
+        console.warn(`[WebRTC] Falha ao adicionar tracks ao peer ${peerId}:`, peerErr);
+      }
+    }
+
+    try {
+      this.socket.emit('voice:screen-status', {
+        isSharing: true,
+        hasAudio: !!screenAudioTrack,
+        screenStreamId: this.localScreenStream.id,
+        screenAudioTrackId: screenAudioTrack ? screenAudioTrack.id : null
+      });
+    } catch (sockErr) {}
+
+    return this.localScreenStream;
   }
 
   async stopScreenShare() {

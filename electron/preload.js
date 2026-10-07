@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // Seletor de Telas e Janelas (Screen Share HD)
+  getScreenSources: () => ipcRenderer.invoke('electron:get-screen-sources'),
   onOpenScreenPicker: (callback) => {
     ipcRenderer.on('electron:open-screen-picker', (event, sources) => callback(sources));
   },

@@ -112,12 +112,12 @@ function createMainWindow(targetUrl) {
   });
 
   // Concede automaticamente permissões de mídia (microfone, câmera, compartilhamento de tela)
+  mainWindow.webContents.session.setPermissionCheckHandler((webContents, permission) => {
+    return true;
+  });
+
   mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
-    const allowed = ['media', 'mediaKeySystem', 'notifications', 'display-capture', 'pointerLock'];
-    if (allowed.includes(permission)) {
-      return callback(true);
-    }
-    callback(false);
+    callback(true);
   });
 
   // Habilita captura de tela moderna no Electron WebRTC com Seletor HD
@@ -136,8 +136,7 @@ function createMainWindow(targetUrl) {
 
         const sources = await desktopCapturer.getSources({
           types: ['screen', 'window'],
-          thumbnailSize: { width: 480, height: 270 },
-          fetchWindowIcons: true
+          thumbnailSize: { width: 480, height: 270 }
         });
 
         if (!sources || sources.length === 0) {
@@ -332,6 +331,25 @@ app.whenReady().then(() => {
   });
 
   // Handlers do Seletor de Telas e Janelas (Screen Share)
+  ipcMain.handle('electron:get-screen-sources', async () => {
+    try {
+      const sources = await desktopCapturer.getSources({
+        types: ['screen', 'window'],
+        thumbnailSize: { width: 480, height: 270 }
+      });
+      return sources.map(s => ({
+        id: s.id,
+        name: s.name,
+        thumbnail: (s.thumbnail && !s.thumbnail.isEmpty()) ? s.thumbnail.toDataURL() : '',
+        appIcon: null,
+        isScreen: s.id.startsWith('screen:')
+      }));
+    } catch (err) {
+      console.error('[Electron] Erro em desktopCapturer.getSources:', err);
+      return [];
+    }
+  });
+
   ipcMain.on('electron:screen-source-selected', (event, sourceId) => {
     if (screenPickerTimeout) {
       clearTimeout(screenPickerTimeout);
