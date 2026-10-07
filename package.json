@@ -1,6 +1,6 @@
 {
   "name": "jogos-bolados",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Discord Clone com Chat em Tempo Real, Compartilhamento de Tela WebRTC e Cliente Desktop Electron",
   "main": "server.js",
   "type": "module",
