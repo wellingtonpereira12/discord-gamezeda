@@ -4258,6 +4258,8 @@ if (window.electronAPI && typeof window.electronAPI.onShortcutToggleDeaf === 'fu
 // MODAL DE CONFIGURAÇÕES DE DISPOSITIVOS E CADASTRO
 // ==========================================
 function switchSettingsTab(tabName) {
+  const targetTab = (typeof tabName === 'string') ? tabName : 'voice';
+
   // Limpa estados das abas
   [tabBtnVoice, tabBtnProfile, tabBtnAccount].forEach(b => {
     if (b) b.classList.remove('active');
@@ -4266,10 +4268,7 @@ function switchSettingsTab(tabName) {
     if (c) c.style.display = 'none';
   });
 
-  if (tabName === 'voice') {
-    if (tabBtnVoice) tabBtnVoice.classList.add('active');
-    if (tabContentVoice) tabContentVoice.style.display = 'block';
-  } else if (tabName === 'profile') {
+  if (targetTab === 'profile') {
     if (tabBtnProfile) tabBtnProfile.classList.add('active');
     if (tabContentProfile) tabContentProfile.style.display = 'block';
     if (profileSaveAlert) profileSaveAlert.style.display = 'none';
@@ -4292,7 +4291,7 @@ function switchSettingsTab(tabName) {
       if (previewBioText) previewBioText.textContent = currentUser.bio || 'Sem descrição.';
       if (countBio) countBio.textContent = `${(currentUser.bio || '').length}/200`;
     }
-  } else if (tabName === 'account') {
+  } else if (targetTab === 'account') {
     if (tabBtnAccount) tabBtnAccount.classList.add('active');
     if (tabContentAccount) tabContentAccount.style.display = 'block';
     if (accountFormAlert) accountFormAlert.style.display = 'none';
@@ -4302,6 +4301,10 @@ function switchSettingsTab(tabName) {
       if (accountAvatarImg) accountAvatarImg.src = currentUser.avatar;
     }
     socket.emit('auth:get-status');
+  } else {
+    // Default fallback: sempre abre Voz & Áudio
+    if (tabBtnVoice) tabBtnVoice.classList.add('active');
+    if (tabContentVoice) tabContentVoice.style.display = 'block';
   }
 }
 
@@ -4443,7 +4446,7 @@ async function populateDeviceSelectors() {
   }
 }
 
-btnUserSettings.addEventListener('click', openSettingsModal);
+btnUserSettings.addEventListener('click', () => openSettingsModal('voice'));
 btnCloseSettings.addEventListener('click', closeSettingsModal);
 btnSaveSettings.addEventListener('click', closeSettingsModal);
 
