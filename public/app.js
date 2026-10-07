@@ -1851,13 +1851,479 @@ document.addEventListener('touchend', (e) => {
   }
 }, { passive: true });
 
-// Emoji trigger
-btnEmojiTrigger.addEventListener('click', () => {
-  const emojis = ['😀', '😂', '🔥', '🎉', '👍', '🎮', '💀', '💩'];
-  const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-  chatInput.value += ` ${randomEmoji} `;
+// ==========================================
+// POPOVER DE SELEÇÃO DE EMOJIS (ESTILO DISCORD)
+// ==========================================
+const emojiPickerPopover = document.getElementById('emoji-picker-popover');
+const emojiSearchInput = document.getElementById('emoji-search-input');
+const emojiPickerBody = document.getElementById('emoji-picker-body');
+const emojiNavBtns = document.querySelectorAll('.emoji-nav-btn');
+
+const EMOJI_CATEGORIES = [
+  {
+    id: 'faces',
+    name: 'Expressões & Carinhas',
+    icon: '😃',
+    emojis: [
+      { char: '😀', keywords: 'sorriso feliz alegre cara rindo' },
+      { char: '😃', keywords: 'sorriso aberto feliz alegre' },
+      { char: '😄', keywords: 'sorriso olhos fechados alegre' },
+      { char: '😁', keywords: 'sorridente dentes feliz' },
+      { char: '😆', keywords: 'gargalhada riso risada' },
+      { char: '😅', keywords: 'suor riso nervoso' },
+      { char: '😂', keywords: 'chorando de rir risada lol kkk morrendo' },
+      { char: '🤣', keywords: 'rolando de rir rofl kkkk' },
+      { char: '🥲', keywords: 'sorriso com lagrima emocionado' },
+      { char: '🥹', keywords: 'olhos brilhando lagrima fofo comovido' },
+      { char: '😊', keywords: 'timido feliz bochecha corada' },
+      { char: '😇', keywords: 'anjo inocente aureola' },
+      { char: '🙂', keywords: 'sorriso leve ok sim' },
+      { char: '🙃', keywords: 'de cabeca para baixo ironia sarcasmo' },
+      { char: '😉', keywords: 'piscadela piscando flerte segredo' },
+      { char: '😌', keywords: 'aliviado paz calma' },
+      { char: '😍', keywords: 'apaixonado coracao olhos amor amei' },
+      { char: '🥰', keywords: 'apaixonado coracoes carinho amor' },
+      { char: '😘', keywords: 'beijo beijinho amor' },
+      { char: '😋', keywords: 'gostoso delicia lambendo comida' },
+      { char: '😛', keywords: 'lingua para fora zoeira' },
+      { char: '😜', keywords: 'lingua piscando zoeira zueira louco' },
+      { char: '🤪', keywords: 'louco maluco zoeira pirado' },
+      { char: '😝', keywords: 'lingua olhos fechados zoeira' },
+      { char: '🤑', keywords: 'dinheiro grana rico dindin' },
+      { char: '🤗', keywords: 'abraco abrindo maos fofo' },
+      { char: '🤔', keywords: 'pensando duvida pensativo oque hum' },
+      { char: '🫣', keywords: 'espiando olho tampado vergonha' },
+      { char: '🤭', keywords: 'mao na boca risinho opa' },
+      { char: '🤫', keywords: 'silencio segredo calado shh quieto' },
+      { char: '🫡', keywords: 'continencia respeito sim senhor' },
+      { char: '🤐', keywords: 'boca fechada ziper calado segredo' },
+      { char: '🤨', keywords: 'sobrancelha levantada desconfiado serio' },
+      { char: '😐', keywords: 'neutro sem expressao poker face uai' },
+      { char: '😑', keywords: 'sem expressao serio cansado' },
+      { char: '😏', keywords: 'sorriso de lado convencido flerte' },
+      { char: '😒', keywords: 'desanimado desapontado aff' },
+      { char: '🙄', keywords: 'revirando olhos aff tsc saco' },
+      { char: '😬', keywords: 'dentes cerrados tenso eita fudeu' },
+      { char: '🤥', keywords: 'mentiroso pinocchio nariz mentira' },
+      { char: '😔', keywords: 'triste pensativo chateado' },
+      { char: '🤤', keywords: 'babando delicia gostoso sono' },
+      { char: '😴', keywords: 'dormindo sono cansado zzz' },
+      { char: '😷', keywords: 'mascara doente doenca covid' },
+      { char: '🤒', keywords: 'termometro febre doente mal' },
+      { char: '🤢', keywords: 'enjoado nojo verde vomito' },
+      { char: '🤮', keywords: 'vomitando vomito eca' },
+      { char: '🥵', keywords: 'quente calor suor pegando fogo' },
+      { char: '🥶', keywords: 'frio gelo congelando congelado' },
+      { char: '🥴', keywords: 'tonto bebado meio tonto louco' },
+      { char: '😵', keywords: 'tonto zonzo nocauteado morto' },
+      { char: '🤯', keywords: 'mente explodindo cabeca explodiu choque uau' },
+      { char: '🤠', keywords: 'cowboy vaqueiro chapeu' },
+      { char: '🥳', keywords: 'festa comemoracao confete parabens' },
+      { char: '😎', keywords: 'oculos escuros estilo maneiro top zika brabo' },
+      { char: '🤓', keywords: 'nerd oculos inteligente geek' },
+      { char: '🧐', keywords: 'monoculo curioso chique' },
+      { char: '😕', keywords: 'confuso duvida estranho' },
+      { char: '😟', keywords: 'preocupado apreensivo' },
+      { char: '🥺', keywords: 'por favor fofo pedindo do dengo' },
+      { char: '😢', keywords: 'chorando lagrima triste choro' },
+      { char: '😭', keywords: 'chorando muito berro pranto socorro' },
+      { char: '😱', keywords: 'gritando panico susto terror grito' },
+      { char: '🥱', keywords: 'bocejo sono tedio' },
+      { char: '😤', keywords: 'furioso bufando raiva ar' },
+      { char: '😡', keywords: 'bravo irritado raiva vermelho' },
+      { char: '😠', keywords: 'zangado bravo cara fechada' },
+      { char: '🤬', keywords: 'palavrao xingamento puto revoltado' },
+      { char: '😈', keywords: 'diabo chifres sorriso malicioso capeta' },
+      { char: '💀', keywords: 'caveira morto rip morri zoeira esqueleto' },
+      { char: '☠️', keywords: 'caveira pirata ossos perigo veneno' },
+      { char: '💩', keywords: 'coco bosta coco zoeira' },
+      { char: '🤡', keywords: 'palhaco palhacada coringa zoeira' },
+      { char: '👻', keywords: 'fantasma boo susto halloween' },
+      { char: '👽', keywords: 'alien et alienigena ovni' },
+      { char: '👾', keywords: 'monstro gamer pixel arcade retro' },
+      { char: '🤖', keywords: 'robo robot bot mecanico' }
+    ]
+  },
+  {
+    id: 'gestures',
+    name: 'Mãos & Gestos',
+    icon: '👍',
+    emojis: [
+      { char: '👍', keywords: 'positivo joinha legal blz beleza curti like top' },
+      { char: '👎', keywords: 'negativo descurtir dislike ruim paia' },
+      { char: '👊', keywords: 'soco toca aqui batida de mao broder' },
+      { char: '✊', keywords: 'punho fechado forca luta' },
+      { char: '🤛', keywords: 'soco esquerda toque' },
+      { char: '🤜', keywords: 'soco direita toque' },
+      { char: '👏', keywords: 'palmas aplausos parabens boa' },
+      { char: '🙌', keywords: 'maos para cima vitoria comemoracao amem' },
+      { char: '👐', keywords: 'maos abertas' },
+      { char: '🤲', keywords: 'palmas juntas pedindo oracao' },
+      { char: '🤝', keywords: 'aperto de mao acordo combinado fechado' },
+      { char: '🙏', keywords: 'por favor obrigado amem gratidao oracao reza' },
+      { char: '✍️', keywords: 'escrevendo caneta licao anotando' },
+      { char: '💪', keywords: 'musculo forca forte treino academia shape' },
+      { char: '👈', keywords: 'apontando esquerda' },
+      { char: '👉', keywords: 'apontando direita olha' },
+      { char: '👆', keywords: 'apontando cima sobe' },
+      { char: '👇', keywords: 'apontando baixo desce' },
+      { char: '☝️', keywords: 'um dedo apontando um momento' },
+      { char: '✋', keywords: 'mao aberta pare chega alto' },
+      { char: '🤚', keywords: 'costas da mao' },
+      { char: '🖐️', keywords: 'cinco dedos mao aberta' },
+      { char: '🖖', keywords: 'saudacao vulcano star trek vida longa' },
+      { char: '👋', keywords: 'acenando tchau ola oi adeus' },
+      { char: '🤙', keywords: 'hang loose liga nois de boa surf' },
+      { char: '🤌', keywords: 'gesto italiano ma che ma oque' },
+      { char: '🤏', keywords: 'pouquinho pouco um tico pequeno' },
+      { char: '✌️', keywords: 'paz e amor vitoria dois dois' },
+      { char: '🤞', keywords: 'dedos cruzados sorte torcendo tomara' },
+      { char: '🫰', keywords: 'coracao com os dedos dorama kpop coreano' },
+      { char: '🤟', keywords: 'te amo i love you rock' },
+      { char: '🤘', keywords: 'rock metal rockeiro metalero chifre' },
+      { char: '👀', keywords: 'olhos olhando de olho vigiando atento' },
+      { char: '🧠', keywords: 'cerebro mente inteligencia qe qi' },
+      { char: '💋', keywords: 'beijo marca de batom boca' }
+    ]
+  },
+  {
+    id: 'hearts',
+    name: 'Corações & Emoções',
+    icon: '❤️',
+    emojis: [
+      { char: '❤️', keywords: 'coracao vermelho amor carinho paixao s2' },
+      { char: '🧡', keywords: 'coracao laranja' },
+      { char: '💛', keywords: 'coracao amarelo amizade' },
+      { char: '💚', keywords: 'coracao verde esperanca' },
+      { char: '💙', keywords: 'coracao azul confianca' },
+      { char: '💜', keywords: 'coracao roxo misterio bts' },
+      { char: '🖤', keywords: 'coracao preto trevoso luto gotico' },
+      { char: '🤍', keywords: 'coracao branco paz luz' },
+      { char: '🤎', keywords: 'coracao marrom' },
+      { char: '💔', keywords: 'coracao partido desiludido dor triste fim' },
+      { char: '❤️‍🔥', keywords: 'coracao em chamas fogo paixao ardente' },
+      { char: '❤️‍🩹', keywords: 'coracao curado curando recuperando' },
+      { char: '❣️', keywords: 'exclamacao de coracao amor' },
+      { char: '💕', keywords: 'dois coracoes amor fofo' },
+      { char: '💞', keywords: 'coracoes girando amor' },
+      { char: '💓', keywords: 'coracao batendo vibrando paixao' },
+      { char: '💗', keywords: 'coracao crescendo amor' },
+      { char: '💖', keywords: 'coracao brilhante brilho estrelas fofo' },
+      { char: '💘', keywords: 'cupido flecha no coracao flechado' },
+      { char: '💝', keywords: 'coracao com fita presente carinho' },
+      { char: '🔥', keywords: 'fogo chama quente brabo hype top demais' },
+      { char: '✨', keywords: 'brilho estrelas magia especial top lindo' },
+      { char: '🌟', keywords: 'estrela brilhando estrela ouro nota dez' },
+      { char: '⭐', keywords: 'estrela amarela favorita' },
+      { char: '⚡', keywords: 'raio trovao choque energia eletricidade flash' },
+      { char: '💥', keywords: 'explosao boom pow estalo barulho' },
+      { char: '🎉', keywords: 'festa confete comemoracao aniversario parabens' },
+      { char: '🎊', keywords: 'bola de confete carnaval comemoracao' },
+      { char: '🎈', keywords: 'balao bexiga festa aniversario' }
+    ]
+  },
+  {
+    id: 'gaming',
+    name: 'Jogos & Geek',
+    icon: '🎮',
+    emojis: [
+      { char: '🎮', keywords: 'videogame jogo controle gamer playstation xbox pc' },
+      { char: '🕹️', keywords: 'joystick fliperama arcade retro nostalgia' },
+      { char: '🎲', keywords: 'dado sorte rpg tabuleiro cassino' },
+      { char: '🎯', keywords: 'alvo certeiro mira dardo precisao bingo' },
+      { char: '🏆', keywords: 'trofeu vitoria campeao primeiro lugar ouro' },
+      { char: '🥇', keywords: 'medalha de ouro primeiro lugar 1' },
+      { char: '🥈', keywords: 'medalha de prata segundo lugar 2' },
+      { char: '🥉', keywords: 'medalha de bronze terceiro lugar 3' },
+      { char: '🏅', keywords: 'medalha militar honra' },
+      { char: '👾', keywords: 'space invaders monstro pixel gamer retro 8bit' },
+      { char: '🤖', keywords: 'robo bot automacao tecnologia' },
+      { char: '🚀', keywords: 'foguete espacial lua to the moon lancamento voando' },
+      { char: '🛸', keywords: 'disco voador ovni alien ufo' },
+      { char: '💣', keywords: 'bomba pavio explosivo perigo tnt' },
+      { char: '⚔️', keywords: 'espadas cruzadas batalha duelo pvp guerra combate' },
+      { char: '🛡️', keywords: 'escudo protecao defesa armor' },
+      { char: '👑', keywords: 'coroa rei rainha mestre monarca realeza' },
+      { char: '💎', keywords: 'diamante joia pedra preciosa raro luxo shine' },
+      { char: '🎧', keywords: 'fone de ouvido headset musica som gamer' },
+      { char: '🎤', keywords: 'microfone cantar voz podcast show' },
+      { char: '🎵', keywords: 'nota musical musica melodia som' },
+      { char: '🎶', keywords: 'notas musicais musica ritmo' },
+      { char: '🎸', keywords: 'guitarra rock som musica instrumento' }
+    ]
+  },
+  {
+    id: 'food',
+    name: 'Comidas & Bebidas',
+    icon: '🍕',
+    emojis: [
+      { char: '🍕', keywords: 'pizza queijo pedaco comida lanche' },
+      { char: '🍔', keywords: 'hamburguer burger lanche mcdonalds comida' },
+      { char: '🍟', keywords: 'batata frita fries salgado lanche' },
+      { char: '🌭', keywords: 'hotdog cachorro quente salsicha lanche' },
+      { char: '🍿', keywords: 'pipoca cinema filme serie comida' },
+      { char: '🥓', keywords: 'bacon toucinho carne comida cafe' },
+      { char: '🍳', keywords: 'ovo frito frigideira cafe da manha' },
+      { char: '🥩', keywords: 'carne bife churrasco churras carne vermelha' },
+      { char: '🍗', keywords: 'coxa de frango frango frito comida' },
+      { char: '🌮', keywords: 'taco comida mexicana comida' },
+      { char: '🌯', keywords: 'burrito enrolado comida mexicana' },
+      { char: '🍜', keywords: 'lamen ramen macarrao miojo sopa tigela' },
+      { char: '🍣', keywords: 'sushi peixe cru japa comida japonesa' },
+      { char: '🍦', keywords: 'sorvete casquinha gelado doce' },
+      { char: '🍩', keywords: 'donut rosquinha doce guloseima' },
+      { char: '🍪', keywords: 'cookie biscoito bolacha chocolate' },
+      { char: '🍫', keywords: 'chocolate barra de chocolate doce cacau' },
+      { char: '🎂', keywords: 'bolo de aniversario parabens festa doce' },
+      { char: '☕', keywords: 'cafe xicara cafezinho expresso quente' },
+      { char: '🍺', keywords: 'cerveja chopp caneca gelada alcool bar breja' },
+      { char: '🍻', keywords: 'brinde cervejas tim tim bar festa' },
+      { char: '🍷', keywords: 'vinho taca uva drink' },
+      { char: '🥤', keywords: 'copo com canudo refrigerante suco refri coca' }
+    ]
+  },
+  {
+    id: 'nature',
+    name: 'Animais & Natureza',
+    icon: '🐱',
+    emojis: [
+      { char: '🐶', keywords: 'cachorro cao dog pet filhote auau' },
+      { char: '🐱', keywords: 'gato felino miau pet gatinho' },
+      { char: '🐭', keywords: 'rato camundongo' },
+      { char: '🐹', keywords: 'hamster fofo roedor' },
+      { char: '🐰', keywords: 'coelho coelhinho pascoa' },
+      { char: '🦊', keywords: 'raposa astuta laranja' },
+      { char: '🐻', keywords: 'urso fofo marrom teddy' },
+      { char: '🐼', keywords: 'panda urso panda fofo bambu' },
+      { char: '🐨', keywords: 'coala eucalipto fofo austrália' },
+      { char: '🐯', keywords: 'tigre felino listrado' },
+      { char: '🦁', keywords: 'leao rei da selva juba' },
+      { char: '🐮', keywords: 'vaca muuu leite' },
+      { char: '🐷', keywords: 'porco porquinho oink' },
+      { char: '🐸', keywords: 'sapo perereca verde coaxar' },
+      { char: '🐵', keywords: 'macaco mico banana fofo' },
+      { char: '🙈', keywords: 'macaco cobrindo os olhos nao vejo nada' },
+      { char: '🐔', keywords: 'galinha frango cocorico' },
+      { char: '🐧', keywords: 'pinguim gelo polo frio' },
+      { char: '🐦', keywords: 'passaro passarinho ave voar' },
+      { char: '🦅', keywords: 'aguia rapina voo forte' },
+      { char: '🦉', keywords: 'coruja sabedoria noite' },
+      { char: '🐺', keywords: 'lobo auuu alcateia noite' },
+      { char: '🦄', keywords: 'unicornio magia arco iris conto' },
+      { char: '🐝', keywords: 'abelha mel zumbido flor' },
+      { char: '🦋', keywords: 'borboleta asas linda natureza' },
+      { char: '🌸', keywords: 'flor de cerejeira sakura rosa primavera' },
+      { char: '🌹', keywords: 'rosa vermelha flor romantico' },
+      { char: '🌻', keywords: 'girassol flor amarelo sol' },
+      { char: '🍀', keywords: 'trevo de quatro folhas sorte trevo' }
+    ]
+  }
+];
+
+function insertEmojiAtCursor(emoji) {
+  if (!chatInput) return;
+  const start = chatInput.selectionStart || chatInput.value.length;
+  const end = chatInput.selectionEnd || chatInput.value.length;
+  const val = chatInput.value;
+  chatInput.value = val.substring(0, start) + emoji + val.substring(end);
+  const newPos = start + emoji.length;
+  chatInput.setSelectionRange(newPos, newPos);
   chatInput.focus();
+}
+
+function renderEmojiPicker(filterQuery = '') {
+  if (!emojiPickerBody) return;
+  emojiPickerBody.innerHTML = '';
+  const cleanFilter = (filterQuery || '').trim().toLowerCase();
+
+  let totalRendered = 0;
+
+  EMOJI_CATEGORIES.forEach(cat => {
+    const matchingEmojis = cat.emojis.filter(item => {
+      if (!cleanFilter) return true;
+      return item.keywords.includes(cleanFilter) || item.char.includes(cleanFilter);
+    });
+
+    if (matchingEmojis.length === 0) return;
+
+    totalRendered += matchingEmojis.length;
+    const section = document.createElement('div');
+    section.className = 'emoji-category-section';
+    section.id = `emoji-section-${cat.id}`;
+
+    const title = document.createElement('div');
+    title.className = 'emoji-category-title';
+    title.textContent = cat.name;
+    section.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.className = 'emoji-grid';
+
+    matchingEmojis.forEach(item => {
+      const btn = document.createElement('span');
+      btn.className = 'emoji-item';
+      btn.textContent = item.char;
+      btn.title = item.keywords.split(' ')[0] || item.char;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        insertEmojiAtCursor(item.char);
+      });
+      grid.appendChild(btn);
+    });
+
+    section.appendChild(grid);
+    emojiPickerBody.appendChild(section);
+  });
+
+  if (totalRendered === 0) {
+    emojiPickerBody.innerHTML = `
+      <div class="emoji-no-results">
+        Nenhum emoji encontrado para "<strong>${escapeHtml(cleanFilter)}</strong>" 🙁
+      </div>
+    `;
+  }
+}
+
+function openEmojiPicker() {
+  if (!emojiPickerPopover) return;
+  renderEmojiPicker(emojiSearchInput ? emojiSearchInput.value : '');
+  emojiPickerPopover.style.display = 'flex';
+  if (emojiSearchInput) {
+    emojiSearchInput.focus();
+  }
+}
+
+function closeEmojiPicker() {
+  if (!emojiPickerPopover) return;
+  emojiPickerPopover.style.display = 'none';
+  if (emojiSearchInput) emojiSearchInput.value = '';
+}
+
+function toggleEmojiPicker() {
+  if (!emojiPickerPopover) return;
+  if (emojiPickerPopover.style.display === 'flex') {
+    closeEmojiPicker();
+  } else {
+    openEmojiPicker();
+  }
+}
+
+if (btnEmojiTrigger) {
+  btnEmojiTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleEmojiPicker();
+  });
+}
+
+if (emojiSearchInput) {
+  emojiSearchInput.addEventListener('input', (e) => {
+    renderEmojiPicker(e.target.value);
+  });
+}
+
+emojiNavBtns.forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    emojiNavBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const catId = btn.getAttribute('data-category');
+    if (emojiSearchInput && emojiSearchInput.value) {
+      emojiSearchInput.value = '';
+      renderEmojiPicker('');
+    }
+    const targetSection = document.getElementById(`emoji-section-${catId}`);
+    if (targetSection && emojiPickerBody) {
+      targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
 });
+
+// Fechar emoji picker ao clicar fora
+document.addEventListener('click', (e) => {
+  if (emojiPickerPopover && emojiPickerPopover.style.display === 'flex') {
+    if (!emojiPickerPopover.contains(e.target) && e.target !== btnEmojiTrigger) {
+      closeEmojiPicker();
+    }
+  }
+});
+
+// Fechar com ESC
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && emojiPickerPopover && emojiPickerPopover.style.display === 'flex') {
+    closeEmojiPicker();
+  }
+});
+
+// ==========================================
+// COLAR IMAGEM DIRETO DO CLIPBOARD (CTRL + V)
+// ==========================================
+async function handleImagePasteFromClipboard(e) {
+  const clipboardData = e.clipboardData || window.clipboardData;
+  if (!clipboardData || !clipboardData.items) return;
+
+  const active = document.activeElement;
+  // Se o foco estiver em outro input que não seja o chatInput, ignora (ex: campos de busca ou modal)
+  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') && active !== chatInput) {
+    return;
+  }
+
+  let imageItem = null;
+  for (let i = 0; i < clipboardData.items.length; i++) {
+    const item = clipboardData.items[i];
+    if (item.type && item.type.startsWith('image/')) {
+      imageItem = item;
+      break;
+    }
+  }
+
+  if (!imageItem) return; // Não é imagem, deixa o comportamento normal de colar texto acontecer
+
+  e.preventDefault();
+
+  const file = imageItem.getAsFile();
+  if (!file) return;
+
+  const timestamp = Date.now();
+  const safeFileName = file.name && file.name !== 'image.png' ? file.name : `screenshot-${timestamp}.png`;
+
+  if (typeof showSoundToast === 'function') {
+    showSoundToast('📸 Enviando captura de tela colada...');
+  }
+
+  const formData = new FormData();
+  formData.append('file', file, safeFileName);
+
+  try {
+    const res = await fetch('/api/chat-file', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (data.success) {
+      const captionText = chatInput ? chatInput.value.trim() : '';
+      socket.emit('chat:send', {
+        channelId: currentTextChannel,
+        text: captionText || '📸 Captura de tela',
+        attachmentUrl: data.url
+      });
+      if (chatInput) chatInput.value = '';
+      if (typeof showSoundToast === 'function') {
+        showSoundToast('✅ Imagem enviada com sucesso!');
+      }
+    } else {
+      alert('Erro ao enviar imagem colada: ' + (data.error || 'Falha no upload'));
+    }
+  } catch (err) {
+    console.error('[Paste ❌] Erro ao enviar imagem colada:', err);
+    alert('Erro ao enviar captura de tela do clipboard.');
+  }
+}
+
+// Escuta Ctrl+V no chatInput e globalmente
+if (chatInput) {
+  chatInput.addEventListener('paste', handleImagePasteFromClipboard);
+}
+window.addEventListener('paste', handleImagePasteFromClipboard);
 
 // ==========================================
 // CONEXÃO DE VOZ & TELA HD (MULTI-SALA)
