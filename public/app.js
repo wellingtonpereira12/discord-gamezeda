@@ -893,8 +893,8 @@ function enterServer(name) {
   myUsernameEl.textContent = name;
   cardMyAvatar.src = avatar;
   cardMyName.textContent = `${name} (Você)`;
-  if (popoverAvatar) popoverAvatar.src = avatar;
-  if (popoverName) popoverName.textContent = name;
+  if (popoutAvatar) popoutAvatar.src = avatar;
+  if (popoutName) popoutName.textContent = name;
 
   socket.emit('join:server', { name, deviceId: localDeviceId });
   loginModal.style.display = 'none';
@@ -5466,8 +5466,8 @@ if (btnCurrentUserProfile) {
   btnCurrentUserProfile.addEventListener('click', toggleUserPopover);
 }
 
-if (btnPopoverLogout) {
-  btnPopoverLogout.addEventListener('click', performLogout);
+if (btnPopoutLogout) {
+  btnPopoutLogout.addEventListener('click', performLogout);
 }
 
 document.addEventListener('click', (e) => {
