@@ -1979,6 +1979,10 @@ function leaveVoice(playAudio = true, switchChat = true) {
     if (typeof stopMusicTrack === 'function') stopMusicTrack();
   } catch (e) {}
 
+  try {
+    if (typeof stopWatchPartyVideo === 'function') stopWatchPartyVideo();
+  } catch (e) {}
+
   inVoice = false;
   isScreenSharing = false;
   isCameraActive = false;
@@ -3897,3 +3901,409 @@ if (musicQuickSearchForm) {
   });
 }
 
+// ==========================================
+// CLIENTE ASSISTIR JUNTOS (WATCH PARTY YOUTUBE)
+// ==========================================
+const watchPartyTile = document.getElementById('watch-party-tile');
+const watchPartyTitleBadge = document.getElementById('watch-party-title-badge');
+const btnToggleWatchPartySound = document.getElementById('btn-toggle-watch-party-sound');
+const watchPartySoundIcon = document.getElementById('watch-party-sound-icon');
+const watchPartyVolumeSlider = document.getElementById('watch-party-volume-slider');
+const watchPartyVolumeVal = document.getElementById('watch-party-volume-val');
+const btnWatchPartyAdd = document.getElementById('btn-watch-party-add');
+const btnWatchPartySkip = document.getElementById('btn-watch-party-skip');
+const btnFullscreenWatchParty = document.getElementById('btn-fullscreen-watch-party');
+const btnStopWatchParty = document.getElementById('btn-stop-watch-party');
+const ytPlayerContainer = document.getElementById('yt-player-container');
+const btnStageWatchParty = document.getElementById('btn-stage-watch-party');
+const modalWatchParty = document.getElementById('modal-watch-party');
+const btnCloseWatchPartyModal = document.getElementById('btn-close-watch-party-modal');
+const btnCancelWatchPartyModal = document.getElementById('btn-cancel-watch-party-modal');
+const watchPartySearchForm = document.getElementById('watch-party-search-form');
+const inputWatchPartyQuery = document.getElementById('input-watch-party-query');
+const btnWatchPartySearch = document.getElementById('btn-watch-party-search');
+const watchPartyLoading = document.getElementById('watch-party-loading');
+const watchPartyResultsList = document.getElementById('watch-party-results-list');
+
+let ytPlayer = null;
+let isYtApiReady = false;
+let ytApiPromise = null;
+let isRemoteAction = false;
+let currentWatchPartyVideoId = null;
+let isWatchPartyMuted = false;
+let watchPartyVolume = 100;
+
+function ensureYouTubeApi() {
+  if (isYtApiReady && window.YT && window.YT.Player) {
+    return Promise.resolve();
+  }
+  if (ytApiPromise) return ytApiPromise;
+
+  ytApiPromise = new Promise((resolve) => {
+    if (window.YT && window.YT.Player) {
+      isYtApiReady = true;
+      return resolve();
+    }
+    const oldCallback = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      isYtApiReady = true;
+      if (typeof oldCallback === 'function') oldCallback();
+      resolve();
+    };
+    if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      const firstScript = document.getElementsByTagName('script')[0];
+      if (firstScript && firstScript.parentNode) {
+        firstScript.parentNode.insertBefore(tag, firstScript);
+      } else {
+        document.head.appendChild(tag);
+      }
+    }
+  });
+  return ytApiPromise;
+}
+
+function stopWatchPartyVideo() {
+  currentWatchPartyVideoId = null;
+  if (watchPartyTile) {
+    watchPartyTile.style.display = 'none';
+    watchPartyTile.classList.remove('fullscreen');
+  }
+  if (watchPartyTitleBadge) {
+    watchPartyTitleBadge.textContent = 'Nenhum vídeo';
+  }
+  if (ytPlayer && typeof ytPlayer.stopVideo === 'function') {
+    try { ytPlayer.stopVideo(); } catch (e) {}
+  }
+}
+
+async function loadOrUpdateWatchPartyPlayer(videoId, startSeconds = 0, isPaused = false) {
+  if (!videoId) {
+    stopWatchPartyVideo();
+    return;
+  }
+
+  await ensureYouTubeApi();
+
+  if (watchPartyTile) {
+    watchPartyTile.style.display = 'flex';
+  }
+
+  // Se o player já existe no DOM e estamos apenas trocando o vídeo ou atualizando posição
+  if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
+    if (currentWatchPartyVideoId !== videoId) {
+      currentWatchPartyVideoId = videoId;
+      isRemoteAction = true;
+      ytPlayer.loadVideoById({
+        videoId: videoId,
+        startSeconds: startSeconds || 0
+      });
+      if (isPaused) {
+        setTimeout(() => {
+          try { ytPlayer.pauseVideo(); } catch (e) {}
+        }, 400);
+      }
+      setTimeout(() => { isRemoteAction = false; }, 1200);
+    } else {
+      // Mesmo vídeo, sincroniza se o desvio for superior a 2 segundos
+      try {
+        const cur = ytPlayer.getCurrentTime ? ytPlayer.getCurrentTime() : 0;
+        if (Math.abs(cur - startSeconds) > 2) {
+          isRemoteAction = true;
+          ytPlayer.seekTo(startSeconds, true);
+          setTimeout(() => { isRemoteAction = false; }, 800);
+        }
+        if (isPaused) {
+          ytPlayer.pauseVideo();
+        } else {
+          ytPlayer.playVideo();
+        }
+      } catch (e) {}
+    }
+    return;
+  }
+
+  // Cria a primeira instância do YT.Player
+  currentWatchPartyVideoId = videoId;
+  const container = document.getElementById('yt-player-container');
+  if (!container) return;
+  container.innerHTML = '<div id="yt-player"></div>';
+
+  try {
+    ytPlayer = new window.YT.Player('yt-player', {
+      videoId: videoId,
+      playerVars: {
+        autoplay: isPaused ? 0 : 1,
+        controls: 1,
+        disablekb: 0,
+        enablejsapi: 1,
+        fs: 1,
+        modestbranding: 1,
+        rel: 0,
+        origin: window.location.origin
+      },
+      events: {
+        onReady: (event) => {
+          try {
+            event.target.setVolume(watchPartyVolume);
+            if (isWatchPartyMuted) event.target.mute();
+            if (startSeconds > 0) event.target.seekTo(startSeconds, true);
+            if (isPaused) {
+              event.target.pauseVideo();
+            } else {
+              event.target.playVideo();
+            }
+          } catch (e) {}
+        },
+        onStateChange: (event) => {
+          if (isRemoteAction) return;
+
+          // YT.PlayerState.PLAYING = 1
+          if (event.data === 1) {
+            const time = Math.floor(event.target.getCurrentTime ? event.target.getCurrentTime() : 0);
+            socket.emit('watchparty:resume', { currentTime: time });
+          }
+          // YT.PlayerState.PAUSED = 2
+          else if (event.data === 2) {
+            const time = Math.floor(event.target.getCurrentTime ? event.target.getCurrentTime() : 0);
+            socket.emit('watchparty:pause', { currentTime: time });
+          }
+          // YT.PlayerState.ENDED = 0
+          else if (event.data === 0) {
+            socket.emit('watchparty:skip');
+          }
+        }
+      }
+    });
+  } catch (err) {
+    console.error('[WatchParty ❌] Erro ao instanciar YT.Player:', err);
+  }
+}
+
+// Controles do Quadro de Vídeo
+if (watchPartyVolumeSlider) {
+  watchPartyVolumeSlider.addEventListener('input', (e) => {
+    const val = parseInt(e.target.value, 10);
+    watchPartyVolume = val;
+    if (watchPartyVolumeVal) watchPartyVolumeVal.textContent = `${val}%`;
+    if (ytPlayer && typeof ytPlayer.setVolume === 'function') {
+      ytPlayer.setVolume(val);
+      if (val === 0) {
+        isWatchPartyMuted = true;
+        ytPlayer.mute();
+        if (watchPartySoundIcon) watchPartySoundIcon.setAttribute('data-lucide', 'volume-x');
+      } else if (isWatchPartyMuted) {
+        isWatchPartyMuted = false;
+        ytPlayer.unMute();
+        if (watchPartySoundIcon) watchPartySoundIcon.setAttribute('data-lucide', 'volume-2');
+      }
+      if (window.lucide) window.lucide.createIcons();
+    }
+  });
+}
+
+if (btnToggleWatchPartySound) {
+  btnToggleWatchPartySound.addEventListener('click', () => {
+    isWatchPartyMuted = !isWatchPartyMuted;
+    if (ytPlayer) {
+      if (isWatchPartyMuted) {
+        if (typeof ytPlayer.mute === 'function') ytPlayer.mute();
+        if (watchPartySoundIcon) watchPartySoundIcon.setAttribute('data-lucide', 'volume-x');
+      } else {
+        if (typeof ytPlayer.unMute === 'function') ytPlayer.unMute();
+        if (watchPartySoundIcon) watchPartySoundIcon.setAttribute('data-lucide', 'volume-2');
+      }
+      if (window.lucide) window.lucide.createIcons();
+    }
+  });
+}
+
+if (btnFullscreenWatchParty) {
+  btnFullscreenWatchParty.addEventListener('click', () => {
+    if (watchPartyTile) {
+      watchPartyTile.classList.toggle('fullscreen');
+    }
+  });
+}
+
+if (btnStopWatchParty) {
+  btnStopWatchParty.addEventListener('click', () => {
+    socket.emit('watchparty:stop');
+    stopWatchPartyVideo();
+  });
+}
+
+if (btnWatchPartySkip) {
+  btnWatchPartySkip.addEventListener('click', () => {
+    socket.emit('watchparty:skip');
+  });
+}
+
+if (btnWatchPartyAdd) {
+  btnWatchPartyAdd.addEventListener('click', () => {
+    openWatchPartyModal();
+  });
+}
+
+// Modal de Busca e Seleção de Vídeo
+function openWatchPartyModal() {
+  if (!inVoice) {
+    if (typeof showSoundToast === 'function') {
+      showSoundToast('Você precisa estar conectado a um canal de voz para usar o Assistir Juntos!');
+    }
+    return;
+  }
+  if (modalWatchParty) {
+    modalWatchParty.style.display = 'flex';
+    if (inputWatchPartyQuery) {
+      inputWatchPartyQuery.focus();
+    }
+  }
+}
+
+function closeWatchPartyModal() {
+  if (modalWatchParty) {
+    modalWatchParty.style.display = 'none';
+  }
+  if (inputWatchPartyQuery) inputWatchPartyQuery.value = '';
+}
+
+if (btnStageWatchParty) {
+  btnStageWatchParty.addEventListener('click', () => {
+    openWatchPartyModal();
+  });
+}
+
+if (btnCloseWatchPartyModal) {
+  btnCloseWatchPartyModal.addEventListener('click', closeWatchPartyModal);
+}
+
+if (btnCancelWatchPartyModal) {
+  btnCancelWatchPartyModal.addEventListener('click', closeWatchPartyModal);
+}
+
+if (modalWatchParty) {
+  modalWatchParty.addEventListener('click', (e) => {
+    if (e.target === modalWatchParty) {
+      closeWatchPartyModal();
+    }
+  });
+}
+
+if (watchPartySearchForm) {
+  watchPartySearchForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const query = inputWatchPartyQuery ? inputWatchPartyQuery.value.trim() : '';
+    if (!query) return;
+
+    // Se for URL direta do YouTube ou ID direto, inicia diretamente
+    const isDirectLink = /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|shorts\/|watch\?v=|watch\?.+&v=))([\w-]{11})/.test(query) || /^[a-zA-Z0-9_-]{11}$/.test(query);
+    if (isDirectLink) {
+      socket.emit('watchparty:start', { query });
+      closeWatchPartyModal();
+      return;
+    }
+
+    if (watchPartyLoading) watchPartyLoading.style.display = 'block';
+    if (watchPartyResultsList) watchPartyResultsList.innerHTML = '';
+
+    socket.emit('watchparty:search', { query }, (response) => {
+      if (watchPartyLoading) watchPartyLoading.style.display = 'none';
+      if (!response || !response.success || !response.results || response.results.length === 0) {
+        if (watchPartyResultsList) {
+          watchPartyResultsList.innerHTML = `
+            <div style="text-align: center; padding: 24px; color: #949ba4; font-size: 13.5px;">
+              Nenhum vídeo encontrado para "<strong>${escapeHtml(query)}</strong>". Tente outro termo ou cole o link direto!
+            </div>
+          `;
+        }
+        return;
+      }
+      renderWatchPartyResults(response.results);
+    });
+  });
+}
+
+function renderWatchPartyResults(results) {
+  if (!watchPartyResultsList) return;
+  watchPartyResultsList.innerHTML = '';
+
+  results.forEach(video => {
+    const item = document.createElement('div');
+    item.className = 'watch-party-item';
+    item.innerHTML = `
+      <div class="watch-party-item-thumb-box">
+        <img src="${video.thumbnail}" alt="${escapeHtml(video.title)}">
+        <span class="watch-party-item-duration">${video.durationStr || '0:00'}</span>
+      </div>
+      <div class="watch-party-item-info">
+        <span class="watch-party-item-title" title="${escapeHtml(video.title)}">${escapeHtml(video.title)}</span>
+        <span class="watch-party-item-author">${escapeHtml(video.author)}</span>
+      </div>
+      <button type="button" class="watch-party-btn-action" title="Assistir Agora">
+        <i data-lucide="play" style="width: 14px; height: 14px;"></i>
+        <span>Assistir</span>
+      </button>
+    `;
+
+    item.addEventListener('click', () => {
+      socket.emit('watchparty:start', { query: video.videoId });
+      closeWatchPartyModal();
+    });
+
+    watchPartyResultsList.appendChild(item);
+  });
+
+  if (window.lucide) window.lucide.createIcons();
+}
+
+// Sockets de Sincronização do Watch Party
+socket.on('watchparty:init', (state) => {
+  if (!inVoice) return;
+  if (!state || !state.isActive || !state.videoId) {
+    stopWatchPartyVideo();
+    return;
+  }
+
+  if (watchPartyTitleBadge) {
+    watchPartyTitleBadge.textContent = state.title ? `${state.title} (${state.durationStr || '0:00'})` : 'Assistindo Vídeo';
+    watchPartyTitleBadge.title = state.title || '';
+  }
+
+  loadOrUpdateWatchPartyPlayer(state.videoId, state.currentTime || 0, state.isPaused);
+});
+
+socket.on('watchparty:pause', ({ currentTime, triggeredBy }) => {
+  if (ytPlayer && typeof ytPlayer.pauseVideo === 'function') {
+    isRemoteAction = true;
+    if (currentTime !== undefined) {
+      try { ytPlayer.seekTo(currentTime, true); } catch (e) {}
+    }
+    try { ytPlayer.pauseVideo(); } catch (e) {}
+    setTimeout(() => { isRemoteAction = false; }, 800);
+  }
+});
+
+socket.on('watchparty:resume', ({ currentTime, triggeredBy }) => {
+  if (ytPlayer && typeof ytPlayer.playVideo === 'function') {
+    isRemoteAction = true;
+    if (currentTime !== undefined) {
+      try { ytPlayer.seekTo(currentTime, true); } catch (e) {}
+    }
+    try { ytPlayer.playVideo(); } catch (e) {}
+    setTimeout(() => { isRemoteAction = false; }, 800);
+  }
+});
+
+socket.on('watchparty:seek', ({ currentTime, triggeredBy }) => {
+  if (ytPlayer && typeof ytPlayer.seekTo === 'function') {
+    isRemoteAction = true;
+    try { ytPlayer.seekTo(currentTime, true); } catch (e) {}
+    setTimeout(() => { isRemoteAction = false; }, 800);
+  }
+});
+
+socket.on('watchparty:stop', () => {
+  stopWatchPartyVideo();
+});

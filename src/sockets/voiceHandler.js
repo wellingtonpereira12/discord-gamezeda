@@ -1,4 +1,5 @@
 import { BOT_USER, musicBot } from '../services/musicBot.js';
+import { watchPartyService } from '../services/watchParty.js';
 
 export function registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers) {
   // Entrar na voz (sala dinâmica ou padrão)
@@ -70,6 +71,12 @@ export function registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVo
           isSpeaking: true
         });
       }
+    }
+
+    // Se houver Watch Party ativa nesta sala, sincroniza o vídeo e segundo exato
+    const wpState = watchPartyService.getRoomState(roomId);
+    if (wpState && wpState.isActive) {
+      socket.emit('watchparty:init', wpState);
     }
 
     broadcastVoiceState();
@@ -171,10 +178,13 @@ export function leaveVoiceRoom(io, socket, user, users, voiceRooms, broadcastVoi
         }
       }
 
-      // Se não sobrou nenhum humano na sala e o bot estiver nela, desconecta o bot
+      // Se não sobrou nenhum humano na sala, desconecta o bot e encerra Watch Party
       const remainingHumans = Array.from(socketSet).filter(id => id !== BOT_USER.id);
-      if (remainingHumans.length === 0 && BOT_USER.inVoice && BOT_USER.currentVoiceRoom === rId) {
-        musicBot.stop(rId, io, voiceRooms, broadcastVoiceState);
+      if (remainingHumans.length === 0) {
+        if (BOT_USER.inVoice && BOT_USER.currentVoiceRoom === rId) {
+          musicBot.stop(rId, io, voiceRooms, broadcastVoiceState);
+        }
+        watchPartyService.stop(rId, null, io);
       }
     }
   }
