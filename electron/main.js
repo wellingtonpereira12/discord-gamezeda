@@ -1,8 +1,24 @@
 const { app, BrowserWindow, ipcMain, session, Menu, desktopCapturer, globalShortcut, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { checkAndApplyUpdates, launchInstallerAndExit } = require('./updater');
 const gameDetector = require('./gameDetector');
+
+const debugLogPath = path.join(os.tmpdir(), 'fakedc_debug.log');
+function logDebug(...args) {
+  const line = `[${new Date().toISOString()}] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}\r\n`;
+  try { fs.appendFileSync(debugLogPath, line, 'utf8'); } catch (e) {}
+  console.log(...args);
+}
+
+process.on('uncaughtException', (err) => {
+  logDebug('UNCAUGHT EXCEPTION:', err && err.stack ? err.stack : err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  logDebug('UNHANDLED REJECTION:', reason);
+});
 
 // Desabilita menus de barra de ferramentas padrão do Electron (File, Edit, View, etc)
 Menu.setApplicationMenu(null);
@@ -194,20 +210,41 @@ function createMainWindow(targetUrl) {
     return { action: 'deny' };
   });
 
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    logDebug('mainWindow did-fail-load:', errorCode, errorDescription, validatedURL);
+  });
+
   mainWindow.loadURL(targetUrl);
 
-  mainWindow.once('ready-to-show', () => {
-    if (splashWindow && !splashWindow.isDestroyed()) {
-      splashWindow.close();
+  const forceShowTimeout = setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      logDebug('forceShowTimeout disparado! Mostrando mainWindow forçadamente.');
+      mainWindow.show();
+      mainWindow.focus();
+      if (splashWindow && !splashWindow.isDestroyed()) {
+        splashWindow.close();
+        splashWindow = null;
+      }
     }
+  }, 4000);
+
+  mainWindow.once('ready-to-show', () => {
+    logDebug('mainWindow ready-to-show disparado!');
+    clearTimeout(forceShowTimeout);
     mainWindow.show();
     mainWindow.focus();
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.close();
+      splashWindow = null;
+    }
 
     // Inicia monitoramento de jogos do Windows (Discord Rich Presence / Game Activity)
     gameDetector.start(10000);
   });
 
   mainWindow.on('closed', () => {
+    logDebug('mainWindow closed disparado!');
+    clearTimeout(forceShowTimeout);
     gameDetector.stop();
     if (pendingDisplayMediaCallback) {
       try { pendingDisplayMediaCallback(); } catch (e) {}
@@ -256,8 +293,8 @@ async function startApplication() {
   } catch (e) {}
   const serverUrl = process.env.SERVER_URL || config.serverUrl;
 
-  console.log(`[FakeDC] Iniciando cliente desktop v${currentVersion}`);
-  console.log(`[FakeDC] Servidor conectado: ${serverUrl}`);
+  logDebug(`[FakeDC] Iniciando cliente desktop v${currentVersion}`);
+  logDebug(`[FakeDC] Servidor conectado: ${serverUrl}`);
 
   // Aguarda janela de splash carregar DOM
   await new Promise(r => setTimeout(r, 600));
@@ -267,6 +304,7 @@ async function startApplication() {
       currentVersion,
       serverUrl,
       onStatus: (status) => {
+        logDebug('[Updater Status]', status);
         if (splashWindow && !splashWindow.isDestroyed()) {
           splashWindow.webContents.send('updater:status', status);
         }
@@ -279,16 +317,18 @@ async function startApplication() {
     });
 
     if (updateResult && updateResult.updateAvailable && updateResult.installerPath) {
-      console.log('[FakeDC] Atualização baixada. Iniciando instalador...');
+      logDebug('[FakeDC] Atualização baixada. Iniciando instalador...');
       launchInstallerAndExit(updateResult.installerPath);
       return;
     }
   } catch (err) {
-    console.error('[FakeDC] Erro ao verificar atualizações:', err.message);
+    logDebug('[FakeDC] Erro ao verificar atualizações:', err.message);
   }
 
+  logDebug('[FakeDC] Agendando createMainWindow em 800ms...');
   // Transição suave para a janela principal
   setTimeout(() => {
+    logDebug('[FakeDC] Chamando createMainWindow...');
     createMainWindow(serverUrl);
   }, 800);
 }
@@ -470,11 +510,15 @@ app.whenReady().then(() => {
 });
 
 app.on('will-quit', () => {
+  logDebug('EVENT will-quit disparado!');
   globalShortcut.unregisterAll();
 });
 
 app.on('window-all-closed', () => {
+  logDebug('EVENT window-all-closed disparado! mainWindow existe?', !!(mainWindow && !mainWindow.isDestroyed()));
+  if (mainWindow && !mainWindow.isDestroyed()) return;
   if (process.platform !== 'darwin') {
+    logDebug('Executando app.quit() via window-all-closed');
     app.quit();
   }
 });
