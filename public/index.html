@@ -214,49 +214,6 @@
 
       <!-- Barra do Usuário Logado (Perfil) -->
       <div class="user-panel">
-        <!-- CARD POPOUT DE PERFIL ESTILO DISCORD -->
-        <div id="user-profile-card-popout" class="user-profile-card-popout" style="display: none;">
-          <div class="profile-card-banner" id="popout-banner">
-            <button type="button" class="profile-card-close" id="btn-close-profile-card" title="Fechar (Esc)">&times;</button>
-          </div>
-          <div class="profile-card-avatar-wrap">
-            <img id="popout-avatar" class="profile-card-avatar" src="" alt="Avatar">
-            <div class="profile-card-status-badge status-online" id="popout-status-badge"></div>
-          </div>
-          <div class="profile-card-body">
-            <div class="profile-card-header">
-              <div class="profile-card-name" id="popout-name">Usuário</div>
-              <div class="profile-card-status-text" id="popout-custom-status"></div>
-            </div>
-            
-            <!-- Cartão de Atividade de Jogo (Rich Presence) -->
-            <div class="profile-card-game-box" id="popout-game-box" style="display: none;">
-              <div class="profile-card-game-icon">🎮</div>
-              <div class="profile-card-game-details">
-                <div class="profile-card-game-label">JOGANDO</div>
-                <div class="profile-card-game-name" id="popout-game-title">Counter-Strike 2</div>
-                <div class="profile-card-game-elapsed" id="popout-game-elapsed">há 15 minutos</div>
-              </div>
-            </div>
-
-            <!-- Sobre Mim / Bio -->
-            <div class="profile-card-section" id="popout-bio-section">
-              <div class="profile-card-sec-label">SOBRE MIM</div>
-              <div class="profile-card-bio-text" id="popout-bio-text">Sem descrição.</div>
-            </div>
-
-            <!-- Ações do Card -->
-            <div class="profile-card-footer">
-              <button type="button" class="profile-card-action-btn primary" id="btn-popout-primary-action">
-                Mencionar
-              </button>
-              <button type="button" class="profile-card-action-btn danger" id="btn-popout-logout" style="display: none;">
-                Sair da Conta
-              </button>
-            </div>
-          </div>
-        </div>
-
         <div class="user-info" id="btn-current-user-profile" title="Clique para opções de conta">
           <div class="user-avatar-wrap">
             <img id="my-avatar" class="user-avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=Gamezeda" alt="User">
@@ -603,6 +560,49 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- CARD POPOUT DE PERFIL ESTILO DISCORD -->
+  <div id="user-profile-card-popout" class="user-profile-card-popout" style="display: none;">
+    <div class="profile-card-banner" id="popout-banner">
+      <button type="button" class="profile-card-close" id="btn-close-profile-card" title="Fechar (Esc)">&times;</button>
+    </div>
+    <div class="profile-card-avatar-wrap">
+      <img id="popout-avatar" class="profile-card-avatar" src="" alt="Avatar">
+      <div class="profile-card-status-badge status-online" id="popout-status-badge"></div>
+    </div>
+    <div class="profile-card-body">
+      <div class="profile-card-header">
+        <div class="profile-card-name" id="popout-name">Usuário</div>
+        <div class="profile-card-status-text" id="popout-custom-status"></div>
+      </div>
+      
+      <!-- Cartão de Atividade de Jogo (Rich Presence) -->
+      <div class="profile-card-game-box" id="popout-game-box" style="display: none;">
+        <div class="profile-card-game-icon">🎮</div>
+        <div class="profile-card-game-details">
+          <div class="profile-card-game-label">JOGANDO</div>
+          <div class="profile-card-game-name" id="popout-game-title">Counter-Strike 2</div>
+          <div class="profile-card-game-elapsed" id="popout-game-elapsed">há 15 minutos</div>
+        </div>
+      </div>
+
+      <!-- Sobre Mim / Bio -->
+      <div class="profile-card-section" id="popout-bio-section">
+        <div class="profile-card-sec-label">SOBRE MIM</div>
+        <div class="profile-card-bio-text" id="popout-bio-text">Sem descrição.</div>
+      </div>
+
+      <!-- Ações do Card -->
+      <div class="profile-card-footer">
+        <button type="button" class="profile-card-action-btn primary" id="btn-popout-primary-action">
+          Mencionar
+        </button>
+        <button type="button" class="profile-card-action-btn danger" id="btn-popout-logout" style="display: none;">
+          Sair da Conta
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- MENU DE CONTEXTO DO USUÁRIO (DISCORD BOTÃO DIREITO) -->
@@ -1354,7 +1354,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261007_v1.0.7"></script>
+  <script type="module" src="app.js?v=20261007_v1.0.8"></script>
 
 </body>
 </html>

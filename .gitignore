@@ -33,4 +33,7 @@ public/uploads/chat/*
 !public/uploads/chat/.gitkeep
 public/uploads/sounds/*
 !public/uploads/sounds/.gitkeep
+public/uploads/avatars/*
+!public/uploads/avatars/.gitkeep
+
 

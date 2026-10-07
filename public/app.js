@@ -1069,6 +1069,13 @@ socket.on('init:state', (data) => {
   if (data.chatMessages) {
     Object.assign(channelMessagesStore, data.chatMessages);
   }
+  if (data.currentUser) {
+    currentUser = Object.assign(currentUser || {}, data.currentUser);
+    if (myUsernameEl) myUsernameEl.textContent = currentUser.name;
+    if (myAvatarImg) myAvatarImg.src = currentUser.avatar;
+    if (cardMyAvatar) cardMyAvatar.src = currentUser.avatar;
+    updateMyUserStatus();
+  }
   allOnlineUsers = data.onlineUsers || [];
   allVoiceUsers = data.voiceUsers || [];
   allVoiceRoomsState = data.voiceRooms || { 'gamezeda': allVoiceUsers };
@@ -1323,9 +1330,11 @@ function formatGameDuration(startedAt) {
 let myGameActivity = null;
 let activePopoutTargetUser = null;
 let popoutGameInterval = null;
+let popoutOpenedAt = 0;
 
 function openUserProfileCard(user, triggerEl, clickEvent) {
   if (!userProfileCardPopout || !user) return;
+  popoutOpenedAt = Date.now();
   activePopoutTargetUser = user;
 
   const isSelf = currentUser && (
@@ -1384,8 +1393,7 @@ function openUserProfileCard(user, triggerEl, clickEvent) {
       btnPopoutPrimaryAction.onclick = (e) => {
         if (e) e.stopPropagation();
         closeUserProfileCard();
-        openSettingsModal();
-        switchSettingsTab('profile');
+        openSettingsModal('profile');
       };
     }
     if (btnPopoutLogout) {
@@ -1418,9 +1426,11 @@ function openUserProfileCard(user, triggerEl, clickEvent) {
   userProfileCardPopout.style.display = 'block';
 
   if (triggerEl && triggerEl.id === 'btn-current-user-profile') {
-    userProfileCardPopout.style.left = '12px';
-    userProfileCardPopout.style.bottom = '64px';
+    const rect = triggerEl.getBoundingClientRect();
+    userProfileCardPopout.style.left = `${Math.max(12, rect.left)}px`;
+    userProfileCardPopout.style.bottom = `${Math.max(10, window.innerHeight - rect.top + 8)}px`;
     userProfileCardPopout.style.top = 'auto';
+    userProfileCardPopout.style.right = 'auto';
   } else if (clickEvent) {
     const cardWidth = 320;
     const cardHeight = 360;
@@ -1439,6 +1449,7 @@ function openUserProfileCard(user, triggerEl, clickEvent) {
     userProfileCardPopout.style.left = `${posX}px`;
     userProfileCardPopout.style.top = `${posY}px`;
     userProfileCardPopout.style.bottom = 'auto';
+    userProfileCardPopout.style.right = 'auto';
   } else if (triggerEl) {
     const rect = triggerEl.getBoundingClientRect();
     let posX = rect.right + 10;
@@ -1450,6 +1461,7 @@ function openUserProfileCard(user, triggerEl, clickEvent) {
     userProfileCardPopout.style.left = `${posX}px`;
     userProfileCardPopout.style.top = `${posY}px`;
     userProfileCardPopout.style.bottom = 'auto';
+    userProfileCardPopout.style.right = 'auto';
   }
 
   if (window.lucide) window.lucide.createIcons();
@@ -1568,6 +1580,7 @@ function createMemberItem(user, isVoice) {
 
   // Clique abre o Card de Perfil estilo Discord
   div.addEventListener('click', (e) => {
+    e.stopPropagation();
     openUserProfileCard(user, div, e);
   });
 
@@ -3030,6 +3043,7 @@ if (messagesContainer) {
     const avatarEl = e.target.closest('.message-avatar');
     const authorEl = e.target.closest('.message-author');
     if (avatarEl || authorEl) {
+      e.stopPropagation();
       const msgEl = e.target.closest('.chat-message');
       if (msgEl) {
         const sender = (authorEl ? authorEl.textContent : (avatarEl ? avatarEl.getAttribute('alt') : '')).trim();
@@ -4386,9 +4400,9 @@ socket.on('auth:set-password-result', ({ success, message }) => {
   }
 });
 
-async function openSettingsModal() {
+async function openSettingsModal(defaultTab = 'voice') {
   settingsModal.style.display = 'flex';
-  switchSettingsTab('voice');
+  switchSettingsTab(defaultTab);
   await populateDeviceSelectors();
 
   // Sincroniza toggle de supressão de ruído RNNoise
@@ -4781,15 +4795,21 @@ function updateProfilePreview() {
   }
 }
 
+let selectedAvatarFile = null;
+
 if (btnChooseAvatar && settingAvatarInput) {
-  btnChooseAvatar.addEventListener('click', () => settingAvatarInput.click());
+  btnChooseAvatar.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    settingAvatarInput.click();
+  });
 }
 
 if (settingAvatarInput) {
   settingAvatarInput.addEventListener('change', (e) => {
     const file = e.target.files && e.target.files[0];
     if (file) {
-      pttAvatarFile = file;
+      selectedAvatarFile = file;
       const previewUrl = URL.createObjectURL(file);
       if (settingAvatarPreview) settingAvatarPreview.src = previewUrl;
       if (previewAvatar) previewAvatar.src = previewUrl;
@@ -4798,9 +4818,10 @@ if (settingAvatarInput) {
 }
 
 if (btnResetAvatar) {
-  btnResetAvatar.addEventListener('click', () => {
+  btnResetAvatar.addEventListener('click', (e) => {
+    e.preventDefault();
     if (!currentUser) return;
-    pttAvatarFile = null;
+    selectedAvatarFile = null;
     const defaultAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(currentUser.name)}`;
     if (settingAvatarPreview) settingAvatarPreview.src = defaultAvatar;
     if (previewAvatar) previewAvatar.src = defaultAvatar;
@@ -4839,16 +4860,16 @@ async function saveProfileSettings() {
   if (!currentUser) return;
   if (btnSaveProfileSettings) {
     btnSaveProfileSettings.disabled = true;
-    btnSaveProfileSettings.innerHTML = 'Salvando alterações...';
+    btnSaveProfileSettings.innerHTML = '<span>Salvando alterações...</span>';
   }
 
-  let avatarUrl = currentUser.avatar;
+  let avatarUrl = (settingAvatarPreview && settingAvatarPreview.src) ? settingAvatarPreview.src : currentUser.avatar;
 
   // Se houver nova imagem de avatar selecionada do PC
-  if (pttAvatarFile) {
+  if (selectedAvatarFile) {
     try {
       const formData = new FormData();
-      formData.append('avatar', pttAvatarFile);
+      formData.append('avatar', selectedAvatarFile);
       const res = await fetch('/api/user/avatar', {
         method: 'POST',
         body: formData
@@ -4860,8 +4881,6 @@ async function saveProfileSettings() {
     } catch (err) {
       console.error('Erro ao enviar avatar:', err);
     }
-  } else if (settingAvatarPreview && settingAvatarPreview.src && settingAvatarPreview.src.includes('dicebear.com')) {
-    avatarUrl = settingAvatarPreview.src;
   }
 
   const bannerColor = settingBannerColor ? settingBannerColor.value : '#5865F2';
@@ -4869,9 +4888,21 @@ async function saveProfileSettings() {
   const customStatusText = settingCustomStatus ? settingCustomStatus.value.trim() : '';
   const bio = settingBio ? settingBio.value.trim() : '';
 
+  currentUser.avatar = avatarUrl;
+  currentUser.bannerColor = bannerColor;
+  currentUser.statusMode = statusMode;
+  currentUser.customStatusText = customStatusText;
+  currentUser.bio = bio;
+
+  if (myAvatarImg) myAvatarImg.src = avatarUrl;
+  if (cardMyAvatar) cardMyAvatar.src = avatarUrl;
+  updateMyUserStatus();
+
   socket.emit('user:update-profile', {
+    avatar: avatarUrl,
     avatarUrl,
     bannerColor,
+    status: statusMode,
     statusMode,
     customStatusText,
     bio
@@ -4889,16 +4920,19 @@ socket.on('user:profile-updated', (result) => {
     if (window.lucide) window.lucide.createIcons();
   }
 
-  if (result?.success && result?.user) {
-    const updated = result.user;
+  const updated = result?.user || (result?.name ? result : null);
+  if (updated) {
+    if (!currentUser) currentUser = {};
     currentUser.avatar = updated.avatar || currentUser.avatar;
     currentUser.bannerColor = updated.bannerColor || currentUser.bannerColor;
-    currentUser.statusMode = updated.statusMode || currentUser.statusMode;
+    currentUser.statusMode = updated.statusMode || updated.status || currentUser.statusMode;
     currentUser.customStatusText = updated.customStatusText !== undefined ? updated.customStatusText : currentUser.customStatusText;
     currentUser.bio = updated.bio !== undefined ? updated.bio : currentUser.bio;
 
     if (myAvatarImg) myAvatarImg.src = currentUser.avatar;
     if (cardMyAvatar) cardMyAvatar.src = currentUser.avatar;
+    if (settingAvatarPreview) settingAvatarPreview.src = currentUser.avatar;
+    if (previewAvatar) previewAvatar.src = currentUser.avatar;
     updateMyUserStatus();
 
     if (profileSaveAlert) {
@@ -4910,7 +4944,7 @@ socket.on('user:profile-updated', (result) => {
       }, 4000);
     }
 
-    pttAvatarFile = null;
+    selectedAvatarFile = null;
     renderMembersSidebar();
   }
 });
@@ -5566,7 +5600,7 @@ function toggleUserPopover(e) {
   if (!currentUser) return;
 
   const isVisible = userProfileCardPopout && userProfileCardPopout.style.display === 'block';
-  if (isVisible) {
+  if (isVisible && activePopoutTargetUser && activePopoutTargetUser.name === currentUser.name) {
     closeUserProfileCard();
   } else {
     openUserProfileCard(currentUser, btnCurrentUserProfile, e);
@@ -5621,6 +5655,7 @@ if (btnPopoutLogout) {
 document.addEventListener('click', (e) => {
   if (userContextMenu && !userContextMenu.contains(e.target)) closeContextMenu();
   if (userProfileCardPopout && userProfileCardPopout.style.display === 'block') {
+    if (Date.now() - popoutOpenedAt < 120) return;
     if (!userProfileCardPopout.contains(e.target) && !btnCurrentUserProfile?.contains(e.target)) {
       closeUserProfileCard();
     }

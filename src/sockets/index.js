@@ -268,11 +268,14 @@ export function setupSockets(io) {
       const user = users.get(socket.id);
       if (!user || !profileData) return;
 
-      if (profileData.avatar !== undefined) user.avatar = profileData.avatar;
+      const newAvatar = profileData.avatarUrl !== undefined ? profileData.avatarUrl : profileData.avatar;
+      const newStatus = profileData.statusMode !== undefined ? profileData.statusMode : profileData.status;
+
+      if (newAvatar !== undefined) user.avatar = newAvatar;
       if (profileData.bannerColor !== undefined) user.bannerColor = profileData.bannerColor;
       if (profileData.bio !== undefined) user.bio = profileData.bio;
       if (profileData.customStatusText !== undefined) user.customStatusText = profileData.customStatusText;
-      if (profileData.status !== undefined) user.status = profileData.status;
+      if (newStatus !== undefined) user.status = newStatus;
 
       try {
         await updateUserProfile(user.name, {
@@ -286,7 +289,18 @@ export function setupSockets(io) {
         console.warn('Erro ao salvar atualização de perfil:', err.message);
       }
 
-      socket.emit('user:profile-updated', user);
+      socket.emit('user:profile-updated', {
+        success: true,
+        user: {
+          id: user.id,
+          name: user.name,
+          avatar: user.avatar,
+          bannerColor: user.bannerColor,
+          bio: user.bio,
+          customStatusText: user.customStatusText,
+          statusMode: user.status
+        }
+      });
       broadcastOnlineMembers();
       broadcastVoiceState();
     });
