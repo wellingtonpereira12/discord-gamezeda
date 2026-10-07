@@ -344,6 +344,44 @@
             <video id="shared-screen-video" autoplay playsinline muted></video>
           </div>
 
+          <!-- Quadro da Watch Party (Assistir Juntos YouTube) -->
+          <div class="screen-tile watch-party-tile" id="watch-party-tile" style="display: none;">
+            <div class="screen-tile-badge">
+              <span class="live-indicator" style="background: #ef4444;">ASSISTIR JUNTOS • YOUTUBE</span>
+              <span id="watch-party-title-badge">Nenhum vídeo</span>
+            </div>
+
+            <div class="screen-tile-controls">
+              <!-- Controle de Volume Local -->
+              <div class="screen-volume-control-box" title="Volume do Vídeo">
+                <button class="screen-btn" id="btn-toggle-watch-party-sound" title="Silenciar / Desmutar áudio">
+                  <i data-lucide="volume-2" id="watch-party-sound-icon" style="width: 16px; height: 16px;"></i>
+                </button>
+                <div class="screen-volume-slider-wrap">
+                  <input type="range" id="watch-party-volume-slider" class="discord-slider screen-volume-slider" min="0" max="100" value="100" title="Ajustar volume">
+                  <span id="watch-party-volume-val" class="screen-volume-val">100%</span>
+                </div>
+              </div>
+
+              <button class="screen-btn" id="btn-watch-party-add" title="Adicionar ou Trocar vídeo">
+                <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+              </button>
+              <button class="screen-btn" id="btn-watch-party-skip" title="Pular vídeo">
+                <i data-lucide="skip-forward" style="width: 16px; height: 16px;"></i>
+              </button>
+              <button class="screen-btn" id="btn-fullscreen-watch-party" title="Tela Cheia">
+                <i data-lucide="maximize" style="width: 16px; height: 16px;"></i>
+              </button>
+              <button class="screen-btn" id="btn-stop-watch-party" title="Fechar Watch Party">
+                <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+              </button>
+            </div>
+
+            <div class="watch-party-player-wrapper" id="yt-player-container">
+              <div id="yt-player"></div>
+            </div>
+          </div>
+
           <div class="user-voice-card" id="card-local-user">
             <img id="card-my-avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=Gamezeda" alt="Você">
             <div class="card-name" id="card-my-name">Você</div>
@@ -358,6 +396,11 @@
           <button class="stage-btn" id="btn-stage-screen" title="Compartilhar Tela HD">
             <i data-lucide="screen-share" style="width: 18px; height: 18px;"></i>
             <span id="btn-stage-screen-text">Compartilhar Tela</span>
+          </button>
+
+          <button class="stage-btn" id="btn-stage-watch-party" title="Assistir Juntos (YouTube)">
+            <i data-lucide="tv" style="width: 18px; height: 18px;"></i>
+            <span>Assistir Juntos</span>
           </button>
 
           <button class="stage-btn" id="btn-stage-soundboard" title="Soundboard">
@@ -893,11 +936,58 @@
       <div class="modal-footer-clean" style="justify-content: flex-end; padding: 12px 20px; background: #2b2d31;">
         <button type="button" class="btn-cancel" id="btn-dismiss-mobile-modal" style="background: #4e5058; color: #fff; padding: 8px 18px; border-radius: 4px; font-weight: 500; font-size: 13.5px;">Fechar</button>
       </div>
+  <!-- MODAL: ASSISTIR JUNTOS (WATCH PARTY YOUTUBE) -->
+  <div id="modal-watch-party" class="modal-overlay" style="display: none; z-index: 10009;">
+    <div class="discord-modal watch-party-modal" style="max-width: 580px; width: 92%; border-radius: 12px; overflow: hidden; background: #313338; box-shadow: 0 16px 40px rgba(0,0,0,0.75);">
+      <div class="modal-body-clean" style="padding: 20px 24px 16px 24px;">
+        <div class="modal-header-clean" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 34px; height: 34px; border-radius: 8px; background: rgba(239, 68, 68, 0.15); display: flex; align-items: center; justify-content: center; color: #ef4444;">
+              <i data-lucide="tv" style="width: 18px; height: 18px;"></i>
+            </div>
+            <div>
+              <h3 style="margin: 0; font-size: 19px; font-weight: 700; color: #fff;">Assistir Juntos</h3>
+              <p class="modal-subtitle" style="margin: 2px 0 0 0; font-size: 12px; color: #949ba4;">Transmita vídeos do YouTube sincronizados para todos na sala</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close-modal" id="btn-close-watch-party-modal" style="font-size: 22px; color: #949ba4; background: none; border: none; cursor: pointer; line-height: 1; padding: 0 4px;" title="Fechar">&times;</button>
+        </div>
+
+        <!-- Barra de Busca / Link -->
+        <div class="form-section" style="margin-top: 14px;">
+          <form id="watch-party-search-form" style="display: flex; gap: 8px;">
+            <div class="channel-name-input-wrapper" style="flex: 1; margin: 0;">
+              <input type="text" id="input-watch-party-query" class="channel-name-input" placeholder="Cole o link do YouTube ou pesquise pelo nome..." autocomplete="off">
+            </div>
+            <button type="submit" class="btn-primary" id="btn-watch-party-search" style="padding: 0 18px; height: 40px; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 6px; white-space: nowrap; background: #ef4444;">
+              <i data-lucide="search" style="width: 15px; height: 15px;"></i>
+              <span>Buscar</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- Indicador de Carregamento -->
+        <div id="watch-party-loading" style="display: none; padding: 24px; text-align: center; color: #949ba4; font-size: 13.5px;">
+          <div class="spinner" style="display: inline-block; width: 22px; height: 22px; border: 3px solid rgba(255,255,255,0.15); border-top-color: #ef4444; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 8px;"></div>
+          <div>Buscando vídeos no YouTube...</div>
+        </div>
+
+        <!-- Resultados da Busca -->
+        <div id="watch-party-results-list" class="watch-party-results-list" style="margin-top: 16px; max-height: 330px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+          <div style="text-align: center; padding: 28px 12px; color: #949ba4; font-size: 13px;">
+            Digite o nome de um vídeo ou cole um link do YouTube acima para começar!
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer-clean" style="justify-content: flex-end; padding: 12px 24px; background: #2b2d31;">
+        <button type="button" class="btn-cancel" id="btn-cancel-watch-party-modal" style="background: #4e5058; color: #fff; padding: 8px 18px; border-radius: 4px; font-weight: 500; font-size: 13.5px;">Fechar</button>
+      </div>
     </div>
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261006_v2"></script>
+  <script type="module" src="app.js?v=20261006_v3"></script>
 
 </body>
 </html>

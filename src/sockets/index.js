@@ -3,6 +3,7 @@ import { registerVoiceHandlers, leaveVoiceRoom } from './voiceHandler.js';
 import { registerSoundboardHandlers } from './soundboardHandler.js';
 import { registerAuthHandlers } from './authHandler.js';
 import { registerChannelHandlers } from './channelHandler.js';
+import { registerWatchPartyHandlers } from './watchPartyHandler.js';
 import { BOT_USER, musicBot } from '../services/musicBot.js';
 import {
   getAllMessagesByChannel,
@@ -185,6 +186,7 @@ export function setupSockets(io) {
     registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
     registerSoundboardHandlers(io, socket, users, voiceRooms);
     registerChannelHandlers(io, socket, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
+    registerWatchPartyHandlers(io, socket, users);
 
     // Controles diretos da UI do Mini Player de Música
     socket.on('music:action', async ({ action, query }) => {
