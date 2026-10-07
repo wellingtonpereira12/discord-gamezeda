@@ -42,7 +42,9 @@ app.on('certificate-error', (event, webContents, url, error, certificate, callba
   callback(true);
 });
 
-const appIconPath = path.join(__dirname, 'assets', 'logo.png');
+const appIconIco = path.join(__dirname, 'assets', 'icon.ico');
+const appIconPng = path.join(__dirname, 'assets', 'logo.png');
+const appIconPath = fs.existsSync(appIconIco) ? appIconIco : appIconPng;
 
 /**
  * Cria a Splash Screen de Inicialização e Verificação de Versão

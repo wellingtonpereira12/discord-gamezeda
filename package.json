@@ -1,6 +1,6 @@
 {
   "name": "jogos-bolados",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Discord Clone com Chat em Tempo Real, Compartilhamento de Tela WebRTC e Cliente Desktop Electron",
   "main": "server.js",
   "type": "module",
@@ -37,6 +37,7 @@
       "main": "electron/main.js"
     },
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -51,6 +52,9 @@
       "allowToChangeInstallationDirectory": true,
       "shortcutName": "Jogos Bolados",
       "uninstallDisplayName": "Jogos Bolados",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
       "artifactName": "Jogos-Bolados-Setup.${ext}"
     }
   }
