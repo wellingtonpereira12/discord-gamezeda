@@ -82,12 +82,14 @@ export class WebRTCManager {
     this.remoteVoiceAudios = new Map();  // peerId -> HTMLAudioElement (Microfone)
     this.remoteScreenAudios = new Map(); // peerId -> HTMLAudioElement (Som de tela/jogo)
     this.screenAudioNodes = new Map();   // peerId -> { sourceNode, gainNode, stream } (Web Audio API anti-ducking)
+    this.voiceAudioNodes = new Map();    // peerId -> { sourceNode, gainNode, destNode, stream } (Web Audio API amplificação até 200%)
 
     // Configurações individuais de volume (Voz e Transmissão 100% Separadas)
     this.userVolumes = new Map();         // peerId -> volumePercent voz/microfone
     this.userScreenVolumes = new Map();   // peerId -> volumePercent transmissão de tela
     this.userMutes = new Map();
     this.userScreenAudioMutes = new Map();
+    this.isDeafened = false;
 
     this.audioContext = null;
     this.localSourceNode = null;
@@ -450,7 +452,7 @@ export class WebRTCManager {
     return null;
   }
 
-  // Reproduzir Voz
+  // Reproduzir Voz com suporte a amplificação até 200% via GainNode
   playRemoteVoice(peerId, stream) {
     this.ensureAudioContext();
 
@@ -463,13 +465,51 @@ export class WebRTCManager {
       document.body.appendChild(audio);
       this.remoteVoiceAudios.set(peerId, audio);
     }
-    audio.srcObject = stream;
-    this.applyOutputDeviceToElement(audio);
 
-    const volPercent = this.userVolumes.has(peerId) ? this.userVolumes.get(peerId) : 100;
-    const isMuted = this.userMutes.get(peerId) || false;
-    audio.volume = Math.max(0, Math.min(1.0, volPercent / 100));
-    audio.muted = isMuted;
+    // Gerencia o roteamento via Web Audio API (GainNode) para suportar até 200% de volume
+    let nodeData = this.voiceAudioNodes.get(peerId);
+    if (!nodeData) {
+      try {
+        if (this.audioContext && typeof this.audioContext.createMediaStreamDestination === 'function') {
+          const sourceNode = this.audioContext.createMediaStreamSource(stream);
+          const gainNode = this.audioContext.createGain();
+          const destNode = this.audioContext.createMediaStreamDestination();
+
+          sourceNode.connect(gainNode);
+          gainNode.connect(destNode);
+
+          nodeData = { sourceNode, gainNode, destNode, stream };
+          this.voiceAudioNodes.set(peerId, nodeData);
+
+          audio.srcObject = destNode.stream;
+        } else {
+          audio.srcObject = stream;
+        }
+      } catch (err) {
+        console.warn('[WebRTC] Falha ao criar GainNode para voz, fallback direto para stream:', err);
+        audio.srcObject = stream;
+      }
+    } else if (nodeData.stream !== stream) {
+      try {
+        nodeData.sourceNode.disconnect();
+        nodeData.sourceNode = this.audioContext.createMediaStreamSource(stream);
+        nodeData.sourceNode.connect(nodeData.gainNode);
+        nodeData.stream = stream;
+        if (audio.srcObject !== nodeData.destNode.stream) {
+          audio.srcObject = nodeData.destNode.stream;
+        }
+      } catch (err) {
+        console.warn('[WebRTC] Erro ao reconectar stream de voz ao GainNode:', err);
+        audio.srcObject = stream;
+      }
+    } else {
+      if (nodeData.destNode && audio.srcObject !== nodeData.destNode.stream) {
+        audio.srcObject = nodeData.destNode.stream;
+      }
+    }
+
+    this.applyOutputDeviceToElement(audio);
+    this.updatePeerVoiceGain(peerId);
 
     const playPromise = audio.play();
     if (playPromise !== undefined) {
@@ -479,7 +519,59 @@ export class WebRTCManager {
       });
     }
 
+    if (this.audioContext && this.audioContext.state === 'suspended') {
+      const unlockCtx = () => {
+        this.audioContext.resume();
+        document.removeEventListener('click', unlockCtx);
+      };
+      document.addEventListener('click', unlockCtx);
+    }
+
     this.attachRemoteSpeechDetection(peerId, stream);
+  }
+
+  updatePeerVoiceGain(peerId) {
+    let volPercent = 100;
+    if (this.userVolumes.has(peerId)) {
+      volPercent = this.userVolumes.get(peerId);
+    } else if (typeof getUserConfig === 'function') {
+      const cfg = getUserConfig(peerId);
+      if (cfg && cfg.volume !== undefined) volPercent = cfg.volume;
+    }
+
+    let isMuted = false;
+    if (this.userMutes.has(peerId)) {
+      isMuted = this.userMutes.get(peerId);
+    } else if (typeof getUserConfig === 'function') {
+      const cfg = getUserConfig(peerId);
+      if (cfg && cfg.muted !== undefined) isMuted = cfg.muted;
+    }
+
+    const isDeaf = this.isDeafened || false;
+    const shouldMute = isMuted || isDeaf;
+    const gainVal = shouldMute ? 0.0 : (volPercent / 100);
+
+    const nodeData = this.voiceAudioNodes.get(peerId);
+    if (nodeData && nodeData.gainNode && this.audioContext) {
+      try {
+        nodeData.gainNode.gain.setValueAtTime(gainVal, this.audioContext.currentTime);
+      } catch (e) {
+        nodeData.gainNode.gain.value = gainVal;
+      }
+    }
+
+    const audio = this.remoteVoiceAudios.get(peerId);
+    if (audio) {
+      if (nodeData) {
+        // Com GainNode ativo, áudio do elemento fica em 1.0 e GainNode controla de 0% a 200%
+        audio.volume = 1.0;
+        audio.muted = shouldMute;
+      } else {
+        // Fallback caso GainNode não esteja disponível
+        audio.volume = Math.max(0, Math.min(1.0, gainVal));
+        audio.muted = shouldMute;
+      }
+    }
   }
 
   // Reproduzir Áudio de Tela com isolamento de Ducking (Web Audio API)
@@ -546,7 +638,9 @@ export class WebRTCManager {
   updatePeerScreenAudioGain(peerId) {
     const volPercent = this.userScreenVolumes.has(peerId) ? this.userScreenVolumes.get(peerId) : 100;
     const isSfxMuted = this.userScreenAudioMutes.get(peerId) || false;
-    const gainVal = isSfxMuted ? 0.0 : (volPercent / 100);
+    const isDeaf = this.isDeafened || false;
+    const shouldMute = isSfxMuted || isDeaf;
+    const gainVal = shouldMute ? 0.0 : (volPercent / 100);
 
     const nodeData = this.screenAudioNodes.get(peerId);
     if (nodeData && nodeData.gainNode && this.audioContext) {
@@ -560,7 +654,7 @@ export class WebRTCManager {
     const audio = this.remoteScreenAudios.get(peerId);
     if (audio && !nodeData) {
       audio.volume = Math.max(0, Math.min(1.0, gainVal));
-      audio.muted = isSfxMuted;
+      audio.muted = shouldMute;
     }
   }
 
@@ -1154,6 +1248,16 @@ export class WebRTCManager {
     this.userMutes.delete(peerId);
     this.userScreenAudioMutes.delete(peerId);
 
+    const voiceNodeData = this.voiceAudioNodes.get(peerId);
+    if (voiceNodeData) {
+      try {
+        voiceNodeData.sourceNode.disconnect();
+        voiceNodeData.gainNode.disconnect();
+        if (voiceNodeData.destNode) voiceNodeData.destNode.disconnect();
+      } catch (e) {}
+      this.voiceAudioNodes.delete(peerId);
+    }
+
     const nodeData = this.screenAudioNodes.get(peerId);
     if (nodeData) {
       try {
@@ -1185,6 +1289,15 @@ export class WebRTCManager {
     for (const [peerId, pc] of this.peers.entries()) {
       try { pc.close(); } catch (e) {}
     }
+
+    this.voiceAudioNodes.forEach(nodeData => {
+      try {
+        nodeData.sourceNode.disconnect();
+        nodeData.gainNode.disconnect();
+        if (nodeData.destNode) nodeData.destNode.disconnect();
+      } catch (e) {}
+    });
+    this.voiceAudioNodes.clear();
 
     this.screenAudioNodes.forEach(nodeData => {
       try {
@@ -1223,12 +1336,10 @@ export class WebRTCManager {
     this.userScreenAudioMutes.clear();
   }
 
-  // Volume do Microfone/Voz do Usuário (100% independente da transmissão)
+  // Volume do Microfone/Voz do Usuário (100% independente da transmissão, até 200% via GainNode)
   setUserVolume(peerId, volumePercent) {
     this.userVolumes.set(peerId, volumePercent);
-    const vol = Math.max(0, Math.min(2.0, volumePercent / 100));
-    const voiceAudio = this.remoteVoiceAudios.get(peerId);
-    if (voiceAudio) voiceAudio.volume = Math.min(1.0, vol);
+    this.updatePeerVoiceGain(peerId);
   }
 
   getUserVolume(peerId) {
@@ -1247,8 +1358,13 @@ export class WebRTCManager {
 
   setUserMuted(peerId, isMuted) {
     this.userMutes.set(peerId, isMuted);
-    const voiceAudio = this.remoteVoiceAudios.get(peerId);
-    if (voiceAudio) voiceAudio.muted = isMuted;
+    this.updatePeerVoiceGain(peerId);
+  }
+
+  setDeafened(isDeafened) {
+    this.isDeafened = !!isDeafened;
+    this.remoteVoiceAudios.forEach((_, peerId) => this.updatePeerVoiceGain(peerId));
+    this.remoteScreenAudios.forEach((_, peerId) => this.updatePeerScreenAudioGain(peerId));
   }
 
   setUserScreenAudioMuted(peerId, isMuted) {

@@ -2449,6 +2449,9 @@ async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda',
   });
 
   webrtc.ensureAudioContext();
+  if (typeof webrtc.setDeafened === 'function') {
+    webrtc.setDeafened(isDeafened);
+  }
   sounds.playJoin();
 
   // Conecta o microfone em paralelo sem travar a interface nem exigir segundo clique
@@ -2865,6 +2868,9 @@ btnStageMic.addEventListener('click', () => btnToggleMic.click());
 btnToggleDeaf.addEventListener('click', () => {
   isDeafened = !isDeafened;
   btnToggleDeaf.classList.toggle('active-muted', isDeafened);
+  if (typeof webrtc !== 'undefined' && webrtc && typeof webrtc.setDeafened === 'function') {
+    webrtc.setDeafened(isDeafened);
+  }
   document.querySelectorAll('audio').forEach(a => {
     a.muted = isDeafened;
   });
