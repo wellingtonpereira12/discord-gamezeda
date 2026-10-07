@@ -1,5 +1,5 @@
 import { sounds } from './sounds.js?v=20261007_v7';
-import { WebRTCManager } from './webrtc.js?v=20261007_v7';
+import { WebRTCManager } from './webrtc.js?v=20261007_v8';
 
 if (window.lucide) {
   window.lucide.createIcons();
@@ -3770,21 +3770,16 @@ async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda',
     closeAllDrawers();
   }
 
-  // Emite entrada no socket IMEDIATAMENTE (sem esperar microfone) com o status atual de mute/deaf
-  socket.emit('voice:join', {
-    roomId,
-    isMuted: !!isMuted,
-    isDeafened: !!isDeafened
-  });
-
   webrtc.ensureAudioContext();
   if (typeof webrtc.setDeafened === 'function') {
     webrtc.setDeafened(isDeafened);
   }
   sounds.playJoin();
 
-  // Conecta o microfone em paralelo sem travar a interface nem exigir segundo clique
-  webrtc.startAudio().then(() => {
+  // Garante que o microfone esteja capturado e pronto ANTES de conectar aos peers
+  // para que os tracks de áudio já sejam incluídos na primeira oferta SDP sem conflito de corrida
+  try {
+    await webrtc.startAudio();
     if (voiceInputMode === 'ptt') {
       webrtc.setMuted(true);
       isMuted = true;
@@ -3792,8 +3787,15 @@ async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda',
       btnStageMic.classList.add('active-muted');
       syncMuteStatusToServer();
     }
-  }).catch(err => {
-    console.warn('[WebRTC] Aviso ao inicializar áudio:', err);
+  } catch (err) {
+    console.warn('[WebRTC] Aviso ao inicializar áudio pré-conexão:', err);
+  }
+
+  // Emite entrada no canal de voz no socket com microfone já inicializado
+  socket.emit('voice:join', {
+    roomId,
+    isMuted: !!isMuted,
+    isDeafened: !!isDeafened
   });
 }
 

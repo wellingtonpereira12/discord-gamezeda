@@ -102,8 +102,27 @@ export class WebRTCManager {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' }
-      ]
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        {
+          urls: 'turn:openrelay.metered.ca:80',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        }
+      ],
+      iceCandidatePoolSize: 10
     };
 
     this.setupSocketEvents();
@@ -408,8 +427,21 @@ export class WebRTCManager {
       }
     };
 
+    pc.oniceconnectionstatechange = () => {
+      console.log(`[WebRTC 📞 ICE] Peer ${peerId}: estado=${pc.iceConnectionState}`);
+      if (pc.iceConnectionState === 'failed') {
+        try {
+          if (typeof pc.restartIce === 'function') {
+            console.log(`[WebRTC 📞 ICE] Tentando reiniciar ICE para ${peerId}...`);
+            pc.restartIce();
+          }
+        } catch (e) {}
+      }
+    };
+
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+      console.log(`[WebRTC 📞 Conexão] Peer ${peerId}: estado=${pc.connectionState}`);
+      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
         this.closePeer(peerId);
       }
     };
@@ -449,16 +481,19 @@ export class WebRTCManager {
   }
 
   getOutgoingAudioTrack() {
-    if (this.processedAudioStream && this.processedAudioStream.getAudioTracks().length > 0) {
+    if (this.noiseSuppressionEnabled && this.processedAudioStream && this.processedAudioStream.getAudioTracks().length > 0) {
       return this.processedAudioStream.getAudioTracks()[0];
     }
     if (this.localAudioStream && this.localAudioStream.getAudioTracks().length > 0) {
       return this.localAudioStream.getAudioTracks()[0];
     }
+    if (this.processedAudioStream && this.processedAudioStream.getAudioTracks().length > 0) {
+      return this.processedAudioStream.getAudioTracks()[0];
+    }
     return null;
   }
 
-  // Reproduzir Voz com suporte a amplificação até 200% via GainNode
+  // Reproduzir Voz com suporte a reprodução nativa direta e amplificação até 200% via GainNode
   playRemoteVoice(peerId, stream) {
     this.ensureAudioContext();
 
@@ -472,46 +507,10 @@ export class WebRTCManager {
       this.remoteVoiceAudios.set(peerId, audio);
     }
 
-    // Gerencia o roteamento via Web Audio API (GainNode) para suportar até 200% de volume
-    let nodeData = this.voiceAudioNodes.get(peerId);
-    if (!nodeData) {
-      try {
-        if (this.audioContext && typeof this.audioContext.createMediaStreamDestination === 'function') {
-          const sourceNode = this.audioContext.createMediaStreamSource(stream);
-          const gainNode = this.audioContext.createGain();
-          const destNode = this.audioContext.createMediaStreamDestination();
-
-          sourceNode.connect(gainNode);
-          gainNode.connect(destNode);
-
-          nodeData = { sourceNode, gainNode, destNode, stream };
-          this.voiceAudioNodes.set(peerId, nodeData);
-
-          audio.srcObject = destNode.stream;
-        } else {
-          audio.srcObject = stream;
-        }
-      } catch (err) {
-        console.warn('[WebRTC] Falha ao criar GainNode para voz, fallback direto para stream:', err);
-        audio.srcObject = stream;
-      }
-    } else if (nodeData.stream !== stream) {
-      try {
-        nodeData.sourceNode.disconnect();
-        nodeData.sourceNode = this.audioContext.createMediaStreamSource(stream);
-        nodeData.sourceNode.connect(nodeData.gainNode);
-        nodeData.stream = stream;
-        if (audio.srcObject !== nodeData.destNode.stream) {
-          audio.srcObject = nodeData.destNode.stream;
-        }
-      } catch (err) {
-        console.warn('[WebRTC] Erro ao reconectar stream de voz ao GainNode:', err);
-        audio.srcObject = stream;
-      }
-    } else {
-      if (nodeData.destNode && audio.srcObject !== nodeData.destNode.stream) {
-        audio.srcObject = nodeData.destNode.stream;
-      }
+    // Atribuição direta do stream WebRTC ao elemento <audio> (W3C standard)
+    // Resolve o bug histórico do Chromium crbug.com/120148 que silenciava tracks sem sink direto
+    if (audio.srcObject !== stream) {
+      audio.srcObject = stream;
     }
 
     this.applyOutputDeviceToElement(audio);
@@ -519,8 +518,12 @@ export class WebRTCManager {
 
     const playPromise = audio.play();
     if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        const unlock = () => { audio.play(); document.removeEventListener('click', unlock); };
+      playPromise.catch((err) => {
+        console.warn(`[WebRTC 🎙️] Autoplay bloqueado para ${peerId}, aguardando clique:`, err);
+        const unlock = () => {
+          audio.play().catch(() => {});
+          document.removeEventListener('click', unlock);
+        };
         document.addEventListener('click', unlock);
       });
     }
@@ -557,25 +560,45 @@ export class WebRTCManager {
     const shouldMute = isMuted || isDeaf;
     const gainVal = shouldMute ? 0.0 : (volPercent / 100);
 
-    const nodeData = this.voiceAudioNodes.get(peerId);
-    if (nodeData && nodeData.gainNode && this.audioContext) {
-      try {
-        nodeData.gainNode.gain.setValueAtTime(gainVal, this.audioContext.currentTime);
-      } catch (e) {
-        nodeData.gainNode.gain.value = gainVal;
-      }
-    }
-
     const audio = this.remoteVoiceAudios.get(peerId);
-    if (audio) {
-      if (nodeData) {
-        // Com GainNode ativo, áudio do elemento fica em 1.0 e GainNode controla de 0% a 200%
-        audio.volume = 1.0;
+    let nodeData = this.voiceAudioNodes.get(peerId);
+
+    // Se o usuário configurou amplificação acima de 100% (até 200%), roteia pelo GainNode da Web Audio API
+    if (volPercent > 100 && !shouldMute && audio && audio.srcObject) {
+      if (!nodeData) {
+        try {
+          this.ensureAudioContext();
+          const sourceNode = this.audioContext.createMediaStreamSource(audio.srcObject);
+          const gainNode = this.audioContext.createGain();
+          sourceNode.connect(gainNode);
+          gainNode.connect(this.audioContext.destination);
+          nodeData = { sourceNode, gainNode, stream: audio.srcObject };
+          this.voiceAudioNodes.set(peerId, nodeData);
+        } catch (e) {
+          console.warn('[WebRTC] Falha ao criar GainNode para amplificação de voz > 100%:', e);
+        }
+      }
+      if (nodeData && nodeData.gainNode && this.audioContext) {
+        try {
+          nodeData.gainNode.gain.setValueAtTime(gainVal, this.audioContext.currentTime);
+        } catch (e) {
+          nodeData.gainNode.gain.value = gainVal;
+        }
+      }
+      // Silencia a saída direta do elemento HTML para que o áudio não toque duas vezes
+      audio.muted = true;
+    } else {
+      // Volume normal de 0% a 100% ou mutado: toca nativamente no elemento de áudio (baixa latência e máxima fidelidade)
+      if (nodeData && nodeData.gainNode && this.audioContext) {
+        try {
+          nodeData.gainNode.gain.setValueAtTime(0.0, this.audioContext.currentTime);
+        } catch (e) {
+          nodeData.gainNode.gain.value = 0.0;
+        }
+      }
+      if (audio) {
         audio.muted = shouldMute;
-      } else {
-        // Fallback caso GainNode não esteja disponível
         audio.volume = Math.max(0, Math.min(1.0, gainVal));
-        audio.muted = shouldMute;
       }
     }
   }
@@ -667,7 +690,10 @@ export class WebRTCManager {
   applyOutputDeviceToElement(audioEl) {
     if (audioEl && typeof audioEl.setSinkId === 'function' && this.selectedOutputDeviceId && this.selectedOutputDeviceId !== 'default') {
       audioEl.setSinkId(this.selectedOutputDeviceId).catch(err => {
-        console.warn('Erro ao definir sinkId no elemento de áudio:', err);
+        console.warn('Erro ao definir sinkId no elemento de áudio, restaurando dispositivo padrão:', err);
+        this.selectedOutputDeviceId = 'default';
+        localStorage.removeItem('discord_output_device');
+        audioEl.setSinkId('').catch(() => {});
       });
     }
   }
@@ -726,13 +752,32 @@ export class WebRTCManager {
     }
 
     try {
-      this.localAudioStream = await navigator.mediaDevices.getUserMedia({
-        audio: audioConstraints,
-        video: false
-      });
+      try {
+        this.localAudioStream = await navigator.mediaDevices.getUserMedia({
+          audio: audioConstraints,
+          video: false
+        });
+      } catch (devErr) {
+        if (this.selectedInputDeviceId && this.selectedInputDeviceId !== 'default') {
+          console.warn('[WebRTC 🎤] Microfone específico indisponível, revertendo para microfone padrão:', devErr);
+          this.selectedInputDeviceId = 'default';
+          localStorage.removeItem('discord_input_device');
+          delete audioConstraints.deviceId;
+          this.localAudioStream = await navigator.mediaDevices.getUserMedia({
+            audio: audioConstraints,
+            video: false
+          });
+        } else {
+          throw devErr;
+        }
+      }
 
-      console.log('[WebRTC 🎤] Microfone ativado!');
+      console.log('[WebRTC 🎤] Microfone capturado com sucesso!');
       this.isMuted = false;
+
+      if (this.audioContext && this.audioContext.state === 'suspended') {
+        try { await this.audioContext.resume(); } catch (e) {}
+      }
 
       await this.setupAudioProcessingChain(this.localAudioStream);
 
@@ -782,12 +827,12 @@ export class WebRTCManager {
       this.outputGainNode.gain.value = this.isMuted ? 0.0 : 1.0;
       this.outputGainNode.connect(this.destinationNode);
 
-      // Ganhos Wet (RNNoise) e Dry (Bypass direto) para transição limpa
+      // Ganhos Wet (RNNoise) e Dry (Bypass direto) - inicia em bypass 100% para áudio nunca ficar mudo
       this.rnnoiseGainNode = this.audioContext.createGain();
       this.bypassGainNode = this.audioContext.createGain();
 
-      this.rnnoiseGainNode.gain.value = this.noiseSuppressionEnabled ? 1.0 : 0.0;
-      this.bypassGainNode.gain.value = this.noiseSuppressionEnabled ? 0.0 : 1.0;
+      this.rnnoiseGainNode.gain.value = 0.0;
+      this.bypassGainNode.gain.value = 1.0;
 
       this.rnnoiseGainNode.connect(this.outputGainNode);
       this.bypassGainNode.connect(this.outputGainNode);
@@ -850,7 +895,10 @@ export class WebRTCManager {
         console.warn('[WebRTC 🤖 RNNoise] Aviso ao instanciar RNNoise, operando em bypass:', rnErr);
       }
 
-      if (!rnnoiseReady) {
+      if (rnnoiseReady && this.noiseSuppressionEnabled) {
+        this.bypassGainNode.gain.value = 0.0;
+        this.rnnoiseGainNode.gain.value = 1.0;
+      } else {
         this.bypassGainNode.gain.value = 1.0;
         this.rnnoiseGainNode.gain.value = 0.0;
       }
@@ -1285,12 +1333,17 @@ export class WebRTCManager {
   }
 
   async renegotiate(pc, targetId, extraData = {}) {
-    if (!targetId) return;
+    if (!targetId || !pc) return;
     try {
-      if (pc.signalingState !== 'stable') {
-        await new Promise(r => setTimeout(r, 250));
+      let retries = 10;
+      while (pc.signalingState !== 'stable' && retries > 0) {
+        await new Promise(r => setTimeout(r, 150));
+        retries--;
       }
-      if (pc.signalingState !== 'stable') return;
+      if (pc.signalingState !== 'stable') {
+        console.warn(`[WebRTC 📞] Renegociação adiada com ${targetId}: estado=${pc.signalingState}`);
+        return;
+      }
 
       let offer = await pc.createOffer();
       offer.sdp = this.optimizeSdp(offer.sdp);
