@@ -4236,32 +4236,36 @@ function setupDesktopClient() {
     const sourceIdToShare = selectedSourceId;
     if (modalScreenPicker) modalScreenPicker.style.display = 'none';
 
+    // 1. Notifica o main process caso tenha sido acionado via setDisplayMediaRequestHandler (v1.0.4 ou moderno)
     if (window.electronAPI && window.electronAPI.selectScreenSource) {
       window.electronAPI.selectScreenSource(sourceIdToShare);
     }
 
-    try {
-      if (!inVoice) {
-        const firstVoice = allChannels.find(c => c.type === 'voice') || { id: 'gamezeda', name: 'Gamezeda' };
-        await connectToVoiceChannel(firstVoice.id, firstVoice.name);
-      }
-
-      const stream = await webrtc.startScreenShareWithDesktopSource(sourceIdToShare);
-      if (stream) {
-        isScreenSharing = true;
-        registerStream('local', stream, `${currentUser ? currentUser.name : 'Você'} (Sua Tela HD)`, currentUser ? currentUser.avatar : '', true);
-        btnStageScreen.classList.add('active-stream');
-        btnStageScreenText.textContent = 'Parar Tela';
-        const hasAudio = stream.getAudioTracks && stream.getAudioTracks().length > 0;
-        if (hasAudio) {
-          showSoundToast('🔊 Transmitindo tela com som do sistema!');
-        } else {
-          showSoundToast('📺 Transmitindo tela em HD (1080p60fps)!');
+    // 2. Se temos a API direta de captura por ID (v1.0.5+)
+    if (typeof webrtc !== 'undefined' && typeof webrtc.startScreenShareWithDesktopSource === 'function' && window.electronAPI && typeof window.electronAPI.getScreenSources === 'function') {
+      try {
+        if (!inVoice) {
+          const firstVoice = allChannels.find(c => c.type === 'voice') || { id: 'gamezeda', name: 'Gamezeda' };
+          await connectToVoiceChannel(firstVoice.id, firstVoice.name);
         }
+
+        const stream = await webrtc.startScreenShareWithDesktopSource(sourceIdToShare);
+        if (stream) {
+          isScreenSharing = true;
+          registerStream('local', stream, `${currentUser ? currentUser.name : 'Você'} (Sua Tela HD)`, currentUser ? currentUser.avatar : '', true);
+          btnStageScreen.classList.add('active-stream');
+          btnStageScreenText.textContent = 'Parar Tela';
+          const hasAudio = stream.getAudioTracks && stream.getAudioTracks().length > 0;
+          if (hasAudio) {
+            showSoundToast('🔊 Transmitindo tela com som do sistema!');
+          } else {
+            showSoundToast('📺 Transmitindo tela em HD (1080p60fps)!');
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao compartilhar tela selecionada:', err);
+        showSoundToast('❌ Erro ao compartilhar tela: ' + (err.message || 'Erro'));
       }
-    } catch (err) {
-      console.error('Erro ao compartilhar tela selecionada:', err);
-      showSoundToast('❌ Erro ao compartilhar tela: ' + (err.message || 'Erro'));
     }
   }
 
@@ -4288,11 +4292,35 @@ function setupDesktopClient() {
 
     try {
       let sources = preloadedSources;
-      if (!sources && window.electronAPI && window.electronAPI.getScreenSources) {
-        sources = await window.electronAPI.getScreenSources();
-      }
-      activeSources = sources || [];
 
+      // 1. Se não temos fontes e temos a API direta (v1.0.5+)
+      if (!sources && window.electronAPI && typeof window.electronAPI.getScreenSources === 'function') {
+        try {
+          sources = await window.electronAPI.getScreenSources();
+        } catch (e) {
+          console.warn('[ScreenShare] Erro em getScreenSources:', e);
+        }
+      }
+
+      // 2. Se ainda não temos fontes e estamos em cliente anterior (v1.0.4 sem getScreenSources)
+      if ((!sources || sources.length === 0) && (!window.electronAPI || typeof window.electronAPI.getScreenSources !== 'function')) {
+        console.log('[ScreenShare] Disparando getDisplayMedia legado no Electron...');
+        try {
+          navigator.mediaDevices.getDisplayMedia({ video: true, audio: true }).catch(err => {
+            console.warn('[ScreenShare] Fallback getDisplayMedia:', err.message);
+          });
+        } catch (e) {}
+        return; // O evento electron:open-screen-picker responderá chamando openElectronScreenPickerModal(sources)
+      }
+
+      // 3. Fallback inteligente: se a lista veio vazia do sistema, garante Tela Principal
+      if (!sources || sources.length === 0) {
+        sources = [
+          { id: 'screen:0:0', name: 'Tela Inteira (Monitor Principal)', thumbnail: '', isScreen: true }
+        ];
+      }
+
+      activeSources = sources;
       const screenCount = activeSources.filter(s => s.isScreen).length;
       const windowCount = activeSources.filter(s => !s.isScreen).length;
 
@@ -4317,9 +4345,9 @@ function setupDesktopClient() {
       if (typeof lucide !== 'undefined') lucide.createIcons();
     } catch (err) {
       console.error('Erro ao abrir seletor de telas:', err);
-      if (gridScreenPicker) {
-        gridScreenPicker.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 48px 20px; color: #ed4245;">Erro ao obter janelas e telas.</div>`;
-      }
+      activeSources = [{ id: 'screen:0:0', name: 'Tela Inteira (Monitor Principal)', thumbnail: '', isScreen: true }];
+      selectedSourceId = 'screen:0:0';
+      renderScreenPickerGrid();
     }
   };
 
