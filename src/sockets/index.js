@@ -3,6 +3,7 @@ import { registerVoiceHandlers, leaveVoiceRoom } from './voiceHandler.js';
 import { registerSoundboardHandlers } from './soundboardHandler.js';
 import { registerAuthHandlers } from './authHandler.js';
 import { registerChannelHandlers } from './channelHandler.js';
+import { BOT_USER, musicBot } from '../services/musicBot.js';
 import {
   getAllMessagesByChannel,
   saveMessage,
@@ -30,6 +31,10 @@ export function setupSockets(io) {
         uniqueList.push(u);
       }
     }
+    // Inclui Alfredo como membro bot online
+    if (!seen.has(BOT_USER.name.toLowerCase())) {
+      uniqueList.push(BOT_USER);
+    }
     io.emit('members:update', uniqueList);
   }
 
@@ -38,6 +43,15 @@ export function setupSockets(io) {
     for (const [roomId, socketIds] of Object.entries(voiceRooms)) {
       const activeInRoom = [];
       for (const sId of Array.from(socketIds)) {
+        if (sId === BOT_USER.id) {
+          if (BOT_USER.inVoice && BOT_USER.currentVoiceRoom === roomId) {
+            activeInRoom.push(BOT_USER);
+          } else {
+            socketIds.delete(sId);
+          }
+          continue;
+        }
+
         const u = users.get(sId);
         if (u && u.inVoice && u.currentVoiceRoom === roomId) {
           activeInRoom.push(u);
@@ -47,6 +61,7 @@ export function setupSockets(io) {
       }
       roomsState[roomId] = activeInRoom;
     }
+
     io.emit('voice:update', {
       rooms: roomsState,
       roomId: 'gamezeda',
@@ -138,10 +153,16 @@ export function setupSockets(io) {
           uniqueOnline.push(u);
         }
       }
+      if (!seen.has(BOT_USER.name.toLowerCase())) {
+        uniqueOnline.push(BOT_USER);
+      }
 
       const roomsState = {};
       for (const [roomId, socketIds] of Object.entries(voiceRooms)) {
-        roomsState[roomId] = Array.from(socketIds).map(id => users.get(id)).filter(Boolean);
+        roomsState[roomId] = Array.from(socketIds).map(id => {
+          if (id === BOT_USER.id) return BOT_USER;
+          return users.get(id);
+        }).filter(Boolean);
       }
 
       socket.emit('init:state', {
@@ -160,10 +181,29 @@ export function setupSockets(io) {
 
     // Registra sub-módulos
     registerAuthHandlers(io, socket, users);
-    registerChatHandlers(io, socket, users);
+    registerChatHandlers(io, socket, users, voiceRooms, broadcastVoiceState);
     registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
     registerSoundboardHandlers(io, socket, users, voiceRooms);
     registerChannelHandlers(io, socket, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
+
+    // Controles diretos da UI do Mini Player de Música
+    socket.on('music:action', async ({ action, query }) => {
+      const user = users.get(socket.id);
+      if (!user || !user.inVoice || !user.currentVoiceRoom) return;
+      const roomId = user.currentVoiceRoom;
+
+      if (action === 'play' && query) {
+        await musicBot.handlePlay(roomId, query, user, io, voiceRooms, broadcastVoiceState);
+      } else if (action === 'skip') {
+        musicBot.skip(roomId, io, voiceRooms, broadcastVoiceState);
+      } else if (action === 'pause') {
+        musicBot.pause(roomId, io);
+      } else if (action === 'resume') {
+        musicBot.resume(roomId, io, voiceRooms, broadcastVoiceState);
+      } else if (action === 'stop') {
+        musicBot.stop(roomId, io, voiceRooms, broadcastVoiceState);
+      }
+    });
 
     // Logout voluntário do usuário
     socket.on('logout', async (data = {}) => {

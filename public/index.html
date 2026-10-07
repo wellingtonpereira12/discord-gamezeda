@@ -12,6 +12,8 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- Socket.io Client -->
   <script src="/socket.io/socket.io.js"></script>
+  <!-- Hls.js Client for SoundCloud & Audio Streams -->
+  <script src="/hls.min.js"></script>
 </head>
 <body oncontextmenu="return false;">
 
@@ -373,6 +375,51 @@
             <span>Desconectar</span>
           </button>
         </div>
+
+        <!-- WIDGET DO PLAYER DE MÚSICA ALFREDO (DISCORD MUSIC BAR) -->
+        <div class="music-player-widget" id="music-player-widget" style="display: none;">
+          <div class="music-widget-left">
+            <img id="music-widget-thumb" class="music-widget-thumb" src="https://api.dicebear.com/7.x/bottts/svg?seed=AlfredoBot&backgroundColor=5865f2" alt="Capa">
+            <div class="music-widget-info">
+              <div class="music-widget-title" id="music-widget-title">Nome da Música</div>
+              <div class="music-widget-artist" id="music-widget-artist">Artista • Pedido por Alguém</div>
+            </div>
+          </div>
+
+          <div class="music-widget-center">
+            <div class="music-widget-controls">
+              <button type="button" class="music-btn" id="music-btn-play-pause" title="Pausar / Retomar">
+                <i data-lucide="pause" id="music-play-pause-icon" style="width: 16px; height: 16px;"></i>
+              </button>
+              <button type="button" class="music-btn" id="music-btn-skip" title="Pular Música">
+                <i data-lucide="skip-forward" style="width: 16px; height: 16px;"></i>
+              </button>
+              <button type="button" class="music-btn danger" id="music-btn-stop" title="Parar Reprodução">
+                <i data-lucide="square" style="width: 14px; height: 14px;"></i>
+              </button>
+            </div>
+            <div class="music-progress-row">
+              <span id="music-time-current" class="music-time">0:00</span>
+              <div class="music-progress-bar-wrap" id="music-progress-bar-wrap">
+                <div class="music-progress-bar-fill" id="music-progress-bar-fill" style="width: 0%;"></div>
+              </div>
+              <span id="music-time-total" class="music-time">0:00</span>
+            </div>
+          </div>
+
+          <div class="music-widget-right">
+            <!-- Input rápido para adicionar músicas -->
+            <form id="music-quick-search-form" class="music-quick-search-form">
+              <input type="text" id="music-quick-input" placeholder="Tocar música..." autocomplete="off">
+              <button type="submit" class="music-btn-add" title="Tocar">
+                <i data-lucide="play" style="width: 13px; height: 13px;"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Áudio do Bot de Música -->
+        <audio id="music-bot-audio" preload="auto" playsinline style="display: none;"></audio>
 
       </div>
 

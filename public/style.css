@@ -3487,5 +3487,242 @@ body.is-electron #btn-download-desktop {
   display: none !important;
 }
 
+/* ==========================================
+   WIDGET DO PLAYER DE MÚSICA ALFREDO (DISCORD)
+   ========================================== */
+.music-player-widget {
+  position: absolute;
+  bottom: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30, 31, 34, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 8px 16px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  z-index: 95;
+  width: calc(100% - 48px);
+  max-width: 680px;
+  box-sizing: border-box;
+  animation: slideUpWidget 0.25s ease-out;
+}
+
+@keyframes slideUpWidget {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.music-widget-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.music-widget-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+  background: #1e1f22;
+}
+
+.music-widget-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.music-widget-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.music-widget-artist {
+  font-size: 11px;
+  color: #949ba4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.music-widget-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.music-widget-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.music-btn {
+  background: #313338;
+  border: none;
+  color: #dbdee1;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.music-btn:hover {
+  background: #5865F2;
+  color: #ffffff;
+  transform: scale(1.08);
+}
+
+.music-btn.danger:hover {
+  background: #da373c;
+  color: #ffffff;
+}
+
+.music-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.music-time {
+  font-size: 10.5px;
+  color: #949ba4;
+  font-variant-numeric: tabular-nums;
+  min-width: 28px;
+  text-align: center;
+}
+
+.music-progress-bar-wrap {
+  width: 140px;
+  height: 5px;
+  background: #4e5058;
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+}
+
+.music-progress-bar-fill {
+  height: 100%;
+  background: #5865F2;
+  width: 0%;
+  border-radius: 3px;
+  transition: width 0.25s linear;
+}
+
+.music-widget-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.music-quick-search-form {
+  display: flex;
+  align-items: center;
+  background: #1e1f22;
+  border-radius: 6px;
+  padding: 3px 4px 3px 10px;
+  border: 1px solid #383a40;
+}
+
+.music-quick-search-form input {
+  background: none;
+  border: none;
+  color: #dbdee1;
+  font-size: 12px;
+  outline: none;
+  width: 115px;
+}
+
+.music-quick-search-form input::placeholder {
+  color: #80848e;
+}
+
+.music-btn-add {
+  background: #5865F2;
+  border: none;
+  color: #ffffff;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.music-btn-add:hover {
+  opacity: 0.85;
+}
+
+/* BADGE [BOT] ESTILO DISCORD OFICIAL */
+.bot-tag {
+  background: #5865F2;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4.5px;
+  border-radius: 3px;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin-left: 5px;
+}
+
+/* Responsivo para celulares */
+@media (max-width: 768px) {
+  .music-player-widget {
+    bottom: 76px;
+    width: calc(100% - 24px);
+    padding: 8px 12px;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .music-widget-right {
+    display: none;
+  }
+  .music-widget-title,
+  .music-widget-artist {
+    max-width: 130px;
+  }
+  .music-progress-bar-wrap {
+    width: 100px;
+  }
+}
+
+
 
 

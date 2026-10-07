@@ -14,7 +14,9 @@
     "express": "^4.19.2",
     "multer": "^2.4.0",
     "mysql2": "^3.24.5",
-    "socket.io": "^4.7.5"
+    "play-dl": "^1.9.7",
+    "socket.io": "^4.7.5",
+    "yt-search": "^2.13.1"
   },
   "devDependencies": {
     "electron": "^31.3.1",

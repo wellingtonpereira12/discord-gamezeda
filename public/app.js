@@ -1176,8 +1176,13 @@ function createMemberItem(user, isVoice) {
   div.setAttribute('data-member-id', user.id);
 
   const isLocal = user.id === socket.id;
+  const isBot = !!user.isBot || user.id === 'bot-alfredo' || user.id === 'bot-rythm';
   const userIsMuted = isLocal ? isMuted : !!user.isMuted;
   const userIsDeafened = isLocal ? isDeafened : !!user.isDeafened;
+
+  const activityText = isVoice
+    ? '🔊 Em voz'
+    : (isBot ? '🎵 !play para ouvir' : 'Online');
 
   div.innerHTML = `
     <div class="member-avatar-wrap">
@@ -1187,6 +1192,7 @@ function createMemberItem(user, isVoice) {
     <div class="member-info">
       <div style="display: flex; align-items: center; gap: 4px;">
         <span class="member-name">${escapeHtml(user.name)}${isLocal ? ' (Você)' : ''}</span>
+        ${isBot ? '<span class="bot-tag">BOT</span>' : ''}
         ${isVoice && (userIsMuted || userIsDeafened) ? `
           <div class="voice-user-status-icons">
             ${userIsMuted ? getMuteIconSvg(12) : ''}
@@ -1194,8 +1200,8 @@ function createMemberItem(user, isVoice) {
           </div>
         ` : ''}
       </div>
-      <span class="member-activity" style="${isVoice ? 'color: #23a55a;' : ''}">
-        ${isVoice ? '🔊 Em voz' : 'Online'}
+      <span class="member-activity" style="${isVoice ? 'color: #23a55a;' : (isBot ? 'color: #5865F2;' : '')}">
+        ${escapeHtml(activityText)}
       </span>
     </div>
   `;
@@ -1449,13 +1455,15 @@ function renderVoiceStageCards() {
   const otherVoiceUsers = currentRoomUsers.filter(u => u.id !== socket.id);
   otherVoiceUsers.forEach(user => {
     const hasStream = activeStreams.has(user.id);
+    const isBot = !!user.isBot || user.id === 'bot-alfredo' || user.id === 'bot-rythm';
     const card = document.createElement('div');
     card.className = `user-voice-card ${hasStream ? 'has-stream' : ''}`;
     card.id = `voice-card-${user.id}`;
     card.innerHTML = `
       <img src="${user.avatar}" alt="${user.name}">
-      <div class="card-name">
+      <div class="card-name" style="display: flex; align-items: center; justify-content: center; gap: 4px;">
         <span>${escapeHtml(user.name)}</span>
+        ${isBot ? '<span class="bot-tag">BOT</span>' : ''}
         ${(user.isMuted || user.isDeafened) ? `
           <div class="voice-user-status-icons">
             ${user.isMuted ? getMuteIconSvg(13) : ''}
@@ -1618,6 +1626,20 @@ function formatMessageDisplayTime(msg) {
   return 'Hoje às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
+function formatChatText(text) {
+  if (!text) return '';
+  let str = escapeHtml(text);
+  // Markdown links: [Title](URL)
+  str = str.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color: #00a8fc; text-decoration: underline; font-weight: 600;">$1</a>');
+  // Markdown bold: **text**
+  str = str.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #fff;">$1</strong>');
+  // Markdown inline code: `code`
+  str = str.replace(/`([^`]+)`/g, '<code style="background: rgba(0,0,0,0.35); padding: 1.5px 5px; border-radius: 3px; font-size: 12px; color: #eb459e; font-family: monospace;">$1</code>');
+  // Newlines to <br>
+  str = str.replace(/\n/g, '<br>');
+  return str;
+}
+
 function appendMessageToContainer(msg) {
   const displayTime = formatMessageDisplayTime(msg);
 
@@ -1646,6 +1668,7 @@ function appendMessageToContainer(msg) {
 
   const div = document.createElement('div');
   div.className = 'message-item';
+  const isBot = !!msg.isBot || msg.sender === 'Alfredo' || msg.sender === 'Rythm';
 
   let attachmentHtml = '';
   if (msg.attachmentUrl) {
@@ -1664,10 +1687,11 @@ function appendMessageToContainer(msg) {
     <img class="message-avatar" src="${msg.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + encodeURIComponent(msg.sender)}" alt="${msg.sender}">
     <div class="message-content">
       <div class="message-header">
-        <span class="message-author" style="color: #5865F2;">${escapeHtml(msg.sender)}</span>
+        <span class="message-author" style="color: ${isBot ? '#23a55a' : '#5865F2'};">${escapeHtml(msg.sender)}</span>
+        ${isBot ? '<span class="bot-tag">BOT</span>' : ''}
         <span class="message-time">${escapeHtml(displayTime)}</span>
       </div>
-      <div class="message-text">${escapeHtml(msg.text)}</div>
+      <div class="message-text">${formatChatText(msg.text)}</div>
       ${attachmentHtml}
     </div>
   `;
@@ -1949,6 +1973,10 @@ function leaveVoice(playAudio = true, switchChat = true) {
 
   try {
     if (webrtc) webrtc.leaveVoice();
+  } catch (e) {}
+
+  try {
+    if (typeof stopMusicTrack === 'function') stopMusicTrack();
   } catch (e) {}
 
   inVoice = false;
@@ -3101,6 +3129,9 @@ ctxVolumeSlider.addEventListener('input', (e) => {
     const config = getUserConfig(currentContextPeerId);
     config.volume = vol;
     webrtc.setUserVolume(currentContextPeerId, vol);
+    if ((currentContextPeerId === 'bot-alfredo' || currentContextPeerId === 'bot-rythm') && typeof applyMusicBotVolume === 'function') {
+      applyMusicBotVolume();
+    }
   }
 });
 ctxVolumeSlider.addEventListener('click', (e) => e.stopPropagation());
@@ -3142,6 +3173,9 @@ ctxItemMute.addEventListener('click', (e) => {
   config.muted = !config.muted;
   ctxCheckMute.classList.toggle('checked', config.muted);
   webrtc.setUserMuted(currentContextPeerId, config.muted);
+  if ((currentContextPeerId === 'bot-alfredo' || currentContextPeerId === 'bot-rythm') && typeof applyMusicBotVolume === 'function') {
+    applyMusicBotVolume();
+  }
 });
 
 ctxItemSfx.addEventListener('click', (e) => {
@@ -3579,4 +3613,287 @@ function setupDesktopClient() {
 
 // Inicializa integração com cliente desktop se estiver no Electron
 setupDesktopClient();
+
+// ==========================================
+// CLIENTE DO BOT DE MÚSICA ALFREDO (ÁUDIO SINCRONIZADO E MINI PLAYER)
+// ==========================================
+const musicAudio = document.getElementById('music-bot-audio');
+const musicPlayerWidget = document.getElementById('music-player-widget');
+const musicWidgetThumb = document.getElementById('music-widget-thumb');
+const musicWidgetTitle = document.getElementById('music-widget-title');
+const musicWidgetArtist = document.getElementById('music-widget-artist');
+const musicBtnPlayPause = document.getElementById('music-btn-play-pause');
+const musicPlayPauseIcon = document.getElementById('music-play-pause-icon');
+const musicBtnSkip = document.getElementById('music-btn-skip');
+const musicBtnStop = document.getElementById('music-btn-stop');
+const musicTimeCurrent = document.getElementById('music-time-current');
+const musicTimeTotal = document.getElementById('music-time-total');
+const musicProgressBarFill = document.getElementById('music-progress-bar-fill');
+const musicProgressBarWrap = document.getElementById('music-progress-bar-wrap');
+const musicQuickSearchForm = document.getElementById('music-quick-search-form');
+const musicQuickInput = document.getElementById('music-quick-input');
+
+let hlsMusicInstance = null;
+let currentMusicTrack = null;
+let musicProgressTimer = null;
+let isMusicPlaying = false;
+let isMusicPaused = false;
+
+function formatMusicSecs(sec) {
+  if (!sec || isNaN(sec) || sec <= 0) return '0:00';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
+function applyMusicBotVolume() {
+  const cfg = getUserConfig('bot-alfredo');
+  if (musicAudio) {
+    musicAudio.muted = !!cfg.muted || isDeafened;
+    musicAudio.volume = Math.max(0, Math.min(1, (cfg.volume !== undefined ? cfg.volume : 100) / 100));
+  }
+}
+
+function updateMusicProgress() {
+  if (!musicAudio || !currentMusicTrack) return;
+  const current = musicAudio.currentTime || 0;
+  const total = currentMusicTrack.duration || musicAudio.duration || 0;
+
+  if (musicTimeCurrent) {
+    musicTimeCurrent.textContent = formatMusicSecs(current);
+  }
+  if (musicTimeTotal) {
+    musicTimeTotal.textContent = currentMusicTrack.isLive ? 'AO VIVO' : formatMusicSecs(total);
+  }
+  if (musicProgressBarFill) {
+    if (total > 0) {
+      const pct = Math.min(100, (current / total) * 100);
+      musicProgressBarFill.style.width = `${pct}%`;
+    } else {
+      musicProgressBarFill.style.width = '100%';
+    }
+  }
+}
+
+function updatePlayPauseButtonIcon(paused) {
+  if (!musicPlayPauseIcon) return;
+  if (paused) {
+    musicPlayPauseIcon.setAttribute('data-lucide', 'play');
+  } else {
+    musicPlayPauseIcon.setAttribute('data-lucide', 'pause');
+  }
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function handleAutoplayBlocked() {
+  const resumeOnGesture = () => {
+    if (musicAudio && isMusicPlaying && !isMusicPaused && musicAudio.paused) {
+      musicAudio.play().catch(() => {});
+    }
+  };
+  document.addEventListener('click', resumeOnGesture, { once: true });
+  document.addEventListener('keydown', resumeOnGesture, { once: true });
+}
+
+function playMusicTrack(track, position = 0, isPaused = false) {
+  if (!track || !track.streamUrl) return;
+  currentMusicTrack = track;
+  isMusicPlaying = true;
+  isMusicPaused = isPaused;
+
+  applyMusicBotVolume();
+
+  if (musicPlayerWidget) {
+    musicPlayerWidget.style.display = 'flex';
+  }
+  if (musicWidgetThumb) {
+    musicWidgetThumb.src = track.thumbnail || 'https://api.dicebear.com/7.x/bottts/svg?seed=AlfredoBot&backgroundColor=5865f2';
+  }
+  if (musicWidgetTitle) {
+    musicWidgetTitle.textContent = track.title || 'Música';
+    musicWidgetTitle.title = track.title || '';
+  }
+  if (musicWidgetArtist) {
+    musicWidgetArtist.textContent = `${track.artist || 'Alfredo'} • Pedido por ${track.requestedBy || 'Membro'}`;
+  }
+  if (musicTimeTotal) {
+    musicTimeTotal.textContent = track.isLive ? 'AO VIVO' : (track.durationStr || formatMusicSecs(track.duration));
+  }
+
+  updatePlayPauseButtonIcon(isPaused);
+
+  const streamUrl = track.streamUrl;
+  const isHls = streamUrl.includes('.m3u8') || streamUrl.includes('/hls');
+
+  if (window.Hls && window.Hls.isSupported() && isHls) {
+    if (hlsMusicInstance) {
+      hlsMusicInstance.destroy();
+      hlsMusicInstance = null;
+    }
+    hlsMusicInstance = new window.Hls({
+      enableWorker: true,
+      lowLatencyMode: false
+    });
+    hlsMusicInstance.loadSource(streamUrl);
+    hlsMusicInstance.attachMedia(musicAudio);
+    hlsMusicInstance.on(window.Hls.Events.MANIFEST_PARSED, () => {
+      applyMusicBotVolume();
+      if (position > 0) {
+        try { musicAudio.currentTime = position; } catch (e) {}
+      }
+
+      if (!isPaused) {
+        musicAudio.play().catch(e => {
+          console.log('[MusicBot 🎵] Autoplay aguardando interação do usuário:', e);
+          handleAutoplayBlocked();
+        });
+      }
+    });
+    hlsMusicInstance.on(window.Hls.Events.ERROR, (event, data) => {
+      if (data.fatal) {
+        console.warn('[MusicBot ⚠️] Erro HLS fatal:', data.type);
+      }
+    });
+  } else {
+    if (hlsMusicInstance) {
+      hlsMusicInstance.destroy();
+      hlsMusicInstance = null;
+    }
+    musicAudio.src = streamUrl;
+    applyMusicBotVolume();
+    if (position > 0) {
+      try { musicAudio.currentTime = position; } catch (e) {}
+    }
+    if (!isPaused) {
+      musicAudio.play().catch(e => {
+        console.log('[MusicBot 🎵] Autoplay aguardando interação:', e);
+        handleAutoplayBlocked();
+      });
+    }
+  }
+
+  if (musicProgressTimer) clearInterval(musicProgressTimer);
+  musicProgressTimer = setInterval(updateMusicProgress, 500);
+}
+
+function pauseMusicTrack() {
+  isMusicPaused = true;
+  if (musicAudio) musicAudio.pause();
+  updatePlayPauseButtonIcon(true);
+}
+
+function resumeMusicTrack() {
+  isMusicPaused = false;
+  applyMusicBotVolume();
+  if (musicAudio) musicAudio.play().catch(e => console.log(e));
+  updatePlayPauseButtonIcon(false);
+}
+
+function stopMusicTrack() {
+  isMusicPlaying = false;
+  isMusicPaused = false;
+  currentMusicTrack = null;
+  if (musicProgressTimer) {
+    clearInterval(musicProgressTimer);
+    musicProgressTimer = null;
+  }
+  if (hlsMusicInstance) {
+    hlsMusicInstance.destroy();
+    hlsMusicInstance = null;
+  }
+  if (musicAudio) {
+    musicAudio.pause();
+    musicAudio.removeAttribute('src');
+    musicAudio.load();
+  }
+  if (musicPlayerWidget) {
+    musicPlayerWidget.style.display = 'none';
+  }
+  if (musicProgressBarFill) {
+    musicProgressBarFill.style.width = '0%';
+  }
+  if (musicTimeCurrent) {
+    musicTimeCurrent.textContent = '0:00';
+  }
+}
+
+// Socket Listeners para eventos de Música do Servidor
+socket.on('music:play', ({ track, position, isPaused }) => {
+  console.log('[MusicBot 🎵] Recebido comando de reprodução:', track.title);
+  playMusicTrack(track, position, isPaused);
+});
+
+socket.on('music:pause', () => {
+  pauseMusicTrack();
+});
+
+socket.on('music:resume', () => {
+  resumeMusicTrack();
+});
+
+socket.on('music:stop', () => {
+  stopMusicTrack();
+});
+
+socket.on('music:queue-update', ({ currentTrack, queue, isPlaying, isPaused }) => {
+  if (currentTrack && isPlaying) {
+    if (!isMusicPlaying || (currentMusicTrack && currentMusicTrack.id !== currentTrack.id)) {
+      playMusicTrack(currentTrack, 0, isPaused);
+    }
+  } else if (!isPlaying) {
+    stopMusicTrack();
+  }
+});
+
+// Ações disparadas pelos botões do Mini Player
+if (musicBtnPlayPause) {
+  musicBtnPlayPause.addEventListener('click', () => {
+    if (isMusicPaused) {
+      socket.emit('music:action', { action: 'resume' });
+    } else {
+      socket.emit('music:action', { action: 'pause' });
+    }
+  });
+}
+
+if (musicBtnSkip) {
+  musicBtnSkip.addEventListener('click', () => {
+    socket.emit('music:action', { action: 'skip' });
+  });
+}
+
+if (musicBtnStop) {
+  musicBtnStop.addEventListener('click', () => {
+    socket.emit('music:action', { action: 'stop' });
+  });
+}
+
+if (musicProgressBarWrap) {
+  musicProgressBarWrap.addEventListener('click', (e) => {
+    if (!musicAudio || !currentMusicTrack || !currentMusicTrack.duration) return;
+    const rect = musicProgressBarWrap.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const pct = Math.max(0, Math.min(1, clickX / rect.width));
+    musicAudio.currentTime = pct * currentMusicTrack.duration;
+    updateMusicProgress();
+  });
+}
+
+if (musicQuickSearchForm) {
+  musicQuickSearchForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const query = musicQuickInput ? musicQuickInput.value.trim() : '';
+    if (!query) return;
+
+    if (!inVoice) {
+      if (typeof showSoundToast === 'function') {
+        showSoundToast('Você precisa estar em um canal de voz para tocar música!');
+      }
+      return;
+    }
+
+    socket.emit('music:action', { action: 'play', query });
+    if (musicQuickInput) musicQuickInput.value = '';
+  });
+}
 

@@ -1,3 +1,5 @@
+import { BOT_USER, musicBot } from '../services/musicBot.js';
+
 export function registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers) {
   // Entrar na voz (sala dinâmica ou padrão)
   socket.on('voice:join', (payload = {}) => {
@@ -26,10 +28,12 @@ export function registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVo
 
     const existingPeers = Array.from(voiceRooms[roomId])
       .filter(id => id !== socket.id)
-      .map(id => ({
-        id,
-        user: users.get(id)
-      }))
+      .map(id => {
+        if (id === BOT_USER.id) {
+          return { id: BOT_USER.id, user: BOT_USER };
+        }
+        return { id, user: users.get(id) };
+      })
       .filter(p => p.user);
 
     socket.emit('voice:peers-list', { peers: existingPeers, roomId });
@@ -39,6 +43,34 @@ export function registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVo
       user,
       roomId
     });
+
+    // Se o bot de música já estiver tocando nesta sala, envia o estado da música para o usuário que acabou de entrar
+    const roomState = musicBot.getRoomState(roomId);
+    if (roomState && roomState.isPlaying && roomState.currentTrack) {
+      let elapsed = roomState.elapsedBeforePause;
+      if (!roomState.isPaused && roomState.startedAt > 0) {
+        elapsed += Math.floor((Date.now() - roomState.startedAt) / 1000);
+      }
+      socket.emit('music:play', {
+        track: roomState.currentTrack,
+        position: elapsed,
+        isPaused: roomState.isPaused
+      });
+      socket.emit('music:queue-update', {
+        roomId,
+        currentTrack: roomState.currentTrack,
+        queue: roomState.queue,
+        isPlaying: roomState.isPlaying,
+        isPaused: roomState.isPaused
+      });
+
+      if (!roomState.isPaused) {
+        socket.emit('voice:peer-speaking', {
+          peerId: BOT_USER.id,
+          isSpeaking: true
+        });
+      }
+    }
 
     broadcastVoiceState();
     broadcastOnlineMembers();
@@ -137,6 +169,12 @@ export function leaveVoiceRoom(io, socket, user, users, voiceRooms, broadcastVoi
             roomId: rId
           });
         }
+      }
+
+      // Se não sobrou nenhum humano na sala e o bot estiver nela, desconecta o bot
+      const remainingHumans = Array.from(socketSet).filter(id => id !== BOT_USER.id);
+      if (remainingHumans.length === 0 && BOT_USER.inVoice && BOT_USER.currentVoiceRoom === rId) {
+        musicBot.stop(rId, io, voiceRooms, broadcastVoiceState);
       }
     }
   }
