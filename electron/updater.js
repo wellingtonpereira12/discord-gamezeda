@@ -187,6 +187,32 @@ function downloadFile(url, destPath, onProgress) {
   });
 }
 
+function getUpdaterStatePath() {
+  try {
+    if (electronApp && typeof electronApp.getPath === 'function') {
+      return path.join(electronApp.getPath('userData'), 'updater-state.json');
+    }
+  } catch (e) {}
+  return path.join(os.tmpdir(), 'jogos-bolados-updater-state.json');
+}
+
+function getUpdaterState() {
+  try {
+    const file = getUpdaterStatePath();
+    if (fs.existsSync(file)) {
+      return JSON.parse(fs.readFileSync(file, 'utf8'));
+    }
+  } catch (e) {}
+  return {};
+}
+
+function saveUpdaterState(state) {
+  try {
+    const file = getUpdaterStatePath();
+    fs.writeFileSync(file, JSON.stringify(state, null, 2), 'utf8');
+  } catch (e) {}
+}
+
 /**
  * Verifica atualizações e faz download caso uma nova versão seja detectada
  */
@@ -219,8 +245,29 @@ async function checkAndApplyUpdates({ currentVersion, serverUrl, onStatus, onPro
   const remoteVersion = versionInfo.version;
   console.log(`[Updater] Versão local: ${currentVersion} | Versão remota: ${remoteVersion}`);
 
+  const state = getUpdaterState();
+  if (state.lastAttemptedVersion && compareVersions(currentVersion, state.lastAttemptedVersion) >= 0) {
+    saveUpdaterState({});
+  }
+
   // Se versão remota é superior à atual
   if (compareVersions(remoteVersion, currentVersion) > 0) {
+    // Proteção Anti-Loop Infinito: se a atualização para esta versão já foi tentada recentemente
+    if (state.lastAttemptedVersion === remoteVersion && (state.attemptCount || 0) >= 1) {
+      const timeSinceAttempt = Date.now() - (state.lastAttemptTime || 0);
+      if (timeSinceAttempt < 15 * 60 * 1000) { // 15 minutos
+        console.warn(`[Updater] Atualização para v${remoteVersion} já foi tentada recentemente sem alteração de versão. Ignorando para evitar loop.`);
+        if (onStatus) {
+          onStatus({
+            step: 'up-to-date',
+            message: 'Iniciando Jogos Bolados...',
+            currentVersion
+          });
+        }
+        return { updateAvailable: false };
+      }
+    }
+
     if (onStatus) {
       onStatus({
         step: 'downloading',
@@ -248,6 +295,12 @@ async function checkAndApplyUpdates({ currentVersion, serverUrl, onStatus, onPro
         });
       }
 
+      saveUpdaterState({
+        lastAttemptedVersion: remoteVersion,
+        lastAttemptTime: Date.now(),
+        attemptCount: (state.lastAttemptedVersion === remoteVersion ? (state.attemptCount || 0) : 0) + 1
+      });
+
       return {
         updateAvailable: true,
         installerPath: tempInstaller,
@@ -271,21 +324,33 @@ async function checkAndApplyUpdates({ currentVersion, serverUrl, onStatus, onPro
 }
 
 /**
- * Executa o instalador baixado e encerra o aplicativo atual
+ * Executa o instalador baixado e encerra o aplicativo atual com liberação limpa de arquivos
  */
 function launchInstallerAndExit(installerPath) {
   console.log(`[Updater] Executando instalador: ${installerPath}`);
   try {
-    const child = spawn(installerPath, [], {
-      detached: true,
-      stdio: 'ignore'
-    });
-    child.unref();
+    if (process.platform === 'win32') {
+      // Espera 2 segundos via cmd para dar tempo ao processo Electron fechar completamente e liberar locks nos arquivos
+      const cmd = `timeout /t 2 /nobreak >nul & start "" "${installerPath}"`;
+      const child = spawn('cmd.exe', ['/c', cmd], {
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: true
+      });
+      child.unref();
+    } else {
+      const child = spawn(installerPath, [], {
+        detached: true,
+        stdio: 'ignore'
+      });
+      child.unref();
+    }
+
     setTimeout(() => {
       if (electronApp && typeof electronApp.quit === 'function') {
         electronApp.quit();
       }
-    }, 1000);
+    }, 600);
   } catch (e) {
     console.error('[Updater] Falha ao executar instalador:', e);
   }

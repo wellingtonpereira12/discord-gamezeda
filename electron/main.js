@@ -216,6 +216,24 @@ function createMainWindow(targetUrl) {
   });
 }
 
+function getAppVersion() {
+  try {
+    const rootPkgPath = path.join(__dirname, '..', 'package.json');
+    if (fs.existsSync(rootPkgPath)) {
+      const rootPkg = JSON.parse(fs.readFileSync(rootPkgPath, 'utf8'));
+      if (rootPkg.version) return rootPkg.version;
+    }
+  } catch (e) {}
+  try {
+    const localPkgPath = path.join(__dirname, 'package.json');
+    if (fs.existsSync(localPkgPath)) {
+      const localPkg = JSON.parse(fs.readFileSync(localPkgPath, 'utf8'));
+      if (localPkg.version) return localPkg.version;
+    }
+  } catch (e) {}
+  return app.getVersion();
+}
+
 /**
  * Fluxo de Inicialização:
  * 1. Abre Splash
@@ -226,7 +244,10 @@ function createMainWindow(targetUrl) {
 async function startApplication() {
   createSplashWindow();
 
-  const currentVersion = app.getVersion();
+  const currentVersion = getAppVersion();
+  try {
+    app.setVersion(currentVersion);
+  } catch (e) {}
   const serverUrl = process.env.SERVER_URL || config.serverUrl;
 
   console.log(`[Jogos Bolados] Iniciando cliente desktop v${currentVersion}`);
@@ -305,7 +326,7 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('app:get-version', () => {
-    return app.getVersion();
+    return getAppVersion();
   });
 
   // Handlers do Seletor de Telas e Janelas (Screen Share)
