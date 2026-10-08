@@ -2167,7 +2167,7 @@ function triggerDesktopNotification(channelId, message, isMentioned) {
       try {
         const notif = new Notification(title, {
           body: bodyText,
-          icon: '/logo.png',
+          icon: '/assets/logo.png',
           tag: `channel-${channelId}`
         });
         notif.onclick = () => {

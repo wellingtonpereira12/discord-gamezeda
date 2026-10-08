@@ -344,6 +344,10 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
       }
       if (tabContentRoles) tabContentRoles.style.display = 'flex';
       loadGuildRoles();
+      setTimeout(() => {
+        const inp = document.getElementById('new-role-name-input');
+        if (inp) inp.focus();
+      }, 50);
     } else if (tab === 'members') {
       if (tabBtnMembers) {
         tabBtnMembers.style.background = '#35373c';
@@ -497,9 +501,18 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
     });
   }
 
-  if (btnCancelNewRole && newRolePanel) {
+  if (btnCancelNewRole) {
     btnCancelNewRole.addEventListener('click', () => {
-      newRolePanel.style.display = 'none';
+      if (newRoleNameInput) newRoleNameInput.value = '';
+    });
+  }
+
+  if (newRoleNameInput) {
+    newRoleNameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (btnSubmitNewRole) btnSubmitNewRole.click();
+      }
     });
   }
 
@@ -507,18 +520,28 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
     btnSubmitNewRole.addEventListener('click', () => {
       const roleName = newRoleNameInput ? newRoleNameInput.value.trim() : '';
       const roleColor = newRoleColorInput ? newRoleColorInput.value : '#5865F2';
-      if (!roleName) return;
+      if (!roleName) {
+        if (newRoleNameInput) newRoleNameInput.focus();
+        return;
+      }
 
       if (!activeSocket) return;
+
+      btnSubmitNewRole.disabled = true;
+      btnSubmitNewRole.textContent = 'Salvando...';
 
       activeSocket.emit('guild:role:create', {
         guildId: activeGuildId,
         name: roleName,
         color: roleColor
       }, (res) => {
+        btnSubmitNewRole.disabled = false;
+        btnSubmitNewRole.textContent = 'Salvar Cargo';
+
         if (res && res.success) {
-          if (newRolePanel) newRolePanel.style.display = 'none';
+          if (newRoleNameInput) newRoleNameInput.value = '';
           loadGuildRoles();
+          loadGuildMembers();
         } else {
           alert((res && res.message) || 'Erro ao criar cargo.');
         }

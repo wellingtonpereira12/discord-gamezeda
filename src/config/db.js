@@ -693,6 +693,7 @@ export async function getGuildMembersWithRoles(guildId) {
         membersQuery = `
           SELECT u.username, 'member' as baseRole, u.avatar, u.status_mode as statusMode
           FROM users u
+          WHERE u.password_hash IS NOT NULL AND u.password_hash != ''
           ORDER BY u.username ASC
         `;
         queryParams = [];
@@ -702,13 +703,13 @@ export async function getGuildMembersWithRoles(guildId) {
           FROM (
             SELECT gm.username, gm.role as baseRole, u.avatar, u.status_mode as statusMode
             FROM guild_members gm
-            LEFT JOIN users u ON LOWER(u.username) = LOWER(gm.username)
-            WHERE gm.guild_id = ?
+            JOIN users u ON LOWER(u.username) = LOWER(gm.username)
+            WHERE gm.guild_id = ? AND u.password_hash IS NOT NULL AND u.password_hash != ''
             UNION ALL
             SELECT g.owner_username as username, 'owner' as baseRole, u.avatar, u.status_mode as statusMode
             FROM guilds g
-            LEFT JOIN users u ON LOWER(u.username) = LOWER(g.owner_username)
-            WHERE g.id = ? AND g.owner_username IS NOT NULL AND g.owner_username != ''
+            JOIN users u ON LOWER(u.username) = LOWER(g.owner_username)
+            WHERE g.id = ? AND g.owner_username IS NOT NULL AND g.owner_username != '' AND u.password_hash IS NOT NULL AND u.password_hash != ''
           ) m
           GROUP BY m.username
           ORDER BY m.username ASC
@@ -748,14 +749,18 @@ export async function getGuildMembersWithRoles(guildId) {
 
   let mems = [];
   if (gId === 'gamezeda') {
-    const allUsers = Object.values(memoryStore.users);
+    const allUsers = Object.values(memoryStore.users).filter(u => u.password_hash);
     mems = allUsers.map(u => ({ username: u.username, role: 'member', avatar: u.avatar }));
   } else {
-    mems = [...memoryStore.guildMembers.filter(m => m.guildId === gId)];
+    mems = [...memoryStore.guildMembers.filter(m => {
+      const u = memoryStore.users[m.username.toLowerCase()];
+      return m.guildId === gId && (!u || u.password_hash);
+    })];
     const targetGuild = memoryStore.guilds.find(g => g.id === gId);
     if (targetGuild && targetGuild.ownerUsername) {
-      if (!mems.some(m => m.username.toLowerCase() === targetGuild.ownerUsername.toLowerCase())) {
-        mems.push({ username: targetGuild.ownerUsername, role: 'owner' });
+      const u = memoryStore.users[targetGuild.ownerUsername.toLowerCase()];
+      if ((!u || u.password_hash) && !mems.some(m => m.username.toLowerCase() === targetGuild.ownerUsername.toLowerCase())) {
+        mems.push({ username: targetGuild.ownerUsername, role: 'owner', avatar: u?.avatar });
       }
     }
   }
