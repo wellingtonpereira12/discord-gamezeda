@@ -1543,10 +1543,12 @@ export async function removeAuthorizedDevice(username, deviceId) {
 // ==========================================
 // MENSAGENS DIRETAS (DMs 1 a 1)
 // ==========================================
-export async function saveDirectMessage({ id, sender, receiver, text, attachmentUrl = null, timestamp }) {
+export async function saveDirectMessage({ id, sender, receiver, text, attachmentUrl = null, timestamp, avatar = null }) {
+  const u = memoryStore.users[(sender || '').toLowerCase()];
   const msgObj = {
     id: id || `dm-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
     sender,
+    avatar: avatar || u?.avatar || null,
     receiver,
     text,
     attachmentUrl: attachmentUrl || null,
@@ -1579,14 +1581,26 @@ export async function getDirectMessages(user1, user2, limit = 50) {
   if (isConnected && pool) {
     try {
       const [rows] = await pool.query(
-        `SELECT id, sender_name as sender, receiver_name as receiver, text, attachment_url as attachmentUrl, timestamp, read_status as readStatus, created_at as createdAt
-         FROM direct_messages
-         WHERE (LOWER(sender_name) = ? AND LOWER(receiver_name) = ?)
-            OR (LOWER(sender_name) = ? AND LOWER(receiver_name) = ?)
-         ORDER BY created_at DESC LIMIT ?`,
+        `SELECT dm.id, dm.sender_name as sender, dm.receiver_name as receiver, dm.text, dm.attachment_url as attachmentUrl, dm.timestamp, dm.read_status as readStatus, dm.created_at as createdAt,
+                u.avatar
+         FROM direct_messages dm
+         LEFT JOIN users u ON LOWER(u.username) = LOWER(dm.sender_name)
+         WHERE (LOWER(dm.sender_name) = ? AND LOWER(dm.receiver_name) = ?)
+            OR (LOWER(dm.sender_name) = ? AND LOWER(dm.receiver_name) = ?)
+         ORDER BY dm.created_at DESC LIMIT ?`,
         [u1, u2, u2, u1, limit]
       );
-      return rows.reverse();
+      return rows.reverse().map(r => ({
+        id: r.id,
+        sender: r.sender,
+        receiver: r.receiver,
+        text: r.text,
+        attachmentUrl: r.attachmentUrl,
+        timestamp: r.timestamp,
+        avatar: r.avatar || null,
+        readStatus: !!r.readStatus,
+        createdAt: r.createdAt
+      }));
     } catch (e) {
       console.warn('Erro ao carregar DMs do MariaDB:', e.message);
     }
@@ -1595,7 +1609,14 @@ export async function getDirectMessages(user1, user2, limit = 50) {
   return memoryStore.directMessages
     .filter(m => (m.sender.toLowerCase() === u1 && m.receiver.toLowerCase() === u2) ||
                  (m.sender.toLowerCase() === u2 && m.receiver.toLowerCase() === u1))
-    .slice(-limit);
+    .slice(-limit)
+    .map(m => {
+      const u = memoryStore.users[m.sender.toLowerCase()];
+      return {
+        ...m,
+        avatar: m.avatar || u?.avatar || null
+      };
+    });
 }
 
 export async function getUserConversations(username) {
@@ -1605,17 +1626,23 @@ export async function getUserConversations(username) {
   if (isConnected && pool) {
     try {
       const [rows] = await pool.query(
-        `SELECT id, sender_name as sender, receiver_name as receiver, text, timestamp, created_at as createdAt
-         FROM direct_messages
-         WHERE LOWER(sender_name) = ? OR LOWER(receiver_name) = ?
-         ORDER BY created_at DESC`,
+        `SELECT dm.id, dm.sender_name as sender, dm.receiver_name as receiver, dm.text, dm.timestamp, dm.created_at as createdAt,
+                u_sender.avatar as senderAvatar, u_receiver.avatar as receiverAvatar
+         FROM direct_messages dm
+         LEFT JOIN users u_sender ON LOWER(u_sender.username) = LOWER(dm.sender_name)
+         LEFT JOIN users u_receiver ON LOWER(u_receiver.username) = LOWER(dm.receiver_name)
+         WHERE LOWER(dm.sender_name) = ? OR LOWER(dm.receiver_name) = ?
+         ORDER BY dm.created_at DESC`,
         [u, u]
       );
       for (const row of rows) {
-        const contact = row.sender.toLowerCase() === u ? row.receiver : row.sender;
+        const isSender = row.sender.toLowerCase() === u;
+        const contact = isSender ? row.receiver : row.sender;
+        const contactAvatar = isSender ? row.receiverAvatar : row.senderAvatar;
         if (!contactsMap.has(contact.toLowerCase())) {
           contactsMap.set(contact.toLowerCase(), {
             username: contact,
+            avatar: contactAvatar || null,
             lastMessage: row.text,
             timestamp: row.timestamp,
             createdAt: row.createdAt
@@ -1631,10 +1658,13 @@ export async function getUserConversations(username) {
   for (let i = memoryStore.directMessages.length - 1; i >= 0; i--) {
     const row = memoryStore.directMessages[i];
     if (row.sender.toLowerCase() === u || row.receiver.toLowerCase() === u) {
-      const contact = row.sender.toLowerCase() === u ? row.receiver : row.sender;
+      const isSender = row.sender.toLowerCase() === u;
+      const contact = isSender ? row.receiver : row.sender;
       if (!contactsMap.has(contact.toLowerCase())) {
+        const contactUser = memoryStore.users[contact.toLowerCase()];
         contactsMap.set(contact.toLowerCase(), {
           username: contact,
+          avatar: contactUser?.avatar || null,
           lastMessage: row.text,
           timestamp: row.timestamp,
           createdAt: row.createdAt

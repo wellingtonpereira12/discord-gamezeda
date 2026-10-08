@@ -53,7 +53,7 @@ export function renderConversationsList(conversations = []) {
     item.className = `dm-item ${activeDmTarget === conv.username ? 'active' : ''}`;
     item.dataset.username = conv.username;
 
-    const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(conv.username)}`;
+    const avatarUrl = conv.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(conv.username)}`;
 
     item.innerHTML = `
       <div class="dm-item-avatar-wrap">
@@ -184,6 +184,18 @@ function handleIncomingDm(msg) {
   if (activeDmTarget && activeDmTarget.toLowerCase() === otherUser.toLowerCase()) {
     if (typeof window.appendDirectMessageToChat === 'function') {
       window.appendDirectMessageToChat(msg);
+    }
+  } else if (!isSender) {
+    // Notificação desktop e som se a conversa não estiver em foco
+    if (typeof window.triggerDesktopNotification === 'function') {
+      window.triggerDesktopNotification(`dm-${otherUser}`, {
+        sender: msg.sender,
+        text: msg.text,
+        attachmentUrl: msg.attachmentUrl
+      }, true);
+    }
+    if (window.sounds && typeof window.sounds.playMessage === 'function' && currentUser.statusMode !== 'dnd') {
+      window.sounds.playMessage();
     }
   }
 

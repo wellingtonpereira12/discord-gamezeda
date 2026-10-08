@@ -72,7 +72,7 @@ import {
   openDirectChat,
   getActiveDmTarget,
   clearActiveDmTarget
-} from './js/modules/directMessages.js?v=20261008_v1.3.0';
+} from './js/modules/directMessages.js?v=20261008_v1.3.9';
 
 if (window.lucide) {
   window.lucide.createIcons();
@@ -2130,15 +2130,22 @@ function triggerDesktopNotification(channelId, message, isMentioned) {
     return;
   }
 
+  const isDm = (channelId || '').startsWith('dm-');
+  const targetDmUser = isDm ? channelId.substring(3) : null;
   const isAppFocused = document.hasFocus() && document.visibilityState === 'visible';
-  if (channelId === currentTextChannel && isAppFocused) {
+
+  if (isDm) {
+    if (getActiveDmTarget() && getActiveDmTarget().toLowerCase() === targetDmUser.toLowerCase() && isAppFocused) {
+      return;
+    }
+  } else if (channelId === currentTextChannel && !getActiveDmTarget() && isAppFocused) {
     return;
   }
 
   const senderName = message.sender || 'Alguém';
-  const title = isMentioned
-    ? `📌 Menção de ${senderName} em #${channelId}`
-    : `#${channelId} - ${senderName}`;
+  const title = isDm
+    ? `💬 Mensagem direta de @${senderName}`
+    : (isMentioned ? `📌 Menção de ${senderName} em #${channelId}` : `#${channelId} - ${senderName}`);
 
   let bodyText = message.text || '';
   if (!bodyText && message.attachmentUrl) {
@@ -2172,7 +2179,15 @@ function triggerDesktopNotification(channelId, message, isMentioned) {
         });
         notif.onclick = () => {
           window.focus();
-          if (channelId) switchTextChannel(channelId);
+          if (channelId) {
+            if (channelId.startsWith('dm-')) {
+              if (typeof window.startDirectMessage === 'function') {
+                window.startDirectMessage(channelId.substring(3));
+              }
+            } else {
+              switchTextChannel(channelId);
+            }
+          }
           notif.close();
         };
       } catch (err) {
@@ -2184,11 +2199,20 @@ function triggerDesktopNotification(channelId, message, isMentioned) {
   }
 }
 
+window.triggerDesktopNotification = triggerDesktopNotification;
+window.sounds = sounds;
+
 // Ouvinte para clique na notificação nativa do Windows no Electron
 if (window.electronAPI && typeof window.electronAPI.onNotificationClicked === 'function') {
   window.electronAPI.onNotificationClicked(({ channelId }) => {
     if (channelId) {
-      switchTextChannel(channelId);
+      if (channelId.startsWith('dm-')) {
+        if (typeof window.startDirectMessage === 'function') {
+          window.startDirectMessage(channelId.substring(3));
+        }
+      } else {
+        switchTextChannel(channelId);
+      }
     }
   });
 }
@@ -2220,6 +2244,11 @@ if (!window.electronAPI && 'Notification' in window && Notification.permission =
 }
 
 function switchTextChannel(chName) {
+  clearActiveDmTarget();
+  const hashEl = document.querySelector('.chat-header-title .hash');
+  if (hashEl) hashEl.textContent = '#';
+  if (chatInput) chatInput.disabled = false;
+
   currentTextChannel = chName;
   if (unreadChannelCounts.has(chName)) {
     unreadChannelCounts.delete(chName);
@@ -2237,8 +2266,8 @@ function switchTextChannel(chName) {
   let displayName = chObj ? chObj.name : chName;
   if (displayName.startsWith('geral-guild-')) displayName = 'geral';
 
-  currentChannelNameEl.textContent = displayName;
-  chatInput.placeholder = `Conversar em #${displayName}`;
+  if (currentChannelNameEl) currentChannelNameEl.textContent = displayName;
+  if (chatInput) chatInput.placeholder = `Conversar em #${displayName}`;
 
   if (videoStage) videoStage.style.display = 'none';
   if (messagesContainer) messagesContainer.style.display = 'flex';
@@ -2717,7 +2746,7 @@ socket.on('chat:new-message', ({ channelId, message }) => {
   }
   channelMessagesStore[channelId].push(message);
 
-  const isCurrentChannel = channelId === currentTextChannel;
+  const isCurrentChannel = channelId === currentTextChannel && !getActiveDmTarget();
   if (isCurrentChannel) {
     messagesContainer.classList.remove('is-empty');
     appendMessageToContainer(message);
@@ -3275,6 +3304,16 @@ chatFileInput.addEventListener('change', async (e) => {
     });
     const data = await res.json();
     if (data.success) {
+      const dmTarget = getActiveDmTarget();
+      if (dmTarget) {
+        socket.emit('dm:send', {
+          receiver: dmTarget,
+          text: `Enviou um arquivo: ${file.name}`,
+          attachmentUrl: data.url
+        });
+        chatFileInput.value = '';
+        return;
+      }
       const payload = {
         channelId: currentTextChannel,
         text: `Enviou um arquivo: ${file.name}`,
@@ -3303,7 +3342,7 @@ if (messagesContainer) {
     const authorEl = e.target.closest('.message-author');
     if (avatarEl || authorEl) {
       e.stopPropagation();
-      const msgEl = e.target.closest('.chat-message');
+      const msgEl = e.target.closest('.chat-message, .message-item, .message-group');
       if (msgEl) {
         const sender = (authorEl ? authorEl.textContent : (avatarEl ? avatarEl.getAttribute('alt') : '')).trim();
         if (sender) {
@@ -3505,6 +3544,20 @@ async function handleImagePasteFromClipboard(e) {
     const data = await res.json();
     if (data.success) {
       const captionText = chatInput ? chatInput.value.trim() : '';
+      const dmTarget = getActiveDmTarget();
+      if (dmTarget) {
+        socket.emit('dm:send', {
+          receiver: dmTarget,
+          text: captionText || '📸 Captura de tela',
+          attachmentUrl: data.url
+        });
+        if (chatInput) chatInput.value = '';
+        if (typeof showSoundToast === 'function') {
+          showSoundToast('✅ Imagem enviada com sucesso!');
+        }
+        return;
+      }
+
       socket.emit('chat:send', {
         channelId: currentTextChannel,
         text: captionText || '📸 Captura de tela',
@@ -5209,6 +5262,41 @@ initGuilds({
     if (channelsDmView) channelsDmView.style.display = 'flex';
 
     loadConversations();
+
+    // Se nenhuma DM estiver aberta, exibe tela inicial padrão das DMs
+    if (!getActiveDmTarget()) {
+      currentTextChannel = null;
+      if (currentChannelNameEl) currentChannelNameEl.textContent = 'Mensagens Diretas';
+      const hashEl = document.querySelector('.chat-header-title .hash');
+      if (hashEl) hashEl.textContent = '@';
+      const headerOnlineCount = document.getElementById('header-online-count');
+      const headerStatusDot = document.querySelector('.header-status-dot');
+      if (headerOnlineCount) headerOnlineCount.textContent = 'Amigos';
+      if (headerStatusDot) headerStatusDot.style.background = '#5865F2';
+
+      if (chatInput) {
+        chatInput.value = '';
+        chatInput.placeholder = 'Selecione uma conversa ou inicie uma nova DM';
+        chatInput.disabled = true;
+      }
+      if (videoStage) videoStage.style.display = 'none';
+      if (messagesContainer) {
+        messagesContainer.style.display = 'flex';
+        messagesContainer.innerHTML = `
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; color: #949ba4; padding: 40px 20px;">
+            <div style="width: 72px; height: 72px; border-radius: 50%; background: #2b2d31; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; border: 2px solid #5865F2;">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#5865F2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+            </div>
+            <h2 style="color: #f2f3f5; font-size: 22px; font-weight: 700; margin-bottom: 8px;">Suas Mensagens Diretas</h2>
+            <p style="max-width: 440px; font-size: 14px; line-height: 1.5; color: #949ba4; margin-bottom: 20px;">
+              Converse em tempo real de forma privada, compartilhe fotos e arquivos. Selecione uma conversa ao lado ou clique no botão + para iniciar.
+            </p>
+          </div>
+        `;
+      }
+    }
   }
 });
 
@@ -5221,26 +5309,52 @@ initDirectMessages({
 });
 
 function openDmChatView(targetUser, messages = []) {
-  if (currentChannelName) {
-    currentChannelName.textContent = `@${targetUser}`;
+  currentTextChannel = null;
+
+  const hashEl = document.querySelector('.chat-header-title .hash');
+  if (hashEl) hashEl.textContent = '@';
+
+  if (currentChannelNameEl) {
+    currentChannelNameEl.textContent = targetUser;
   }
-  if (channelDesc) {
-    channelDesc.textContent = `Mensagens Diretas com ${targetUser}`;
+
+  const targetOnline = (allOnlineUsers || []).some(u => u.name && u.name.toLowerCase() === targetUser.toLowerCase());
+  const headerOnlineCount = document.getElementById('header-online-count');
+  const headerStatusDot = document.querySelector('.header-status-dot');
+  if (headerOnlineCount) {
+    headerOnlineCount.textContent = targetOnline ? 'Disponível' : 'Offline';
   }
+  if (headerStatusDot) {
+    headerStatusDot.style.background = targetOnline ? '#23a55a' : '#80848e';
+  }
+
   if (chatInput) {
+    chatInput.disabled = false;
     chatInput.placeholder = `Conversar com @${targetUser}`;
+    chatInput.focus();
   }
+
+  if (videoStage) videoStage.style.display = 'none';
+  if (messagesContainer) messagesContainer.style.display = 'flex';
+  const chatInputWrap = document.querySelector('.chat-input-wrapper');
+  if (chatInputWrap) chatInputWrap.style.display = 'block';
 
   if (messagesContainer) {
     messagesContainer.innerHTML = '';
+    messagesContainer.classList.remove('is-empty');
+
+    const targetUserObj = (allOnlineUsers || []).find(u => u.name && u.name.toLowerCase() === targetUser.toLowerCase());
+    const targetAvatar = targetUserObj?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(targetUser)}`;
+
     const welcomeDiv = document.createElement('div');
+    welcomeDiv.className = 'channel-welcome-banner dm-welcome-banner';
     welcomeDiv.style.padding = '32px 16px 16px 16px';
     welcomeDiv.innerHTML = `
-      <div style="width: 56px; height: 56px; border-radius: 50%; background: #5865F2; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 800; margin-bottom: 12px; color: #fff;">
-        @
+      <div style="width: 64px; height: 64px; border-radius: 50%; overflow: hidden; margin-bottom: 12px; background: #2b2d31; border: 2px solid #5865F2; display: flex; align-items: center; justify-content: center;">
+        <img src="${targetAvatar}" alt="${escapeHtml(targetUser)}" style="width: 100%; height: 100%; object-fit: cover;">
       </div>
-      <h2 style="font-size: 22px; font-weight: 800; color: #f2f3f5; margin-bottom: 6px;">${escapeHtml(targetUser)}</h2>
-      <p style="color: #949ba4; font-size: 13px;">Este é o início da sua história de mensagens diretas com <strong>${escapeHtml(targetUser)}</strong>.</p>
+      <h2 style="font-size: 24px; font-weight: 800; color: #f2f3f5; margin-bottom: 6px;">@${escapeHtml(targetUser)}</h2>
+      <p style="color: #949ba4; font-size: 14px;">Este é o início da sua história de mensagens diretas com <strong>@${escapeHtml(targetUser)}</strong>.</p>
     `;
     messagesContainer.appendChild(welcomeDiv);
 
@@ -5254,23 +5368,62 @@ function openDmChatView(targetUser, messages = []) {
 window.appendDirectMessageToChat = function(msg) {
   if (!messagesContainer) return;
   const div = document.createElement('div');
-  div.className = 'message-group';
-  div.id = `msg-${msg.id}`;
+  div.className = 'message-item dm-message-item';
+  div.setAttribute('data-msg-id', msg.id || `dm-${Date.now()}`);
 
-  const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(msg.sender)}`;
+  const isOwner = currentUser && currentUser.name && msg.sender.toLowerCase() === currentUser.name.toLowerCase();
+
+  // Anexo
+  let attachmentHtml = '';
+  if (msg.attachmentUrl) {
+    const isImg = /\.(png|jpe?g|gif|webp|svg)$/i.test(msg.attachmentUrl) || msg.attachmentUrl.startsWith('data:image/');
+    const isAudio = /\.(mp3|wav|ogg|m4a)$/i.test(msg.attachmentUrl);
+    if (isImg) {
+      const fileName = (msg.attachmentUrl.split('/').pop().split('?')[0]) || 'imagem.png';
+      attachmentHtml = `
+        <div class="message-attachment">
+          <div class="message-image-container" data-img-url="${escapeHtml(msg.attachmentUrl)}" data-img-name="${escapeHtml(fileName)}" title="Clique para expandir • Botão direito para copiar">
+            <img class="chat-clickable-image" src="${escapeHtml(msg.attachmentUrl)}" alt="${escapeHtml(fileName)}" loading="lazy">
+          </div>
+        </div>
+      `;
+    } else if (isAudio) {
+      attachmentHtml = `<div class="message-attachment"><audio controls src="${msg.attachmentUrl}"></audio></div>`;
+    } else {
+      attachmentHtml = `<div class="message-attachment"><a href="${msg.attachmentUrl}" target="_blank" style="color: #5865F2; text-decoration: underline;">📁 Baixar Anexo</a></div>`;
+    }
+  }
+
+  const avatarUrl = msg.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(msg.sender)}`;
+  const displayTime = msg.timestamp || ('Hoje às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false }));
 
   div.innerHTML = `
-    <img src="${avatarUrl}" class="message-avatar" alt="${escapeHtml(msg.sender)}">
+    <img class="message-avatar" src="${avatarUrl}" alt="${escapeHtml(msg.sender)}" style="cursor: pointer;">
     <div class="message-content">
       <div class="message-header">
-        <span class="message-author">${escapeHtml(msg.sender)}</span>
-        <span class="message-timestamp">${escapeHtml(msg.timestamp || '')}</span>
+        <span class="message-author" style="color: ${isOwner ? '#5865F2' : '#23a55a'}; cursor: pointer;">${escapeHtml(msg.sender)}</span>
+        <span class="message-time">${escapeHtml(displayTime)}</span>
       </div>
-      <div class="message-body">${escapeHtml(msg.text || '')}</div>
+      <div class="message-text">${msg.text ? formatChatText(msg.text) : ''}</div>
+      <div class="discord-embed-slot" id="embed-slot-${msg.id}"></div>
+      ${attachmentHtml}
     </div>
   `;
+
   messagesContainer.appendChild(div);
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+  const previewUrl = extractFirstPreviewUrl(msg.text);
+  if (previewUrl && !attachmentHtml) {
+    const slotEl = div.querySelector(`#embed-slot-${msg.id}`);
+    if (slotEl) {
+      loadLinkPreview(slotEl, previewUrl);
+    }
+  }
+
+  if (attachmentHtml && window.lucide) {
+    window.lucide.createIcons();
+  }
 };
 
 // Listener do Indicador de Digitação (Typing Indicator)

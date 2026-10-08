@@ -198,6 +198,7 @@ export function registerChatHandlers(io, socket, users, voiceRooms, broadcastVoi
     const dmMsg = {
       id: `dm-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       sender: user.name,
+      avatar: user.avatar || null,
       receiver: (receiver || '').trim(),
       text: cleanText,
       attachmentUrl: attachmentUrl || null,
