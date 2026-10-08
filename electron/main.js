@@ -53,6 +53,8 @@ if (fs.existsSync(configPath)) {
 app.commandLine.appendSwitch('ignore-certificate-errors', 'true');
 app.commandLine.appendSwitch('allow-insecure-localhost', 'true');
 app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer');
+// Desativa Windows Graphics Capture (WGC) para remover a borda amarela de captura do Windows
+app.commandLine.appendSwitch('disable-features', 'WebRtcAllowWgcScreenCapturer,WebRtcAllowWgcWindowCapturer');
 
 // Ignora erros de SSL autoassinado do servidor VPS
 app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {

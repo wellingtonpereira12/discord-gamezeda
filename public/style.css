@@ -6191,7 +6191,6 @@ body.is-electron #btn-download-desktop {
 }
 
 /* Modo Grade no Palco de Vídeo */
-/* Modo Grade no Palco de Vídeo */
 .video-grid.grid-mode {
   display: flex !important;
   flex-wrap: wrap !important;
@@ -6204,15 +6203,21 @@ body.is-electron #btn-download-desktop {
   overflow-y: auto !important;
 }
 
+/* Ocultar jogadores sem vídeo no modo grade para maximizar tamanho dos vídeos */
+.video-grid.grid-mode .user-voice-card {
+  display: none !important;
+}
+
 .video-grid.grid-mode .screen-tile {
-  flex: 1 1 420px !important;
-  max-width: calc(50% - 12px) !important;
-  min-width: 320px !important;
-  width: auto !important;
+  flex: 1 1 calc(50% - 20px) !important;
+  max-width: calc(50% - 10px) !important;
+  min-width: 380px !important;
+  width: 100% !important;
   height: auto !important;
   aspect-ratio: 16 / 9 !important;
-  max-height: calc(100vh - 220px) !important;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.7) !important;
+  max-height: calc(100vh - 160px) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8) !important;
+  transition: all 0.2s ease !important;
 }
 
 .video-grid.grid-mode .screen-tile video {
@@ -6222,10 +6227,12 @@ body.is-electron #btn-download-desktop {
   background: #000 !important;
 }
 
-/* Quando houver apenas 1 tela no modo grade, dá destaque */
+/* Quando houver apenas 1 tela no modo grade, expande para 100% da área útil */
 .video-grid.grid-mode.single-stream .screen-tile {
-  max-width: 960px !important;
-  max-height: calc(100vh - 200px) !important;
+  flex: 1 1 100% !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  max-height: calc(100vh - 160px) !important;
 }
 
 .stage-btn.active {

@@ -236,6 +236,21 @@ export class WebRTCManager {
       const pc = this.getOrCreatePeer(senderId);
 
       try {
+        if (pc.signalingState !== 'stable') {
+          // Glare handling (colisão de negociação no padrão W3C Perfect Negotiation)
+          const isPolite = this.socket.id > senderId;
+          if (!isPolite) {
+            console.warn(`[WebRTC 📞] Glare com ${senderId} (estado: ${pc.signalingState}) - rejeitando oferta concorrente.`);
+            return;
+          }
+          console.log(`[WebRTC 📞] Glare com ${senderId} (estado: ${pc.signalingState}) - executando rollback como polite.`);
+          try {
+            await pc.setLocalDescription({ type: 'rollback' });
+          } catch (rbErr) {
+            console.warn('[WebRTC 📞] Falha ao executar rollback:', rbErr);
+          }
+        }
+
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
 
         if (pc.pendingCandidates && pc.pendingCandidates.length > 0) {
@@ -274,18 +289,22 @@ export class WebRTCManager {
       const pc = this.peers.get(senderId);
       if (pc) {
         try {
-          await pc.setRemoteDescription(new RTCSessionDescription(answer));
+          if (pc.signalingState === 'have-local-offer') {
+            await pc.setRemoteDescription(new RTCSessionDescription(answer));
 
-          if (pc.pendingCandidates && pc.pendingCandidates.length > 0) {
-            for (const cand of pc.pendingCandidates) {
-              try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch (e) {}
+            if (pc.pendingCandidates && pc.pendingCandidates.length > 0) {
+              for (const cand of pc.pendingCandidates) {
+                try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch (e) {}
+              }
+              pc.pendingCandidates = [];
             }
-            pc.pendingCandidates = [];
-          }
 
-          await this.applyBitrateParameters(pc);
+            await this.applyBitrateParameters(pc);
+          } else {
+            console.warn(`[WebRTC 📞] Ignorando resposta de ${senderId} pois estado atual é ${pc.signalingState}`);
+          }
         } catch (err) {
-          console.error('[WebRTC] Erro ao aplicar answer:', err);
+          console.error('[WebRTC] Erro ao processar resposta:', err);
         }
       }
     });
@@ -473,15 +492,17 @@ export class WebRTCManager {
           this.onRemoteTrack(peerId, incomingStream, event.track);
         }
 
-        const handleVideoRemoved = () => {
-          console.log(`[WebRTC 📹] Track de vídeo finalizado/mutado de ${peerId}`);
+        const handleVideoEnded = () => {
+          console.log(`[WebRTC 📹] Track de vídeo finalizado (ended) de ${peerId}`);
           if (this.onRemoteRemove) {
             this.onRemoteRemove(peerId, 'video');
           }
         };
 
-        event.track.onended = handleVideoRemoved;
-        event.track.onmute = handleVideoRemoved;
+        event.track.onended = handleVideoEnded;
+        event.track.onunmute = () => {
+          console.log(`[WebRTC 📹] Track de vídeo reativado (unmute) de ${peerId}`);
+        };
       } else if (event.track.kind === 'audio') {
         const isScreenAudio = (knownScreenAudioTrackId && event.track.id === knownScreenAudioTrackId) ||
                               (knownScreenStreamId && incomingStream.id === knownScreenStreamId) ||

@@ -1,5 +1,5 @@
 import { sounds } from './sounds.js?v=20261008_v1.1.7';
-import { WebRTCManager } from './webrtc.js?v=20261007_v1.1.4';
+import { WebRTCManager } from './webrtc.js?v=20261008_v1.4.0';
 import {
   escapeHtml,
   formatBytes,
@@ -604,8 +604,8 @@ setInterval(() => {
 function registerStream(id, stream, name, avatar, isLocal) {
   activeStreams.set(id, { id, name, avatar, stream, isLocal });
 
-  // Se o Modo Grade estiver ativo com múltiplas transmissões, renderiza todas na grade
-  if (isGridModeActive && activeStreams.size > 1) {
+  // Se o Modo Grade estiver ativo, renderiza todas na grade
+  if (isGridModeActive) {
     if (typeof renderGridStreams === 'function') renderGridStreams();
     renderStreamSwitcherBar();
     renderVoiceStageCards();
@@ -1986,7 +1986,15 @@ function renderVoiceStageCards() {
   if (!dynamicVoiceCards) return;
   dynamicVoiceCards.innerHTML = '';
 
+  // Se o Modo Grade estiver ativo E houver ao menos 1 transmissão ativa, oculta jogadores sem vídeo
+  const shouldHideNonVideoCards = isGridModeActive && activeStreams.size > 0;
+  if (shouldHideNonVideoCards) {
+    if (cardLocalUser) cardLocalUser.style.display = 'none';
+    return;
+  }
+
   if (cardLocalUser) {
+    cardLocalUser.style.display = 'flex';
     const hasLocalStream = activeStreams.has('local');
     cardLocalUser.classList.toggle('has-stream', hasLocalStream);
     cardLocalUser.onclick = () => {
@@ -5039,8 +5047,8 @@ function renderGridStreams() {
     btnStageGridMode.classList.toggle('active', isGridModeActive);
   }
 
-  // Se o Modo Grade NÃO estiver ativo, ou houver 1 ou menos transmissões ativas:
-  if (!isGridModeActive || totalStreams <= 1) {
+  // Se o Modo Grade NÃO estiver ativo, ou NÃO houver nenhuma transmissão ativa:
+  if (!isGridModeActive || totalStreams === 0) {
     if (dynamicGridContainer) {
       dynamicGridContainer.innerHTML = '';
       dynamicGridContainer.style.display = 'none';
@@ -5059,14 +5067,17 @@ function renderGridStreams() {
       if (mainScreenTile) mainScreenTile.style.display = 'none';
       if (streamSwitcherBar) streamSwitcherBar.style.display = 'none';
     }
+    renderVoiceStageCards();
     return;
   }
 
-  // MODO GRADE ATIVO COM 2 OU MAIS TRANSMISSÕES:
-  // Oculta o mainScreenTile para renderizar todos os vídeos lado a lado
+  // MODO GRADE ATIVO COM 1 OU MAIS TRANSMISSÕES:
+  // Oculta o mainScreenTile para renderizar todos os vídeos lado a lado em tamanho expandido
   if (mainScreenTile) mainScreenTile.style.display = 'none';
   if (streamSwitcherBar) streamSwitcherBar.style.display = 'none';
   if (sharedScreenVideo) sharedScreenVideo.srcObject = null;
+
+  renderVoiceStageCards();
 
   if (videoStage) videoStage.style.display = 'flex';
   if (messagesContainer) messagesContainer.style.display = 'none';
@@ -5154,6 +5165,7 @@ function applyGridMode(active) {
   isGridModeActive = active;
   localStorage.setItem('gamezeda_grid_mode', active ? 'true' : 'false');
   renderGridStreams();
+  renderVoiceStageCards();
 }
 
 if (btnStageGridMode) {
