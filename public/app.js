@@ -5637,31 +5637,7 @@ function closeServerDropdown() {
     serverDropdownMenu.style.display = 'none';
   }
 }
-
-if (serverHeaderBtn) {
-  serverHeaderBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (serverDropdownMenu) {
-      const isVisible = serverDropdownMenu.style.display === 'flex';
-      serverDropdownMenu.style.display = isVisible ? 'none' : 'flex';
-      if (!isVisible && window.lucide) window.lucide.createIcons();
-    }
-  });
-}
-
-if (btnMenuCreateChannel) {
-  btnMenuCreateChannel.addEventListener('click', () => {
-    closeServerDropdown();
-    openCreateChannelModal();
-  });
-}
-
-if (btnMenuCreateCategory) {
-  btnMenuCreateCategory.addEventListener('click', () => {
-    closeServerDropdown();
-    openCreateCategoryModal();
-  });
-}
+window.closeServerDropdown = closeServerDropdown;
 
 // Modal Criar Canal
 function openCreateChannelModal(preselectedCatId = null) {

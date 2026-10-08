@@ -175,6 +175,7 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
   // Abrir Modal Convidar Amigos (do menu do servidor)
   if (btnMenuInvitePeople) {
     btnMenuInvitePeople.addEventListener('click', () => {
+      if (serverDropdownMenu) serverDropdownMenu.style.display = 'none';
       const currentGuild = cachedGuilds.find(g => g.id === activeGuildId) || { inviteCode: 'fakedc', name: 'FakeDC' };
       if (inviteServerCodeDisplay) {
         inviteServerCodeDisplay.value = currentGuild.inviteCode || activeGuildId;
@@ -224,10 +225,17 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
       e.stopPropagation();
       const isVisible = serverDropdownMenu.style.display === 'flex';
       serverDropdownMenu.style.display = isVisible ? 'none' : 'flex';
+      if (!isVisible && window.lucide) {
+        window.lucide.createIcons();
+      }
     });
 
-    window.addEventListener('click', () => {
-      if (serverDropdownMenu) serverDropdownMenu.style.display = 'none';
+    window.addEventListener('click', (e) => {
+      if (serverDropdownMenu && serverDropdownMenu.style.display === 'flex') {
+        if (!serverDropdownMenu.contains(e.target) && !serverHeaderBtn.contains(e.target)) {
+          serverDropdownMenu.style.display = 'none';
+        }
+      }
     });
 
     window.addEventListener('keydown', (e) => {
