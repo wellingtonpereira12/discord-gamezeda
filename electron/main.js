@@ -282,7 +282,7 @@ function getAppVersion() {
       if (localPkg.version) return localPkg.version;
     }
   } catch (e) {}
-  return (app && typeof app.getVersion === 'function') ? app.getVersion() : '1.3.0';
+  return (app && typeof app.getVersion === 'function') ? app.getVersion() : '1.4.0';
 }
 
 /**

@@ -58,7 +58,7 @@ import {
   loadOrUpdateWatchPartyPlayer,
   stopWatchPartyVideo
 } from './js/modules/watchParty.js?v=20261008_v1.3.0';
-import { setupDesktopClient } from './js/modules/desktopClient.js?v=20261008_v1.3.0';
+import { setupDesktopClient } from './js/modules/desktopClient.js?v=20261008_v1.4.0';
 import {
   initGuilds,
   renderGuildsList,
@@ -390,6 +390,21 @@ let isMuted = false;
 let isDeafened = false;
 let isScreenSharing = false;
 
+function setLocalScreenSharingState(active) {
+  isScreenSharing = !!active;
+  if (btnStageScreen) {
+    btnStageScreen.classList.toggle('active-stream', isScreenSharing);
+  }
+  if (btnStageScreenText) {
+    btnStageScreenText.textContent = isScreenSharing ? 'Parar Tela' : 'Compartilhar Tela HD';
+  }
+  if (quickScreenShareBtn) {
+    quickScreenShareBtn.classList.toggle('active-stream', isScreenSharing);
+    quickScreenShareBtn.title = isScreenSharing ? 'Parar Transmissão' : 'Compartilhar Tela HD';
+  }
+}
+window.setLocalScreenSharingActive = setLocalScreenSharingState;
+
 const userConfigs = new Map();
 let currentContextPeerId = null;
 
@@ -547,12 +562,8 @@ const webrtc = new WebRTCManager(
 );
 
 webrtc.onLocalScreenStopped = () => {
-  if (isScreenSharing) {
-    unregisterStream('local');
-    isScreenSharing = false;
-    btnStageScreen.classList.remove('active-stream');
-    btnStageScreenText.textContent = 'Compartilhar Tela HD';
-  }
+  unregisterStream('local');
+  setLocalScreenSharingState(false);
 };
 
 webrtc.onRemoteScreenAudio = (peerId, stream, track) => {
@@ -3731,7 +3742,7 @@ function leaveVoice(playAudio = true, switchChat = true) {
   } catch (e) {}
 
   inVoice = false;
-  isScreenSharing = false;
+  setLocalScreenSharingState(false);
   isCameraActive = false;
   currentVoiceChannelId = null;
 
@@ -3890,12 +3901,15 @@ async function toggleScreenShare(forceVideoOnly = false) {
     await connectToVoiceChannel(firstVoice.id, firstVoice.name);
   }
 
-  if (isScreenSharing) {
-    webrtc.stopScreenShare();
+  const isSharing = isScreenSharing || (typeof webrtc !== 'undefined' && webrtc && webrtc.isScreenSharing) || (activeStreams && activeStreams.has('local'));
+
+  if (isSharing) {
+    if (typeof webrtc !== 'undefined' && webrtc && typeof webrtc.stopScreenShare === 'function') {
+      webrtc.stopScreenShare();
+    }
     unregisterStream('local');
-    isScreenSharing = false;
-    btnStageScreen.classList.remove('active-stream');
-    btnStageScreenText.textContent = 'Compartilhar Tela HD';
+    setLocalScreenSharingState(false);
+    showSoundToast('📺 Transmissão de tela encerrada.');
     return;
   }
 
@@ -3909,10 +3923,8 @@ async function toggleScreenShare(forceVideoOnly = false) {
   try {
     const stream = await webrtc.startScreenShare(forceVideoOnly);
     if (stream) {
-      isScreenSharing = true;
+      setLocalScreenSharingState(true);
       registerStream('local', stream, `${currentUser ? currentUser.name : 'Você'} (Sua Tela HD)`, currentUser ? currentUser.avatar : '', true);
-      btnStageScreen.classList.add('active-stream');
-      btnStageScreenText.textContent = 'Parar Tela';
       const hasAudio = stream.getAudioTracks && stream.getAudioTracks().length > 0;
       if (hasAudio) {
         showSoundToast('🔊 Transmitindo tela com som do sistema!');
@@ -3935,7 +3947,8 @@ async function toggleScreenShare(forceVideoOnly = false) {
 quickScreenShareBtn.addEventListener('click', () => toggleScreenShare(false));
 btnStageScreen.addEventListener('click', () => toggleScreenShare(false));
 btnStopScreenTile.addEventListener('click', () => {
-  if (currentViewedStreamId === 'local' || isScreenSharing) {
+  const isSharing = isScreenSharing || (typeof webrtc !== 'undefined' && webrtc && webrtc.isScreenSharing) || (activeStreams && activeStreams.has('local'));
+  if (isSharing && (currentViewedStreamId === 'local' || !currentViewedStreamId)) {
     toggleScreenShare(false);
   } else {
     currentViewedStreamId = null;
@@ -6192,7 +6205,8 @@ setupDesktopClient({
   renderMembersSidebar,
   renderVoiceStageCards,
   getMyGameActivity: () => myGameActivity,
-  setMyGameActivity: (act) => { myGameActivity = act; }
+  setMyGameActivity: (act) => { myGameActivity = act; },
+  setLocalScreenSharing: (active) => setLocalScreenSharingState(active)
 });
 
 // ==========================================

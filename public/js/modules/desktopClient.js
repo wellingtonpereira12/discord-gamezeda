@@ -22,7 +22,8 @@ export function setupDesktopClient(deps = {}) {
     renderMembersSidebar = () => {},
     renderVoiceStageCards = () => {},
     getMyGameActivity = () => null,
-    setMyGameActivity = () => {}
+    setMyGameActivity = () => {},
+    setLocalScreenSharing = () => {}
   } = deps;
 
   document.body.classList.add('is-electron');
@@ -228,6 +229,11 @@ export function setupDesktopClient(deps = {}) {
 
         const stream = await webrtc.startScreenShareWithDesktopSource(sourceIdToShare);
         if (stream) {
+          if (typeof setLocalScreenSharing === 'function') {
+            setLocalScreenSharing(true);
+          } else if (typeof window.setLocalScreenSharingActive === 'function') {
+            window.setLocalScreenSharingActive(true);
+          }
           const currentUser = getCurrentUser();
           registerStream('local', stream, `${currentUser ? currentUser.name : 'Você'} (Sua Tela HD)`, currentUser ? currentUser.avatar : '', true);
           if (btnStageScreen) btnStageScreen.classList.add('active-stream');
