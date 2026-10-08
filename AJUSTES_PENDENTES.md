@@ -42,8 +42,9 @@ Vamos implementar e validar **um a um**, testando cada ponto antes de avançar p
 
 ---
 
-### [ ] 6. Sistema de Cargos (Roles) e Atribuição a Membros
+### [x] 6. Sistema de Cargos (Roles) e Atribuição a Membros
 - **Problema:** Criação e gerenciamento de cargos dentro das configurações do servidor.
+- **Status:** ✅ Concluído e validado pelo usuário nos testes práticos (criação de cargos, atribuição/remoção para membros cadastrados e cores de cargo aplicadas no chat).
 - **Critério de Aceite:** Dentro do modal de configurações, na aba "Cargos", o usuário pode criar cargos com nome e cor personalizada. Na aba "Membros", pode atribuir ou remover esses cargos dos membros do servidor.
 
 ---
