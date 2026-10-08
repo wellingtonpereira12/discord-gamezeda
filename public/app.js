@@ -2743,6 +2743,130 @@ function formatChatText(text) {
   return str;
 }
 
+// ==========================================
+// OPEN GRAPH & DISCORD LINK EMBED PREVIEW
+// ==========================================
+const linkPreviewCache = new Map();
+
+function extractFirstPreviewUrl(text) {
+  if (!text) return null;
+
+  // 1. Markdown link explícito: [Título](URL)
+  const mdMatch = text.match(/\[[^\]]+\]\(((?:https?:\/\/|www\.)[^\s)]+)\)/i);
+  if (mdMatch) {
+    let url = mdMatch[1];
+    if (url.startsWith('www.')) url = 'https://' + url;
+    if (!/\.(png|jpe?g|gif|webp|svg|mp3|wav|ogg|m4a)$/i.test(url)) {
+      return url;
+    }
+  }
+
+  // 2. URLs normais: https://, http://, www.
+  const rawMatch = text.match(/(https?:\/\/[^\s<]+|www\.[^\s<]+)/i);
+  if (rawMatch) {
+    let url = rawMatch[1];
+    while (url.length > 0 && /[.,;:!?)}\]*_]$/.test(url)) {
+      url = url.slice(0, -1);
+    }
+    if (url.startsWith('www.')) url = 'https://' + url;
+    if (!/\.(png|jpe?g|gif|webp|svg|mp3|wav|ogg|m4a)$/i.test(url)) {
+      return url;
+    }
+  }
+
+  return null;
+}
+
+async function loadLinkPreview(slotEl, url) {
+  if (!slotEl || !url) return;
+
+  if (linkPreviewCache.has(url)) {
+    const cached = linkPreviewCache.get(url);
+    if (cached && cached.success) {
+      renderEmbedCard(slotEl, cached);
+    }
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`);
+    if (!res.ok) {
+      linkPreviewCache.set(url, { success: false });
+      return;
+    }
+    const data = await res.json();
+    linkPreviewCache.set(url, data);
+    if (data && data.success) {
+      renderEmbedCard(slotEl, data);
+    }
+  } catch (err) {
+    linkPreviewCache.set(url, { success: false });
+  }
+}
+
+function renderEmbedCard(slotEl, data) {
+  if (!slotEl || !data || !data.success) return;
+
+  const card = document.createElement('div');
+  card.className = 'discord-embed-card';
+  card.style.setProperty('--embed-border-color', data.themeColor || '#5865f2');
+
+  const providerHtml = data.siteName
+    ? `<a href="${escapeHtml(data.url)}" target="_blank" rel="noopener noreferrer" class="discord-embed-provider">${escapeHtml(data.siteName)}</a>`
+    : '';
+
+  const authorHtml = (data.author && data.author !== data.siteName)
+    ? `<a href="${escapeHtml(data.authorUrl || data.url)}" target="_blank" rel="noopener noreferrer" class="discord-embed-author">${escapeHtml(data.author)}</a>`
+    : '';
+
+  const titleHtml = data.title
+    ? `<a href="${escapeHtml(data.url)}" target="_blank" rel="noopener noreferrer" class="discord-embed-title">${escapeHtml(data.title)}</a>`
+    : '';
+
+  const descHtml = data.description
+    ? `<div class="discord-embed-description">${escapeHtml(data.description)}</div>`
+    : '';
+
+  let thumbHtml = '';
+  if (data.image) {
+    const isVideo = data.mediaType === 'video';
+    thumbHtml = `
+      <div class="discord-embed-thumb-container" data-target-url="${escapeHtml(data.url)}" data-img-url="${escapeHtml(data.image)}" title="${isVideo ? 'Assistir no YouTube' : 'Abrir imagem'}">
+        <img class="discord-embed-thumb" src="${escapeHtml(data.image)}" alt="${escapeHtml(data.title || 'Embed')}" loading="lazy" onerror="this.parentElement.style.display='none'">
+        ${isVideo ? `
+          <div class="discord-embed-play-badge">
+            <svg viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  card.innerHTML = `
+    ${providerHtml}
+    ${authorHtml}
+    ${titleHtml}
+    ${descHtml}
+    ${thumbHtml}
+  `;
+
+  // Clique na thumbnail
+  const thumbContainer = card.querySelector('.discord-embed-thumb-container');
+  if (thumbContainer) {
+    thumbContainer.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (data.mediaType === 'video') {
+        window.open(data.url, '_blank', 'noopener,noreferrer');
+      } else {
+        openImageLightbox(data.image, data.title || 'Imagem');
+      }
+    });
+  }
+
+  slotEl.innerHTML = '';
+  slotEl.appendChild(card);
+}
+
 // Renderizar linha de reações
 function renderReactionsHtml(msg) {
   const reactions = msg.reactions && typeof msg.reactions === 'object' ? msg.reactions : {};
@@ -2919,6 +3043,16 @@ function updateMessageInDOM(msg) {
     }
   }
 
+  const embedSlot = div.querySelector(`#embed-slot-${msg.id}`);
+  if (embedSlot) {
+    const newPreviewUrl = extractFirstPreviewUrl(msg.text);
+    if (newPreviewUrl) {
+      loadLinkPreview(embedSlot, newPreviewUrl);
+    } else {
+      embedSlot.innerHTML = '';
+    }
+  }
+
   const editSlot = div.querySelector('.message-edited-slot');
   if (editSlot) {
     editSlot.innerHTML = msg.edited ? '<span class="message-edited-tag" title="Editada">(editado)</span>' : '';
@@ -3070,6 +3204,7 @@ function appendMessageToContainer(msg) {
         <span class="message-pin-slot">${msg.pinned ? '<span class="pinned-chat-badge">📌 Fixada</span>' : ''}</span>
       </div>
       <div class="message-text" id="msg-text-${msg.id}">${formatChatText(msg.text)}</div>
+      <div class="discord-embed-slot" id="embed-slot-${msg.id}"></div>
       ${attachmentHtml}
       <div class="message-reactions-container" id="reactions-container-${msg.id}">${reactionsHtml}</div>
     </div>
@@ -3077,6 +3212,15 @@ function appendMessageToContainer(msg) {
 
   bindMessageElementEvents(div, msg);
   messagesContainer.appendChild(div);
+
+  const previewUrl = extractFirstPreviewUrl(msg.text);
+  if (previewUrl && !attachmentHtml) {
+    const slotEl = div.querySelector(`#embed-slot-${msg.id}`);
+    if (slotEl) {
+      loadLinkPreview(slotEl, previewUrl);
+    }
+  }
+
   if (attachmentHtml && window.lucide) {
     window.lucide.createIcons();
   }

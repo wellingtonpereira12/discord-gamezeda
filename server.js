@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 
 import { initDatabase } from './src/config/db.js';
 import { uploadRouter } from './src/routes/upload.js';
+import { linkPreviewRouter } from './src/routes/linkPreview.js';
 import { setupSockets } from './src/sockets/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -58,6 +59,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
 
 // Rotas de Upload e Soundboard API
 app.use('/api', uploadRouter);
+app.use('/api', linkPreviewRouter);
 
 // Rota de consulta de versão do Cliente Desktop Electron
 app.get('/api/desktop/version', (req, res) => {
