@@ -1,5 +1,5 @@
 import { sounds } from './sounds.js?v=20261007_v7';
-import { WebRTCManager } from './webrtc.js?v=20261007_v1.1.3';
+import { WebRTCManager } from './webrtc.js?v=20261007_v1.1.4';
 
 if (window.lucide) {
   window.lucide.createIcons();
@@ -4492,6 +4492,16 @@ function closeSettingsModal() {
   settingsModal.style.display = 'none';
 }
 
+// Limpa chaves corrompidas do localStorage caso existam de sessões anteriores
+try {
+  ['discord_stream_resolution', 'discord_stream_bitrate', 'discord_stream_degradation'].forEach(k => {
+    const v = localStorage.getItem(k);
+    if (v === '[object Object]' || v === 'undefined' || v === 'null') {
+      localStorage.removeItem(k);
+    }
+  });
+} catch (e) {}
+
 function syncStreamQualityUI() {
   if (!webrtc) return;
   if (settingStreamResolution) {
@@ -4501,12 +4511,15 @@ function syncStreamQualityUI() {
     settingStreamFps.value = String(webrtc.streamFps || 60);
   }
   if (settingStreamBitrate) {
-    settingStreamBitrate.value = webrtc.streamBitrate || '8M';
+    settingStreamBitrate.value = webrtc.streamBitrateKey || '8M';
   }
   if (settingStreamDegradation) {
     settingStreamDegradation.value = webrtc.streamDegradation || 'maintain-framerate';
   }
 }
+
+// Inicializa a interface com as preferências salvas
+syncStreamQualityUI();
 
 let cachedAppVersion = null;
 async function loadAndDisplayAppVersion() {
@@ -4545,7 +4558,7 @@ loadAndDisplayAppVersion();
 function onStreamQualitySettingChange() {
   if (!webrtc) return;
   const resolution = settingStreamResolution ? settingStreamResolution.value : '1080p';
-  const fps = settingStreamFps ? settingStreamFps.value : 60;
+  const fps = settingStreamFps ? parseInt(settingStreamFps.value, 10) : 60;
   const bitrate = settingStreamBitrate ? settingStreamBitrate.value : '8M';
   const degradation = settingStreamDegradation ? settingStreamDegradation.value : 'maintain-framerate';
 
@@ -4553,7 +4566,7 @@ function onStreamQualitySettingChange() {
 
   const fpsLabel = fps + ' FPS';
   const resLabel = resolution === 'source' ? 'Nativa' : resolution.toUpperCase();
-  showSoundToast(`🎥 Transmissão: ${resLabel} @ ${fpsLabel} (${bitrate})`);
+  showSoundToast(`🎥 Salvo: ${resLabel} @ ${fpsLabel} (${bitrate})`);
 }
 
 if (settingStreamResolution) {

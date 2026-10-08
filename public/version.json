@@ -12,5 +12,5 @@
     "iosUrl": "/download/ios",
     "iosIpa": "FakeDC.ipa"
   },
-  "notes": "FakeDC v1.1.4: Visualizador de imagem em tela cheia estilo Discord (lightbox com zoom, tela cheia e download), copiar imagem e link direto para área de transferência e correção de inicialização do app desktop no Windows."
+  "notes": "FakeDC v1.1.4: Visualizador de imagens em tela cheia (lightbox Discord com zoom), copiar imagem e link, e persistência das opções de resolução e bitrate da transmissão de tela."
 }

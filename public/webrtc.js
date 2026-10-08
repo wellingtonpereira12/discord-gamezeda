@@ -61,11 +61,39 @@ export class WebRTCManager {
     this.selectedInputDeviceId = localStorage.getItem('discord_input_device') || 'default';
     this.selectedOutputDeviceId = localStorage.getItem('discord_output_device') || 'default';
 
+    // Mapa de chaves de bitrate para bits por segundo
+    this.bitrateMap = {
+      '16M': 16000000,
+      '12M': 12000000,
+      '8M': 8000000,
+      '5M': 5000000,
+      '2.5M': 2500000
+    };
+
     // Qualidade de Transmissão de Tela (Resolução, FPS, Bitrate e Modo Gamer)
-    this.streamResolution = localStorage.getItem('discord_stream_resolution') || '1080p';
-    this.streamFps = parseInt(localStorage.getItem('discord_stream_fps') || '60', 10);
-    this.streamBitrate = parseInt(localStorage.getItem('discord_stream_bitrate') || '12000000', 10);
-    this.streamDegradation = localStorage.getItem('discord_stream_degradation') || 'maintain-framerate';
+    const savedRes = localStorage.getItem('discord_stream_resolution');
+    this.streamResolution = (savedRes && savedRes !== '[object Object]') ? savedRes : '1080p';
+
+    const savedFps = parseInt(localStorage.getItem('discord_stream_fps') || '60', 10);
+    this.streamFps = (!isNaN(savedFps) && savedFps > 0) ? savedFps : 60;
+
+    const savedBitrate = localStorage.getItem('discord_stream_bitrate') || '8M';
+    if (this.bitrateMap[savedBitrate]) {
+      this.streamBitrateKey = savedBitrate;
+      this.streamBitrate = this.bitrateMap[savedBitrate];
+    } else {
+      const numB = parseInt(savedBitrate, 10);
+      if (!isNaN(numB) && numB > 100000) {
+        this.streamBitrate = numB;
+        this.streamBitrateKey = Object.keys(this.bitrateMap).find(k => this.bitrateMap[k] === numB) || '8M';
+      } else {
+        this.streamBitrateKey = '8M';
+        this.streamBitrate = 8000000;
+      }
+    }
+
+    const savedDegradation = localStorage.getItem('discord_stream_degradation');
+    this.streamDegradation = (savedDegradation && savedDegradation !== '[object Object]') ? savedDegradation : 'maintain-framerate';
 
     // Supressor de Ruído Neural RNNoise (Xiph.Org)
     this.noiseSuppressionEnabled = localStorage.getItem('discord_rnnoise_enabled') !== 'false';
@@ -1039,23 +1067,55 @@ export class WebRTCManager {
     };
   }
 
-  setStreamQuality(resolution, fps, bitrate, degradation) {
-    if (resolution) {
+  setStreamQuality(arg1, arg2, arg3, arg4) {
+    let resolution, fps, bitrate, degradation;
+
+    if (arg1 && typeof arg1 === 'object') {
+      resolution = arg1.resolution;
+      fps = arg1.fps;
+      bitrate = arg1.bitrate;
+      degradation = arg1.degradation;
+    } else {
+      resolution = arg1;
+      fps = arg2;
+      bitrate = arg3;
+      degradation = arg4;
+    }
+
+    if (resolution && typeof resolution === 'string' && resolution !== '[object Object]') {
       this.streamResolution = resolution;
       localStorage.setItem('discord_stream_resolution', resolution);
     }
-    if (fps) {
-      this.streamFps = parseInt(fps, 10);
-      localStorage.setItem('discord_stream_fps', this.streamFps);
+
+    if (fps !== undefined && fps !== null) {
+      const parsedFps = parseInt(fps, 10);
+      if (!isNaN(parsedFps) && parsedFps > 0) {
+        this.streamFps = parsedFps;
+        localStorage.setItem('discord_stream_fps', String(parsedFps));
+      }
     }
+
     if (bitrate) {
-      this.streamBitrate = parseInt(bitrate, 10);
-      localStorage.setItem('discord_stream_bitrate', this.streamBitrate);
+      if (typeof bitrate === 'string' && this.bitrateMap[bitrate]) {
+        this.streamBitrateKey = bitrate;
+        this.streamBitrate = this.bitrateMap[bitrate];
+        localStorage.setItem('discord_stream_bitrate', bitrate);
+      } else {
+        const numB = parseInt(bitrate, 10);
+        if (!isNaN(numB)) {
+          this.streamBitrate = numB;
+          const matchKey = Object.keys(this.bitrateMap).find(k => this.bitrateMap[k] === numB) || '8M';
+          this.streamBitrateKey = matchKey;
+          localStorage.setItem('discord_stream_bitrate', matchKey);
+        }
+      }
     }
-    if (degradation) {
+
+    if (degradation && typeof degradation === 'string' && degradation !== '[object Object]') {
       this.streamDegradation = degradation;
       localStorage.setItem('discord_stream_degradation', degradation);
     }
+
     this.applyStreamQualityToActiveSenders();
   }
 
