@@ -500,6 +500,59 @@ export async function updateGuild(guildId, { name, iconUrl }) {
   return guild || { id: gId, name, iconUrl };
 }
 
+export async function deleteGuild(guildId, username) {
+  const gId = (guildId || '').trim();
+  if (!gId || gId === 'gamezeda') {
+    throw new Error('O servidor padrão do FakeDC não pode ser excluído.');
+  }
+
+  let guild = null;
+  if (isConnected && pool) {
+    try {
+      const [rows] = await pool.query('SELECT * FROM guilds WHERE id = ? LIMIT 1', [gId]);
+      if (rows && rows.length > 0) guild = rows[0];
+    } catch (e) {}
+  }
+  if (!guild) {
+    guild = memoryStore.guilds.find(g => g.id === gId);
+  }
+  if (!guild) {
+    throw new Error('Servidor não encontrado.');
+  }
+
+  const owner = guild.owner_username || guild.ownerUsername;
+  if (username && owner && owner.toLowerCase() !== username.toLowerCase()) {
+    throw new Error('Apenas o dono do servidor pode excluí-lo.');
+  }
+
+  if (isConnected && pool) {
+    try {
+      await pool.query('DELETE FROM messages WHERE channel_id IN (SELECT id FROM channels WHERE guild_id = ?)', [gId]);
+      await pool.query('DELETE FROM channels WHERE guild_id = ?', [gId]);
+      await pool.query('DELETE FROM categories WHERE guild_id = ?', [gId]);
+      await pool.query('DELETE FROM guild_member_roles WHERE guild_id = ?', [gId]);
+      await pool.query('DELETE FROM guild_roles WHERE guild_id = ?', [gId]);
+      await pool.query('DELETE FROM guild_members WHERE guild_id = ?', [gId]);
+      await pool.query('DELETE FROM guilds WHERE id = ?', [gId]);
+    } catch (e) {
+      console.warn('Erro ao excluir servidor do MariaDB:', e.message);
+    }
+  }
+
+  const chIds = memoryStore.channels.filter(c => (c.guildId || 'gamezeda') === gId).map(c => c.id);
+  chIds.forEach(id => {
+    delete memoryStore.messages[id];
+  });
+  memoryStore.channels = memoryStore.channels.filter(c => (c.guildId || 'gamezeda') !== gId);
+  memoryStore.categories = memoryStore.categories.filter(c => (c.guildId || 'gamezeda') !== gId);
+  memoryStore.guildRoles = memoryStore.guildRoles.filter(r => r.guildId !== gId);
+  memoryStore.guildMemberRoles = memoryStore.guildMemberRoles.filter(mr => mr.guildId !== gId);
+  memoryStore.guildMembers = memoryStore.guildMembers.filter(m => m.guildId !== gId);
+  memoryStore.guilds = memoryStore.guilds.filter(g => g.id !== gId);
+
+  return true;
+}
+
 export async function getGuildRoles(guildId) {
   const gId = (guildId || '').trim();
   if (!gId) return [];
@@ -771,6 +824,20 @@ export async function getChannelsFull(guildId = 'gamezeda') {
 export async function getChannels(guildId = 'gamezeda') {
   const full = await getChannelsFull(guildId);
   return full.filter(c => c.type === 'text').map(c => c.id);
+}
+
+export async function isValidChannel(channelId) {
+  if (!channelId) return false;
+  if (channelId === 'geral') return true;
+  if (isConnected && pool) {
+    try {
+      const [rows] = await pool.query('SELECT id FROM channels WHERE id = ? LIMIT 1', [channelId]);
+      if (rows && rows.length > 0) return true;
+    } catch (e) {
+      console.warn('Erro ao validar canal no MariaDB:', e.message);
+    }
+  }
+  return memoryStore.channels.some(c => c.id === channelId);
 }
 
 export async function createChannel({ name, type = 'text', categoryId, guildId = 'gamezeda' }) {

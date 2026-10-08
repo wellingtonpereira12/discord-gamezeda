@@ -168,6 +168,11 @@
           <i data-lucide="folder-plus" style="width: 16px; height: 16px;"></i>
           <span>Criar Categoria</span>
         </button>
+        <div class="server-menu-separator" id="server-menu-delete-separator" style="height: 1px; background: rgba(255,255,255,0.08); margin: 4px 0; display: none;"></div>
+        <button type="button" class="server-menu-item server-menu-danger" id="btn-menu-delete-server" style="color: #f23f43; display: none;">
+          <i data-lucide="trash-2" style="width: 16px; height: 16px; color: #f23f43;"></i>
+          <span style="color: #f23f43;">Excluir Servidor</span>
+        </button>
       </div>
 
       <!-- Modo 1: Canais do Servidor Ativo -->
@@ -1744,6 +1749,16 @@
               <button type="button" class="btn-enter" id="btn-save-server-overview" style="padding: 10px 24px; font-size: 14px;">Salvar Alterações</button>
               <span id="server-settings-feedback" style="display: none; color: #23a55a; font-size: 13px; margin-left: 12px; font-weight: 600;">Salvo com sucesso!</span>
             </div>
+
+            <div id="server-danger-zone" style="margin-top: 32px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); display: none; justify-content: space-between; align-items: center;">
+              <div>
+                <div style="color: #f23f43; font-weight: 700; font-size: 14px;">Excluir Servidor</div>
+                <div style="color: #949ba4; font-size: 12px; margin-top: 2px;">Uma vez excluído, todos os canais e mensagens serão apagados permanentemente.</div>
+              </div>
+              <button type="button" class="btn-subtle" id="btn-delete-server-trigger" style="background: rgba(242,63,67,0.15); color: #f23f43; border: 1px solid rgba(242,63,67,0.3); padding: 8px 16px; border-radius: 4px; font-weight: 600; cursor: pointer;">
+                Excluir Servidor
+              </button>
+            </div>
           </div>
 
           <!-- Aba 2: Cargos (Roles) -->
@@ -1794,7 +1809,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261008_v1.3.5"></script>
+  <script type="module" src="app.js?v=20261008_v1.3.6"></script>
 
 </body>
 </html>

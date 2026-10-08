@@ -2,6 +2,7 @@ import {
   getUserGuilds,
   createGuild,
   updateGuild,
+  deleteGuild,
   joinGuildByInvite,
   getCategories,
   getChannelsFull,
@@ -270,6 +271,46 @@ export function registerGuildHandlers(io, socket, users) {
         callback({ success: true });
       }
     } catch (err) {
+      if (typeof callback === 'function') {
+        callback({ success: false, message: err.message });
+      }
+    }
+  });
+
+  // Excluir Servidor
+  socket.on('guild:delete', async ({ guildId }, callback) => {
+    try {
+      const user = users.get(socket.id);
+      if (!user) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Usuário não autenticado.' });
+        return;
+      }
+
+      const targetGuildId = (guildId || '').trim();
+      if (!targetGuildId || targetGuildId === 'gamezeda') {
+        if (typeof callback === 'function') callback({ success: false, message: 'O servidor principal não pode ser excluído.' });
+        return;
+      }
+
+      await deleteGuild(targetGuildId, user.name);
+      console.log(`[-] Servidor [${targetGuildId}] excluído por ${user.name}`);
+
+      io.emit('guild:deleted', { guildId: targetGuildId });
+
+      // Atualiza lista de servidores de todos os usuários
+      for (const [sId, u] of users.entries()) {
+        const s = io.sockets.sockets.get(sId);
+        if (s && u) {
+          const uGuilds = await getUserGuilds(u.name);
+          s.emit('guild:updated-list', uGuilds);
+        }
+      }
+
+      if (typeof callback === 'function') {
+        callback({ success: true });
+      }
+    } catch (err) {
+      console.warn('Erro ao excluir servidor:', err.message);
       if (typeof callback === 'function') {
         callback({ success: false, message: err.message });
       }

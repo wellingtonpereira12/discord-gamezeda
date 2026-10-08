@@ -1854,6 +1854,14 @@ function renderSidebarChannels() {
           switchTextChannel(channel.id);
         });
 
+        item.addEventListener('contextmenu', (e) => {
+          if (channel.id !== 'geral' && !channel.id.startsWith('geral-guild-')) {
+            e.preventDefault();
+            e.stopPropagation();
+            openDeleteModal('channel', channel.id, channel.name);
+          }
+        });
+
         const btnDel = item.querySelector('.btn-channel-delete');
         if (btnDel) {
           btnDel.addEventListener('click', (e) => {
@@ -1898,6 +1906,14 @@ function renderSidebarChannels() {
         item.addEventListener('click', (e) => {
           if (e.target.closest('.btn-channel-delete')) return;
           connectToVoiceChannel(channel.id, channel.name);
+        });
+
+        item.addEventListener('contextmenu', (e) => {
+          if (channel.id !== 'gamezeda' && !channel.id.startsWith('voz-guild-')) {
+            e.preventDefault();
+            e.stopPropagation();
+            openDeleteModal('channel', channel.id, channel.name);
+          }
         });
 
         const btnDel = item.querySelector('.btn-channel-delete');
@@ -5892,16 +5908,24 @@ function openDeleteModal(type, id, name) {
   if (deleteModalAlert) deleteModalAlert.style.display = 'none';
 
   if (deleteModalTitle) {
-    deleteModalTitle.textContent = type === 'category' ? 'Excluir Categoria' : 'Excluir Canal';
+    if (type === 'category') deleteModalTitle.textContent = 'Excluir Categoria';
+    else if (type === 'guild') deleteModalTitle.textContent = 'Excluir Servidor';
+    else deleteModalTitle.textContent = 'Excluir Canal';
   }
   if (deleteModalDesc) {
-    deleteModalDesc.innerHTML = type === 'category'
-      ? `Tem certeza de que deseja excluir a categoria <strong>${escapeHtml(name)}</strong>? Seus canais serão mantidos e organizados.`
-      : `Tem certeza de que deseja excluir o canal <strong>#${escapeHtml(name)}</strong>? Todas as mensagens serão apagadas permanentemente.`;
+    if (type === 'category') {
+      deleteModalDesc.innerHTML = `Tem certeza de que deseja excluir a categoria <strong>${escapeHtml(name)}</strong>? Seus canais serão mantidos e organizados.`;
+    } else if (type === 'guild') {
+      deleteModalDesc.innerHTML = `Tem certeza de que deseja excluir o servidor <strong>${escapeHtml(name)}</strong>? Todos os canais, mensagens e configurações serão apagados permanentemente. Esta ação não pode ser desfeita.`;
+    } else {
+      deleteModalDesc.innerHTML = `Tem certeza de que deseja excluir o canal <strong>#${escapeHtml(name)}</strong>? Todas as mensagens serão apagadas permanentemente.`;
+    }
   }
 
   modalConfirmDelete.style.display = 'flex';
 }
+
+window.openDeleteModal = openDeleteModal;
 
 function closeDeleteModal() {
   if (modalConfirmDelete) modalConfirmDelete.style.display = 'none';
@@ -5919,17 +5943,30 @@ if (btnConfirmDelete) {
     btnConfirmDelete.disabled = true;
     btnConfirmDelete.textContent = 'Excluindo...';
 
-    const evt = deleteTarget.type === 'category' ? 'category:delete' : 'channel:delete';
-    const payload = deleteTarget.type === 'category'
-      ? { categoryId: deleteTarget.id }
-      : { channelId: deleteTarget.id };
+    let evt = 'channel:delete';
+    let payload = { channelId: deleteTarget.id };
+
+    if (deleteTarget.type === 'category') {
+      evt = 'category:delete';
+      payload = { categoryId: deleteTarget.id };
+    } else if (deleteTarget.type === 'guild') {
+      evt = 'guild:delete';
+      payload = { guildId: deleteTarget.id };
+    }
 
     socket.emit(evt, payload, (res) => {
       btnConfirmDelete.disabled = false;
       btnConfirmDelete.textContent = 'Excluir';
 
       if (res && res.success) {
+        const deletedType = deleteTarget ? deleteTarget.type : null;
         closeDeleteModal();
+        if (deletedType === 'guild') {
+          selectGuild('gamezeda');
+          const serverSettingsModal = document.getElementById('server-settings-modal');
+          if (serverSettingsModal) serverSettingsModal.style.display = 'none';
+          showSoundToast('Servidor excluído com sucesso.');
+        }
       } else {
         if (deleteModalAlert) {
           deleteModalAlert.textContent = (res && res.message) || 'Erro ao excluir.';

@@ -225,8 +225,11 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
       e.stopPropagation();
       const isVisible = serverDropdownMenu.style.display === 'flex';
       serverDropdownMenu.style.display = isVisible ? 'none' : 'flex';
-      if (!isVisible && window.lucide) {
-        window.lucide.createIcons();
+      if (!isVisible) {
+        updateDeleteServerVisibility();
+        if (window.lucide) {
+          window.lucide.createIcons();
+        }
       }
     });
 
@@ -262,6 +265,31 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
       }
     });
   }
+
+  // Excluir Servidor (apenas para servidores criados, não para o FakeDC principal)
+  const btnMenuDeleteServer = document.getElementById('btn-menu-delete-server');
+  const serverMenuDeleteSeparator = document.getElementById('server-menu-delete-separator');
+  const btnDeleteServerTrigger = document.getElementById('btn-delete-server-trigger');
+  const serverDangerZone = document.getElementById('server-danger-zone');
+
+  function updateDeleteServerVisibility() {
+    const isCustomGuild = activeGuildId && activeGuildId !== 'gamezeda';
+    if (btnMenuDeleteServer) btnMenuDeleteServer.style.display = isCustomGuild ? 'flex' : 'none';
+    if (serverMenuDeleteSeparator) serverMenuDeleteSeparator.style.display = isCustomGuild ? 'block' : 'none';
+    if (serverDangerZone) serverDangerZone.style.display = isCustomGuild ? 'flex' : 'none';
+  }
+
+  const handleDeleteServerClick = () => {
+    if (serverDropdownMenu) serverDropdownMenu.style.display = 'none';
+    if (!activeGuildId || activeGuildId === 'gamezeda') return;
+    const currentGuild = cachedGuilds.find(g => g.id === activeGuildId) || { name: 'Servidor' };
+    if (typeof window.openDeleteModal === 'function') {
+      window.openDeleteModal('guild', activeGuildId, currentGuild.name);
+    }
+  };
+
+  if (btnMenuDeleteServer) btnMenuDeleteServer.addEventListener('click', handleDeleteServerClick);
+  if (btnDeleteServerTrigger) btnDeleteServerTrigger.addEventListener('click', handleDeleteServerClick);
 
   // Modal de Configurações do Servidor
   const serverSettingsModal = document.getElementById('server-settings-modal');
@@ -353,6 +381,7 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
     if (settingsFeedback) settingsFeedback.style.display = 'none';
 
     switchSettingsTab('overview');
+    updateDeleteServerVisibility();
 
     const serverSettingsModal = document.getElementById('server-settings-modal');
     if (serverSettingsModal) {
@@ -667,6 +696,14 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
         loadGuildMembers();
       }
     });
+
+    activeSocket.on('guild:deleted', ({ guildId }) => {
+      cachedGuilds = cachedGuilds.filter(g => g.id !== guildId);
+      renderGuildsList(cachedGuilds);
+      if (activeGuildId === guildId) {
+        selectGuild('gamezeda');
+      }
+    });
   }
 }
 
@@ -718,6 +755,14 @@ export function selectGuild(guildId) {
   const headerIcon = document.getElementById('server-header-icon');
   if (headerName) headerName.textContent = targetGuild.name;
   if (headerIcon) headerIcon.src = targetGuild.iconUrl || '/assets/logo.png';
+
+  const btnMenuDeleteServer = document.getElementById('btn-menu-delete-server');
+  const serverMenuDeleteSeparator = document.getElementById('server-menu-delete-separator');
+  const serverDangerZone = document.getElementById('server-danger-zone');
+  const isCustomGuild = guildId && guildId !== 'gamezeda';
+  if (btnMenuDeleteServer) btnMenuDeleteServer.style.display = isCustomGuild ? 'flex' : 'none';
+  if (serverMenuDeleteSeparator) serverMenuDeleteSeparator.style.display = isCustomGuild ? 'block' : 'none';
+  if (serverDangerZone) serverDangerZone.style.display = isCustomGuild ? 'flex' : 'none';
 
   if (!activeSocket) return;
 

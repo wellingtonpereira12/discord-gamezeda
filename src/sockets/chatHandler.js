@@ -2,6 +2,7 @@ import {
   saveMessage,
   getChannelMessages,
   getChannels,
+  isValidChannel,
   editMessage,
   deleteMessage,
   toggleReaction,
@@ -21,8 +22,8 @@ export function registerChatHandlers(io, socket, users, voiceRooms, broadcastVoi
     if (!user) return;
     if ((!text || !text.trim()) && !attachmentUrl) return;
 
-    const validChannels = await getChannels();
-    const targetChannel = validChannels.includes(channelId) ? channelId : 'geral';
+    const channelOk = await isValidChannel(channelId);
+    const targetChannel = channelOk ? channelId : 'geral';
 
     const cleanText = (text || '').trim();
     const now = new Date();
@@ -76,8 +77,8 @@ export function registerChatHandlers(io, socket, users, voiceRooms, broadcastVoi
     const clean = (text || '').trim();
     if (!clean) return;
 
-    const validChannels = await getChannels();
-    const targetChannel = validChannels.includes(channelId) ? channelId : 'geral';
+    const channelOk = await isValidChannel(channelId);
+    const targetChannel = channelOk ? channelId : 'geral';
 
     const updated = await editMessage(messageId, targetChannel, clean);
     if (updated) {
@@ -93,8 +94,8 @@ export function registerChatHandlers(io, socket, users, voiceRooms, broadcastVoi
     const user = users.get(socket.id);
     if (!user) return;
 
-    const validChannels = await getChannels();
-    const targetChannel = validChannels.includes(channelId) ? channelId : 'geral';
+    const channelOk = await isValidChannel(channelId);
+    const targetChannel = channelOk ? channelId : 'geral';
 
     await deleteMessage(messageId, targetChannel);
     io.emit('chat:message-deleted', {
@@ -108,8 +109,8 @@ export function registerChatHandlers(io, socket, users, voiceRooms, broadcastVoi
     const user = users.get(socket.id);
     if (!user || !emoji) return;
 
-    const validChannels = await getChannels();
-    const targetChannel = validChannels.includes(channelId) ? channelId : 'geral';
+    const channelOk = await isValidChannel(channelId);
+    const targetChannel = channelOk ? channelId : 'geral';
 
     const updated = await toggleReaction(messageId, targetChannel, emoji, user.name);
     if (updated) {
@@ -125,8 +126,8 @@ export function registerChatHandlers(io, socket, users, voiceRooms, broadcastVoi
     const user = users.get(socket.id);
     if (!user) return;
 
-    const validChannels = await getChannels();
-    const targetChannel = validChannels.includes(channelId) ? channelId : 'geral';
+    const channelOk = await isValidChannel(channelId);
+    const targetChannel = channelOk ? channelId : 'geral';
 
     const updated = await togglePinMessage(messageId, targetChannel);
     if (updated) {
@@ -142,8 +143,8 @@ export function registerChatHandlers(io, socket, users, voiceRooms, broadcastVoi
 
   // Buscar lista de mensagens fixadas do canal
   socket.on('chat:get-pins', async ({ channelId }) => {
-    const validChannels = await getChannels();
-    const targetChannel = validChannels.includes(channelId) ? channelId : 'geral';
+    const channelOk = await isValidChannel(channelId);
+    const targetChannel = channelOk ? channelId : 'geral';
 
     const pins = await getPinnedMessages(targetChannel);
     socket.emit('chat:pins-list', {
@@ -154,8 +155,8 @@ export function registerChatHandlers(io, socket, users, voiceRooms, broadcastVoi
 
   // Buscar histórico de canal específico
   socket.on('chat:get-channel', async ({ channelId }) => {
-    const validChannels = await getChannels();
-    const targetChannel = validChannels.includes(channelId) ? channelId : 'geral';
+    const channelOk = await isValidChannel(channelId);
+    const targetChannel = channelOk ? channelId : 'geral';
     const messages = await getChannelMessages(targetChannel, 50);
 
     socket.emit('chat:channel-history', {
