@@ -1,6 +1,6 @@
-# Jogos Bolados Mobile (React Native + Expo)
+# FakeDC Mobile (React Native + Expo)
 
-Este é o aplicativo móvel nativo do **Jogos Bolados**, construído com **React Native** e **Expo**.
+Este é o aplicativo móvel nativo do **FakeDC**, construído com **React Native** e **Expo**.
 
 ## Recursos
 - Interface idêntica e responsiva com WebView integrada de alto desempenho.

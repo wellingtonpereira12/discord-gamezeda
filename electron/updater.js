@@ -46,7 +46,7 @@ function fetchJson(url) {
         path: parsedUrl.pathname + parsedUrl.search,
         method: 'GET',
         headers: {
-          'User-Agent': 'Jogos-Bolados-Desktop-Updater/1.0',
+          'User-Agent': 'FakeDC-Desktop-Updater/1.0',
           'Accept': 'application/json'
         },
         rejectUnauthorized: false, // Permite SSL autoassinado do servidor VPS
@@ -104,7 +104,7 @@ function downloadFile(url, destPath, onProgress) {
         path: parsedUrl.pathname + parsedUrl.search,
         method: 'GET',
         headers: {
-          'User-Agent': 'Jogos-Bolados-Desktop-Updater/1.0'
+          'User-Agent': 'FakeDC-Desktop-Updater/1.0'
         },
         rejectUnauthorized: false
       };
@@ -193,7 +193,7 @@ function getUpdaterStatePath() {
       return path.join(electronApp.getPath('userData'), 'updater-state.json');
     }
   } catch (e) {}
-  return path.join(os.tmpdir(), 'jogos-bolados-updater-state.json');
+  return path.join(os.tmpdir(), 'fakedc-updater-state.json');
 }
 
 function getUpdaterState() {

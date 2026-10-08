@@ -4264,7 +4264,7 @@ async function toggleScreenShare(forceVideoOnly = false) {
     return;
   }
 
-  // Se estiver no aplicativo Electron Desktop (Jogos Bolados PC), abre o seletor personalizado estilo Discord
+  // Se estiver no aplicativo Electron Desktop (FakeDC Desktop), abre o seletor personalizado estilo Discord
   if (window.electronAPI && window.electronAPI.isElectron && typeof window.openElectronScreenPickerModal === 'function') {
     window.openElectronScreenPickerModal();
     return;

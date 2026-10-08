@@ -1,4 +1,4 @@
-name: Compilar Executável Windows (Jogos Bolados PC)
+name: Compilar Executável Windows (FakeDC PC)
 
 on:
   push:

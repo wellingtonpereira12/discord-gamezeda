@@ -1,4 +1,4 @@
-name: Build Mobile App (Jogos Bolados Expo EAS)
+name: Build Mobile App (FakeDC Expo EAS)
 
 on:
   push:
@@ -83,34 +83,37 @@ jobs:
           if [ -n "$APK_URL" ]; then
             echo "APK_URL=$APK_URL" >> $GITHUB_ENV
             echo "📥 Baixando APK do EAS: $APK_URL"
-            curl -L "$APK_URL" -o Jogos-Bolados.apk
+            curl -L "$APK_URL" -o FakeDC.apk
+            cp FakeDC.apk Jogos-Bolados.apk
           else
             echo "⚠️ URL do artefato não encontrada diretamente no JSON. Buscando via eas-cli build:download..."
-            npx eas-cli build:download -p android -e preview -o Jogos-Bolados.apk || true
+            npx eas-cli build:download -p android -e preview -o FakeDC.apk || true
+            cp FakeDC.apk Jogos-Bolados.apk || true
           fi
 
       - name: Publicar Artefato do APK no GitHub Actions
         if: steps.check_token.outputs.has_token == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: Jogos-Bolados-Android-APK
-          path: mobile/Jogos-Bolados.apk
+          name: FakeDC-Android-APK
+          path: mobile/*.apk
           if-no-files-found: ignore
           retention-days: 30
 
-      - name: Atualizar Release no GitHub com Jogos-Bolados.apk
+      - name: Atualizar Release no GitHub com FakeDC.apk
         if: steps.check_token.outputs.has_token == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: mobile-latest
-          name: Jogos Bolados Mobile (Android APK)
+          name: FakeDC Mobile (Android APK)
           body: |
-            📱 **Jogos Bolados Mobile - Aplicativo Android (APK)**
+            📱 **FakeDC Mobile - Aplicativo Android (APK)**
             
             - **Gerado via:** Expo EAS Build
             - **Perfil:** Preview (Standalone APK instalável)
             - **Compatível com:** Android 8.0+
           files: |
+            mobile/FakeDC.apk
             mobile/Jogos-Bolados.apk
           draft: false
           prerelease: false
@@ -128,6 +131,8 @@ jobs:
           script: |
             mkdir -p /root/discord-gamezeda/public/downloads
             cd /root/discord-gamezeda/public/downloads
-            curl -L "${{ env.APK_URL }}" -o Jogos-Bolados.apk
+            curl -L "${{ env.APK_URL }}" -o FakeDC.apk
+            cp FakeDC.apk Jogos-Bolados.apk
+            docker cp /root/discord-gamezeda/public/downloads/FakeDC.apk discord-gamezeda:/app/public/downloads/FakeDC.apk || true
             docker cp /root/discord-gamezeda/public/downloads/Jogos-Bolados.apk discord-gamezeda:/app/public/downloads/Jogos-Bolados.apk || true
-            echo "✅ [VPS] Jogos-Bolados.apk atualizado com sucesso no servidor e no container!"
+            echo "✅ [VPS] FakeDC.apk atualizado com sucesso no servidor e no container!"

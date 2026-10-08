@@ -80,7 +80,7 @@ export default function App() {
           <Text style={styles.errorIcon}>📡</Text>
           <Text style={styles.errorTitle}>Falha na Conexão</Text>
           <Text style={styles.errorText}>
-            Não foi possível conectar ao servidor do Jogos Bolados.
+            Não foi possível conectar ao servidor do FakeDC.
           </Text>
           {errorMessage ? (
             <Text style={styles.errorDetail}>{errorMessage}</Text>
@@ -138,7 +138,7 @@ export default function App() {
             renderLoading={() => (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#5865F2" />
-                <Text style={styles.loadingText}>Conectando ao Jogos Bolados...</Text>
+                <Text style={styles.loadingText}>Conectando ao FakeDC...</Text>
               </View>
             )}
           />

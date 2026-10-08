@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Jogos Bolados",
-    "slug": "jogos-bolados",
+    "name": "FakeDC",
+    "slug": "fakedc",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
@@ -13,10 +13,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.jogosbolados.app",
+      "bundleIdentifier": "com.fakedc.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "O Jogos Bolados precisa de acesso à câmera para suas transmissões e chamadas de vídeo.",
-        "NSMicrophoneUsageDescription": "O Jogos Bolados precisa de acesso ao microfone para você conversar com seus amigos nos canais de voz.",
+        "NSCameraUsageDescription": "O FakeDC precisa de acesso à câmera para suas transmissões e chamadas de vídeo.",
+        "NSMicrophoneUsageDescription": "O FakeDC precisa de acesso ao microfone para você conversar com seus amigos nos canais de voz.",
         "UIBackgroundModes": [
           "audio"
         ]
@@ -27,7 +27,7 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#111214"
       },
-      "package": "com.jogosbolados.app",
+      "package": "com.fakedc.app",
       "permissions": [
         "CAMERA",
         "RECORD_AUDIO",

@@ -1,6 +1,6 @@
 {
   "name": "FakeDC",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "releaseDate": "2026-10-08",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe",
@@ -12,5 +12,5 @@
     "iosUrl": "/download/ios",
     "iosIpa": "FakeDC.ipa"
   },
-  "notes": "FakeDC v1.1.8: Nova identidade visual oficial — ícone flat minimalista do Discord com tapa-olho pirata aplicado na Web, Favicon, Desktop (.ico Windows multi-resolução) e Mobile."
+  "notes": "FakeDC v1.1.9: Padronização completa do nome do aplicativo para FakeDC em todas as plataformas (Desktop Windows, Web, Mobile Android/iOS e pipelines de build)."
 }
