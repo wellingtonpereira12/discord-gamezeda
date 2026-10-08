@@ -7,10 +7,9 @@ Vamos implementar e validar **um a um**, testando cada ponto antes de avançar p
 
 ## 📌 Lista de Tarefas (Ordem de Execução)
 
-### [ ] 1. Menu Dropdown do Servidor (Pronto para teste)
+### [x] 1. Menu Dropdown do Servidor
 - **Problema:** Clicar no cabeçalho do servidor (`.server-header` / setinha) não abre o menu dropdown estilo Discord.
-- **Causa:** Conflito de múltiplos listeners e sobreposição de eventos entre `app.js` e `guilds.js`.
-- **Status:** Corrigido conflito de listeners e posicionamento CSS. Aguardando validação do usuário.
+- **Status:** ✅ Concluído e validado pelo usuário nos testes práticos.
 - **Critério de Aceite:** Clicar no cabeçalho do servidor abre e fecha o menu com as opções: *Convidar Amigos*, *Configurações do Servidor*, *Criar Canal* e *Criar Categoria*.
 
 ---
@@ -45,3 +44,10 @@ Vamos implementar e validar **um a um**, testando cada ponto antes de avançar p
 ### [ ] 6. Sistema de Cargos (Roles) e Atribuição a Membros
 - **Problema:** Criação e gerenciamento de cargos dentro das configurações do servidor.
 - **Critério de Aceite:** Dentro do modal de configurações, na aba "Cargos", o usuário pode criar cargos com nome e cor personalizada. Na aba "Membros", pode atribuir ou remover esses cargos dos membros do servidor.
+
+---
+
+### [ ] 7. Exclusão de Servidor
+- **Problema:** O dono do servidor precisa conseguir excluir um servidor que criou.
+- **Critério de Aceite:** Adicionar opção de "Excluir Servidor" (em destaque vermelho com aviso de confirmação). Ao confirmar, o servidor, seus canais, mensagens e cargos são removidos do banco de dados, e os membros são redirecionados de volta ao servidor padrão.
+
