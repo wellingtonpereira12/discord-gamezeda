@@ -1,6 +1,6 @@
 {
   "name": "FakeDC",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "releaseDate": "2026-10-07",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe",
@@ -12,5 +12,5 @@
     "iosUrl": "/download/ios",
     "iosIpa": "FakeDC.ipa"
   },
-  "notes": "FakeDC v1.1.4: Visualizador de imagens em tela cheia (lightbox Discord com zoom), copiar imagem e link, e persistência das opções de resolução e bitrate da transmissão de tela."
+  "notes": "FakeDC v1.1.5: Reconexão de canal de voz com restauração automática de presença; Modo Grade dinâmico exibindo todas as transmissões HD lado a lado sem tela preta; botão Ouvir Música (Bot Alfredo) na barra de palco; clique para tela cheia e botão direito para copiar imagens do chat; ajuste visual anti-corte no painel de perfil e correção de encoding/filtro no detector de jogos."
 }

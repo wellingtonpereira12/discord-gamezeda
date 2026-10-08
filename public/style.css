@@ -749,12 +749,15 @@ body {
 /* BARRA DO USUÁRIO LOGADO */
 .user-panel {
   position: relative;
-  height: 52px;
+  height: 54px;
   background: var(--bg-user-bar);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 8px;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .user-info {
@@ -762,8 +765,11 @@ body {
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  padding: 4px;
+  padding: 4px 6px 4px 4px;
   border-radius: 4px;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
 .user-info:hover {
@@ -772,6 +778,7 @@ body {
 
 .user-avatar-wrap {
   position: relative;
+  flex-shrink: 0;
 }
 
 .user-avatar {
@@ -795,13 +802,16 @@ body {
 .user-details {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
 .user-name {
   color: var(--text-header);
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
-  max-width: 80px;
+  max-width: 95px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -810,11 +820,33 @@ body {
 .user-subtext {
   font-size: 11px;
   color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+
+.my-status-game {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+
+.my-status-game span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .user-controls {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
+  gap: 2px;
 }
 
 .icon-btn {
@@ -3092,24 +3124,9 @@ body {
   filter: brightness(0.92);
 }
 
-/* Overlay de Ações Rápidas da Imagem (Hover) */
+/* Imagens nas mensagens: clique direto para expandir e botão direito para copiar */
 .message-image-overlay {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  display: flex;
-  gap: 6px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.18s ease, transform 0.18s ease;
-  transform: translateY(-4px);
-  z-index: 5;
-}
-
-.message-image-container:hover .message-image-overlay {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
+  display: none !important;
 }
 
 .image-quick-btn {
@@ -4728,7 +4745,7 @@ body.is-electron #btn-download-desktop {
    ========================================== */
 .music-player-widget {
   position: absolute;
-  bottom: 84px;
+  bottom: 96px;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(30, 31, 34, 0.95);
@@ -4940,7 +4957,7 @@ body.is-electron #btn-download-desktop {
 /* Responsivo para celulares */
 @media (max-width: 768px) {
   .music-player-widget {
-    bottom: 76px;
+    bottom: 84px;
     width: calc(100% - 24px);
     padding: 8px 12px;
     gap: 10px;
@@ -5971,21 +5988,41 @@ body.is-electron #btn-download-desktop {
 }
 
 /* Modo Grade no Palco de Vídeo */
+/* Modo Grade no Palco de Vídeo */
 .video-grid.grid-mode {
-  display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)) !important;
-  grid-auto-rows: 1fr !important;
-  gap: 14px !important;
-  align-content: stretch !important;
-  justify-content: stretch !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 16px !important;
+  padding: 16px !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow-y: auto !important;
 }
 
-.video-grid.grid-mode .screen-tile,
-.video-grid.grid-mode .video-tile {
+.video-grid.grid-mode .screen-tile {
+  flex: 1 1 420px !important;
+  max-width: calc(50% - 12px) !important;
+  min-width: 320px !important;
+  width: auto !important;
+  height: auto !important;
+  aspect-ratio: 16 / 9 !important;
+  max-height: calc(100vh - 220px) !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.7) !important;
+}
+
+.video-grid.grid-mode .screen-tile video {
   width: 100% !important;
-  max-width: 100% !important;
   height: 100% !important;
-  min-height: 240px !important;
+  object-fit: contain !important;
+  background: #000 !important;
+}
+
+/* Quando houver apenas 1 tela no modo grade, dá destaque */
+.video-grid.grid-mode.single-stream .screen-tile {
+  max-width: 960px !important;
+  max-height: calc(100vh - 200px) !important;
 }
 
 .stage-btn.active {

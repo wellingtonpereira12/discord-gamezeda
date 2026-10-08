@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
   <title>FakeDC</title>
-  <link rel="stylesheet" href="style.css?v=20261007_v1.1.3">
+  <link rel="stylesheet" href="style.css?v=20261007_v1.1.5">
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/logo.png?v=20261005">
   <link rel="shortcut icon" href="/favicon.ico?v=20261005">
   <link rel="apple-touch-icon" href="/assets/logo.png?v=20261005">
@@ -344,6 +344,9 @@
             <video id="shared-screen-video" autoplay playsinline muted></video>
           </div>
 
+          <!-- Múltiplas Telas no Modo Grade -->
+          <div id="dynamic-grid-screens" style="display: contents;"></div>
+
           <!-- Quadro da Watch Party (Assistir Juntos YouTube) -->
           <div class="screen-tile watch-party-tile" id="watch-party-tile" style="display: none;">
             <div class="screen-tile-badge">
@@ -401,6 +404,11 @@
           <button class="stage-btn" id="btn-stage-watch-party" title="Assistir Juntos (YouTube)">
             <i data-lucide="tv" style="width: 18px; height: 18px;"></i>
             <span>Assistir Juntos</span>
+          </button>
+
+          <button class="stage-btn" id="btn-stage-music-bot" title="Ouvir Música com o Bot Alfredo">
+            <i data-lucide="disc" style="width: 18px; height: 18px;"></i>
+            <span>Ouvir Música</span>
           </button>
 
           <button class="stage-btn" id="btn-stage-soundboard" title="Soundboard">
@@ -1505,7 +1513,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261007_v1.1.4"></script>
+  <script type="module" src="app.js?v=20261007_v1.1.5"></script>
 
 </body>
 </html>

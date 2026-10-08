@@ -563,8 +563,13 @@ setInterval(() => {
 function registerStream(id, stream, name, avatar, isLocal) {
   activeStreams.set(id, { id, name, avatar, stream, isLocal });
 
-  // Se for a tela local do usuário, OU se não houver tela ativa em exibição, abre imediatamente no palco
-  if (isLocal || !currentViewedStreamId || !activeStreams.has(currentViewedStreamId)) {
+  // Se o Modo Grade estiver ativo com múltiplas transmissões, renderiza todas na grade
+  if (isGridModeActive && activeStreams.size > 1) {
+    if (typeof renderGridStreams === 'function') renderGridStreams();
+    renderStreamSwitcherBar();
+    renderVoiceStageCards();
+    renderSidebarChannels();
+  } else if (isLocal || !currentViewedStreamId || !activeStreams.has(currentViewedStreamId)) {
     viewStream(id);
   } else {
     renderStreamSwitcherBar();
@@ -576,6 +581,10 @@ function registerStream(id, stream, name, avatar, isLocal) {
 
 function unregisterStream(id) {
   activeStreams.delete(id);
+
+  if (isGridModeActive && typeof renderGridStreams === 'function') {
+    renderGridStreams();
+  }
 
   if (currentViewedStreamId === id) {
     const remaining = Array.from(activeStreams.keys());
@@ -1102,6 +1111,17 @@ socket.on('init:state', (data) => {
   renderMembersSidebar();
   renderVoiceStageCards();
   renderCurrentChannelMessages();
+
+  // Se já estava em canal de voz antes da reconexão ou atualização do servidor:
+  // Re-sincroniza automaticamente a presença e peers WebRTC
+  if (inVoice && currentVoiceChannelId) {
+    console.log(`[Voz 🔄] Restaurando presença no canal de voz após atualização/reconexão: ${currentVoiceChannelId}`);
+    socket.emit('voice:join', {
+      roomId: currentVoiceChannelId,
+      isMuted: !!isMuted,
+      isDeafened: !!isDeafened
+    });
+  }
 });
 
 socket.on('members:update', (usersList) => {
@@ -1143,6 +1163,30 @@ socket.on('voice:update', (data = {}) => {
       if (myName && u.name && u.name.toLowerCase() === myName) return false;
       return true;
     });
+  } else if (currentVoiceChannelId && currentUser) {
+    // Garante que o usuário local nunca suma do canal de voz visualmente durante flaps de rede
+    if (!allVoiceRoomsState[currentVoiceChannelId]) {
+      allVoiceRoomsState[currentVoiceChannelId] = [];
+    }
+    const hasMe = allVoiceRoomsState[currentVoiceChannelId].some(u =>
+      (socket && u.id === socket.id) || (u.name && u.name.toLowerCase() === currentUser.name.toLowerCase())
+    );
+    if (!hasMe) {
+      const myObj = {
+        id: socket ? socket.id : 'me',
+        name: currentUser.name,
+        avatar: currentUser.avatar,
+        inVoice: true,
+        currentVoiceRoom: currentVoiceChannelId,
+        isMuted: !!isMuted,
+        isDeafened: !!isDeafened,
+        isScreenSharing: !!isScreenSharing
+      };
+      allVoiceRoomsState[currentVoiceChannelId].push(myObj);
+      if (!allVoiceUsers.some(u => (socket && u.id === socket.id) || (u.name && u.name.toLowerCase() === currentUser.name.toLowerCase()))) {
+        allVoiceUsers.push(myObj);
+      }
+    }
   }
 
   // Remove automaticamente streams fantasmas de quem saiu da sala OU quem parou de compartilhar tela
@@ -2951,19 +2995,8 @@ function appendMessageToContainer(msg) {
       const fileName = (msg.attachmentUrl.split('/').pop().split('?')[0]) || 'imagem.png';
       attachmentHtml = `
         <div class="message-attachment">
-          <div class="message-image-container" data-img-url="${escapeHtml(msg.attachmentUrl)}" data-img-name="${escapeHtml(fileName)}">
+          <div class="message-image-container" data-img-url="${escapeHtml(msg.attachmentUrl)}" data-img-name="${escapeHtml(fileName)}" title="Clique para expandir • Botão direito para copiar">
             <img class="chat-clickable-image" src="${escapeHtml(msg.attachmentUrl)}" alt="${escapeHtml(fileName)}" loading="lazy">
-            <div class="message-image-overlay">
-              <button type="button" class="image-quick-btn quick-open-lightbox" title="Abrir em Tela Cheia">
-                <i data-lucide="maximize-2" style="width: 14px; height: 14px;"></i>
-              </button>
-              <button type="button" class="image-quick-btn quick-copy-image" title="Copiar Imagem">
-                <i data-lucide="copy" style="width: 14px; height: 14px;"></i>
-              </button>
-              <button type="button" class="image-quick-btn quick-download-image" title="Baixar Imagem">
-                <i data-lucide="download" style="width: 14px; height: 14px;"></i>
-              </button>
-            </div>
           </div>
         </div>
       `;
@@ -2979,19 +3012,8 @@ function appendMessageToContainer(msg) {
       const fileName = (inlineUrl.split('/').pop().split('?')[0]) || 'imagem.png';
       attachmentHtml = `
         <div class="message-attachment">
-          <div class="message-image-container" data-img-url="${escapeHtml(inlineUrl)}" data-img-name="${escapeHtml(fileName)}">
+          <div class="message-image-container" data-img-url="${escapeHtml(inlineUrl)}" data-img-name="${escapeHtml(fileName)}" title="Clique para expandir • Botão direito para copiar">
             <img class="chat-clickable-image" src="${escapeHtml(inlineUrl)}" alt="${escapeHtml(fileName)}" loading="lazy">
-            <div class="message-image-overlay">
-              <button type="button" class="image-quick-btn quick-open-lightbox" title="Abrir em Tela Cheia">
-                <i data-lucide="maximize-2" style="width: 14px; height: 14px;"></i>
-              </button>
-              <button type="button" class="image-quick-btn quick-copy-image" title="Copiar Imagem">
-                <i data-lucide="copy" style="width: 14px; height: 14px;"></i>
-              </button>
-              <button type="button" class="image-quick-btn quick-download-image" title="Baixar Imagem">
-                <i data-lucide="download" style="width: 14px; height: 14px;"></i>
-              </button>
-            </div>
           </div>
         </div>
       `;
@@ -5178,18 +5200,136 @@ socket.on('user:profile-updated', (result) => {
 // ==========================================
 let isGridModeActive = localStorage.getItem('gamezeda_grid_mode') === 'true';
 
-function applyGridMode(active) {
-  isGridModeActive = active;
-  localStorage.setItem('gamezeda_grid_mode', active ? 'true' : 'false');
-  if (videoGrid) {
-    videoGrid.classList.toggle('grid-mode', isGridModeActive);
+function renderGridStreams() {
+  const dynamicGridContainer = document.getElementById('dynamic-grid-screens');
+  if (!videoGrid) return;
+
+  const totalStreams = activeStreams.size;
+  videoGrid.classList.toggle('grid-mode', isGridModeActive);
+  videoGrid.classList.toggle('single-stream', totalStreams <= 1);
+
+  if (btnStageGridText) {
+    btnStageGridText.textContent = isGridModeActive ? 'Modo Foco' : 'Modo Grade';
   }
   if (btnStageGridMode) {
     btnStageGridMode.classList.toggle('active', isGridModeActive);
   }
-  if (btnStageGridText) {
-    btnStageGridText.textContent = isGridModeActive ? 'Modo Foco' : 'Modo Grade';
+
+  // Se o Modo Grade NÃO estiver ativo, ou houver 1 ou menos transmissões ativas:
+  if (!isGridModeActive || totalStreams <= 1) {
+    if (dynamicGridContainer) {
+      dynamicGridContainer.innerHTML = '';
+      dynamicGridContainer.style.display = 'none';
+    }
+    if (totalStreams >= 1) {
+      const streamIdToView = currentViewedStreamId && activeStreams.has(currentViewedStreamId)
+        ? currentViewedStreamId
+        : Array.from(activeStreams.keys())[0];
+      if (streamIdToView) {
+        viewStream(streamIdToView);
+      }
+      if (streamSwitcherBar) {
+        streamSwitcherBar.style.display = totalStreams >= 2 ? 'flex' : 'none';
+      }
+    } else {
+      if (mainScreenTile) mainScreenTile.style.display = 'none';
+      if (streamSwitcherBar) streamSwitcherBar.style.display = 'none';
+    }
+    return;
   }
+
+  // MODO GRADE ATIVO COM 2 OU MAIS TRANSMISSÕES:
+  // Oculta o mainScreenTile para renderizar todos os vídeos lado a lado
+  if (mainScreenTile) mainScreenTile.style.display = 'none';
+  if (streamSwitcherBar) streamSwitcherBar.style.display = 'none';
+  if (sharedScreenVideo) sharedScreenVideo.srcObject = null;
+
+  if (videoStage) videoStage.style.display = 'flex';
+  if (messagesContainer) messagesContainer.style.display = 'none';
+  const chatInputWrap = document.querySelector('.chat-input-wrapper');
+  if (chatInputWrap) chatInputWrap.style.display = 'none';
+
+  if (!dynamicGridContainer) return;
+  dynamicGridContainer.style.display = 'contents';
+  dynamicGridContainer.innerHTML = '';
+
+  activeStreams.forEach(streamItem => {
+    const tile = document.createElement('div');
+    tile.className = 'screen-tile grid-screen-item';
+    tile.setAttribute('data-stream-id', streamItem.id);
+
+    const isLocal = streamItem.id === 'local';
+    tile.innerHTML = `
+      <div class="screen-tile-badge">
+        <span class="live-indicator">AO VIVO 1080p60</span>
+        <span>${escapeHtml(streamItem.name)}</span>
+      </div>
+      <div class="screen-tile-controls">
+        <button class="screen-btn btn-grid-focus" title="Focar nesta transmissão (Modo Foco)">
+          <i data-lucide="minimize-2" style="width: 15px; height: 15px;"></i>
+        </button>
+        <button class="screen-btn btn-grid-fullscreen" title="Tela Cheia">
+          <i data-lucide="maximize" style="width: 15px; height: 15px;"></i>
+        </button>
+        ${isLocal ? `
+          <button class="screen-btn btn-grid-stop" title="Parar Transmissão">
+            <i data-lucide="x" style="width: 15px; height: 15px;"></i>
+          </button>
+        ` : ''}
+      </div>
+      <video autoplay playsinline muted></video>
+    `;
+
+    const vid = tile.querySelector('video');
+    if (vid) {
+      vid.srcObject = streamItem.stream;
+      vid.play().catch(() => {});
+    }
+
+    const btnFocus = tile.querySelector('.btn-grid-focus');
+    if (btnFocus) {
+      btnFocus.addEventListener('click', (e) => {
+        e.stopPropagation();
+        applyGridMode(false);
+        viewStream(streamItem.id);
+      });
+    }
+
+    const btnFs = tile.querySelector('.btn-grid-fullscreen');
+    if (btnFs) {
+      btnFs.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!document.fullscreenElement) {
+          tile.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      });
+    }
+
+    const btnStop = tile.querySelector('.btn-grid-stop');
+    if (btnStop) {
+      btnStop.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleScreenShare(false);
+      });
+    }
+
+    tile.addEventListener('dblclick', () => {
+      applyGridMode(false);
+      viewStream(streamItem.id);
+    });
+
+    dynamicGridContainer.appendChild(tile);
+  });
+
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function applyGridMode(active) {
+  isGridModeActive = active;
+  localStorage.setItem('gamezeda_grid_mode', active ? 'true' : 'false');
+  renderGridStreams();
 }
 
 if (btnStageGridMode) {
@@ -7392,6 +7532,30 @@ if (btnStageWatchParty) {
   });
 }
 
+const btnStageMusicBot = document.getElementById('btn-stage-music-bot');
+if (btnStageMusicBot) {
+  btnStageMusicBot.addEventListener('click', () => {
+    if (!musicPlayerWidget) return;
+    const isHidden = (musicPlayerWidget.style.display === 'none' || !musicPlayerWidget.style.display);
+    if (isHidden) {
+      musicPlayerWidget.style.display = 'flex';
+      if (!currentMusicTrack) {
+        if (musicWidgetTitle) musicWidgetTitle.textContent = 'Alfredo pronto para tocar';
+        if (musicWidgetArtist) musicWidgetArtist.textContent = 'Digite uma música ou link à direita 👉';
+      }
+      if (musicQuickInput) {
+        musicQuickInput.focus();
+      }
+    } else {
+      if (!isMusicPlaying) {
+        musicPlayerWidget.style.display = 'none';
+      } else {
+        if (musicQuickInput) musicQuickInput.focus();
+      }
+    }
+  });
+}
+
 if (btnCloseWatchPartyModal) {
   btnCloseWatchPartyModal.addEventListener('click', closeWatchPartyModal);
 }
@@ -7925,13 +8089,12 @@ function initImageLightboxAndClipboard() {
     });
 
     messagesContainer.addEventListener('contextmenu', (e) => {
-      const container = e.target.closest('.message-image-container') || e.target.closest('.chat-clickable-image');
-      if (container) {
+      const imgTarget = e.target.closest('.chat-clickable-image') || e.target.closest('.message-image-container');
+      if (imgTarget) {
         e.preventDefault();
         e.stopPropagation();
-        const imgUrl = container.getAttribute('data-img-url') || container.src;
-        const imgName = container.getAttribute('data-img-name') || (container.alt || 'Imagem');
-        openImageContextMenu(e, imgUrl, imgName);
+        const imgUrl = imgTarget.getAttribute('data-img-url') || imgTarget.src;
+        copyImageToClipboard(imgUrl);
       }
     });
   }

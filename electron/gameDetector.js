@@ -101,7 +101,8 @@ const IGNORED_EXES = new Set([
   'explorer.exe', 'chrome.exe', 'firefox.exe', 'msedge.exe', 'brave.exe', 'opera.exe', 'opera_gx.exe', 'vivaldi.exe', 'tor.exe', 'safari.exe',
   'discord.exe', 'fakedc.exe', 'electron.exe', 'antigravity.exe', 'code.exe', 'devenv.exe', 'idea64.exe', 'pycharm64.exe',
   'cmd.exe', 'powershell.exe', 'windowsterminal.exe', 'taskmgr.exe', 'notepad.exe', 'notepad++.exe', 'calc.exe',
-  'spotify.exe', 'vlc.exe', 'steam.exe', 'steamwebhelper.exe', 'gameoverlayui.exe', 'gameoverlayui64.exe',
+  'spotify.exe', 'vlc.exe', 'wmplayer.exe', 'mediaplayer.exe', 'microsoft.media.player.exe', 'music.ui.exe', 'video.ui.exe', 'foobar2000.exe', 'aimp.exe', 'potplayer64.exe', 'mpc-hc64.exe', 'mpc-be64.exe',
+  'steam.exe', 'steamwebhelper.exe', 'gameoverlayui.exe', 'gameoverlayui64.exe',
   'epicgameslauncher.exe', 'riotclientservices.exe', 'battlenet.exe', 'origin.exe', 'ea.exe', 'upc.exe', 'ubisoftconnect.exe', 'gog galaxy.exe',
   'nvidia overlay.exe', 'lghub.exe', 'lghub_system_tray.exe', 'obs64.exe', 'obs32.exe', 'streamlabs obs.exe',
   'githubdesktop.exe', 'slack.exe', 'teams.exe', 'ms-teams.exe', 'telegram.exe', 'whatsapp.exe', 'skype.exe',
@@ -119,11 +120,29 @@ const IGNORED_EXACT_TITLES = new Set([
   'sem título', 'sem titulo', 'untitled', 'settings', 'configurações', 'configuracoes', 'xbox'
 ]);
 
+function decodeWindowsText(str) {
+  if (!str) return '';
+  return str
+    .replace(/\ufffd/g, 'í')
+    .replace(/Ã¡/g, 'á')
+    .replace(/Ã©/g, 'é')
+    .replace(/Ã­/g, 'í')
+    .replace(/Ã³/g, 'ó')
+    .replace(/Ãº/g, 'ú')
+    .replace(/Ã£/g, 'ã')
+    .replace(/Ãµ/g, 'õ')
+    .replace(/Ã§/g, 'ç')
+    .replace(/Ã€/g, 'À')
+    .replace(/Ã‰/g, 'É')
+    .replace(/Ã/g, 'Í')
+    .trim();
+}
+
 /**
  * Limpa títulos de janelas de jogos no Windows para exibição limpa (estilo Discord)
  */
 function cleanGameTitle(rawTitle, exeName) {
-  let title = rawTitle.replace(/["“”]/g, '').trim();
+  let title = decodeWindowsText(rawTitle.replace(/["“”]/g, '').trim());
 
   // Remove sufixos técnicos comuns adicionados por engines
   title = title.replace(/\s*-\s*Unreal\s*Engine.*$/i, '');
@@ -236,7 +255,7 @@ class GameDetector extends EventEmitter {
       }
 
       // 3. Fallback Universal Dinâmico: Se não está no catálogo, analisa títulos de janelas abertas no Windows
-      exec('tasklist /v /fo csv /nh /fi "SESSIONNAME eq Console"', { windowsHide: true, timeout: 15000 }, (vErr, vStdout) => {
+      exec('chcp 65001 >nul & tasklist /v /fo csv /nh /fi "SESSIONNAME eq Console"', { windowsHide: true, timeout: 15000, encoding: 'utf8' }, (vErr, vStdout) => {
         this.isChecking = false;
         if (vErr || !vStdout) {
           this.setActivity(null, null);

@@ -197,6 +197,13 @@ export class WebRTCManager {
   setupSocketEvents() {
     this.socket.on('voice:peers-list', async ({ peers }) => {
       console.log(`[WebRTC 📞] Conectando com ${peers.length} participantes...`);
+      const validPeerIds = new Set((peers || []).map(p => p.id));
+      for (const peerId of Array.from(this.peers.keys())) {
+        if (!validPeerIds.has(peerId)) {
+          console.log(`[WebRTC 🧹] Removendo peer obsoleto após reconexão/atualização: ${peerId}`);
+          this.closePeer(peerId);
+        }
+      }
       for (const peer of peers) {
         await this.initiateCallTo(peer.id);
       }
