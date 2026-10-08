@@ -1,10 +1,17 @@
 import {
   getUserGuilds,
   createGuild,
+  updateGuild,
   joinGuildByInvite,
   getCategories,
   getChannelsFull,
-  getChannelMessages
+  getChannelMessages,
+  getGuildRoles,
+  createGuildRole,
+  deleteGuildRole,
+  assignMemberRole,
+  removeMemberRole,
+  getGuildMembersWithRoles
 } from '../config/db.js';
 
 export function registerGuildHandlers(io, socket, users) {
@@ -91,8 +98,15 @@ export function registerGuildHandlers(io, socket, users) {
   socket.on('guild:select', async ({ guildId }, callback) => {
     try {
       const targetGuildId = guildId || 'gamezeda';
+      const user = users.get(socket.id);
+      if (user) {
+        user.currentGuildId = targetGuildId;
+      }
+      socket.join(`guild:${targetGuildId}`);
+
       const categories = await getCategories(targetGuildId);
       const channels = await getChannelsFull(targetGuildId);
+      const roles = await getGuildRoles(targetGuildId);
 
       const messagesMap = {};
       for (const ch of channels) {
@@ -107,11 +121,152 @@ export function registerGuildHandlers(io, socket, users) {
           guildId: targetGuildId,
           categories,
           channels,
+          roles,
           chatMessages: messagesMap
         });
       }
     } catch (err) {
       console.warn('Erro ao carregar dados do servidor:', err.message);
+      if (typeof callback === 'function') {
+        callback({ success: false, message: err.message });
+      }
+    }
+  });
+
+  // Atualizar configurações do servidor (Nome, Ícone)
+  socket.on('guild:update', async ({ guildId, name, iconUrl }, callback) => {
+    try {
+      const user = users.get(socket.id);
+      if (!user) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Não autenticado.' });
+        return;
+      }
+
+      const updated = await updateGuild(guildId, { name, iconUrl });
+      console.log(`[*] Servidor ${guildId} atualizado por ${user.name}:`, updated.name);
+
+      // Notifica todos os clientes que o servidor foi atualizado
+      io.emit('guild:updated', updated);
+
+      if (typeof callback === 'function') {
+        callback({ success: true, guild: updated });
+      }
+    } catch (err) {
+      console.warn('Erro ao atualizar servidor:', err.message);
+      if (typeof callback === 'function') {
+        callback({ success: false, message: err.message });
+      }
+    }
+  });
+
+  // Listar Cargos do Servidor
+  socket.on('guild:roles:list', async ({ guildId }, callback) => {
+    try {
+      const roles = await getGuildRoles(guildId);
+      if (typeof callback === 'function') {
+        callback({ success: true, roles });
+      }
+    } catch (err) {
+      if (typeof callback === 'function') {
+        callback({ success: false, message: err.message });
+      }
+    }
+  });
+
+  // Criar Novo Cargo
+  socket.on('guild:role:create', async ({ guildId, name, color, permissions }, callback) => {
+    try {
+      const user = users.get(socket.id);
+      if (!user) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Não autenticado.' });
+        return;
+      }
+
+      const newRole = await createGuildRole(guildId, { name, color, permissions });
+      console.log(`[+] Cargo [${newRole.name}] criado no servidor ${guildId} por ${user.name}`);
+
+      io.to(`guild:${guildId}`).emit('guild:roles:updated', { guildId });
+      io.emit('guild:roles:updated', { guildId });
+
+      if (typeof callback === 'function') {
+        callback({ success: true, role: newRole });
+      }
+    } catch (err) {
+      console.warn('Erro ao criar cargo:', err.message);
+      if (typeof callback === 'function') {
+        callback({ success: false, message: err.message });
+      }
+    }
+  });
+
+  // Excluir Cargo
+  socket.on('guild:role:delete', async ({ guildId, roleId }, callback) => {
+    try {
+      const user = users.get(socket.id);
+      if (!user) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Não autenticado.' });
+        return;
+      }
+
+      await deleteGuildRole(guildId, roleId);
+      console.log(`[-] Cargo [${roleId}] excluído do servidor ${guildId} por ${user.name}`);
+
+      io.to(`guild:${guildId}`).emit('guild:roles:updated', { guildId });
+      io.emit('guild:roles:updated', { guildId });
+
+      if (typeof callback === 'function') {
+        callback({ success: true });
+      }
+    } catch (err) {
+      console.warn('Erro ao excluir cargo:', err.message);
+      if (typeof callback === 'function') {
+        callback({ success: false, message: err.message });
+      }
+    }
+  });
+
+  // Listar Membros do Servidor com Cargos
+  socket.on('guild:members:list', async ({ guildId }, callback) => {
+    try {
+      const members = await getGuildMembersWithRoles(guildId);
+      if (typeof callback === 'function') {
+        callback({ success: true, members });
+      }
+    } catch (err) {
+      if (typeof callback === 'function') {
+        callback({ success: false, message: err.message });
+      }
+    }
+  });
+
+  // Atribuir Cargo a Membro
+  socket.on('guild:member:role:assign', async ({ guildId, username, roleId }, callback) => {
+    try {
+      await assignMemberRole(guildId, username, roleId);
+      io.to(`guild:${guildId}`).emit('guild:members:roles-changed', { guildId });
+      io.emit('guild:members:roles-changed', { guildId });
+
+      if (typeof callback === 'function') {
+        callback({ success: true });
+      }
+    } catch (err) {
+      if (typeof callback === 'function') {
+        callback({ success: false, message: err.message });
+      }
+    }
+  });
+
+  // Remover Cargo de Membro
+  socket.on('guild:member:role:remove', async ({ guildId, username, roleId }, callback) => {
+    try {
+      await removeMemberRole(guildId, username, roleId);
+      io.to(`guild:${guildId}`).emit('guild:members:roles-changed', { guildId });
+      io.emit('guild:members:roles-changed', { guildId });
+
+      if (typeof callback === 'function') {
+        callback({ success: true });
+      }
+    } catch (err) {
       if (typeof callback === 'function') {
         callback({ success: false, message: err.message });
       }

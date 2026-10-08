@@ -26,6 +26,12 @@ const memoryStore = {
   guildMembers: [
     // { guildId: 'gamezeda', username: '...', role: 'member' }
   ],
+  guildRoles: [
+    // { id, guildId, name, color, permissions: [], position }
+  ],
+  guildMemberRoles: [
+    // { guildId, username, roleId }
+  ],
   categories: [
     { id: 'cat-text', guildId: 'gamezeda', name: 'Canais de Texto', position: 0 },
     { id: 'cat-voice', guildId: 'gamezeda', name: 'Canais de Voz', position: 1 }
@@ -123,6 +129,29 @@ export async function initDatabase() {
         role VARCHAR(32) DEFAULT 'member',
         joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (guild_id, username)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS guild_roles (
+        id VARCHAR(64) PRIMARY KEY,
+        guild_id VARCHAR(64) NOT NULL,
+        name VARCHAR(64) NOT NULL,
+        color VARCHAR(32) DEFAULT '#99aab5',
+        permissions JSON NULL,
+        position INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_guild_roles (guild_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS guild_member_roles (
+        guild_id VARCHAR(64) NOT NULL,
+        username VARCHAR(64) NOT NULL,
+        role_id VARCHAR(64) NOT NULL,
+        PRIMARY KEY (guild_id, username, role_id),
+        INDEX idx_member_roles (guild_id, username)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
@@ -443,6 +472,211 @@ export async function joinGuildByInvite(username, inviteCode) {
   }
 
   return targetGuild;
+}
+
+export async function updateGuild(guildId, { name, iconUrl }) {
+  const gId = (guildId || '').trim();
+  if (!gId) throw new Error('ID do servidor é obrigatório.');
+
+  const guild = memoryStore.guilds.find(g => g.id === gId);
+  if (guild) {
+    if (name) guild.name = name.trim();
+    if (iconUrl !== undefined) guild.iconUrl = iconUrl;
+  }
+
+  if (isConnected && pool) {
+    try {
+      if (name && iconUrl !== undefined) {
+        await pool.query('UPDATE guilds SET name = ?, icon_url = ? WHERE id = ?', [name.trim(), iconUrl, gId]);
+      } else if (name) {
+        await pool.query('UPDATE guilds SET name = ? WHERE id = ?', [name.trim(), gId]);
+      } else if (iconUrl !== undefined) {
+        await pool.query('UPDATE guilds SET icon_url = ? WHERE id = ?', [iconUrl, gId]);
+      }
+    } catch (e) {
+      console.warn('Erro ao atualizar servidor no MariaDB:', e.message);
+    }
+  }
+  return guild || { id: gId, name, iconUrl };
+}
+
+export async function getGuildRoles(guildId) {
+  const gId = (guildId || '').trim();
+  if (!gId) return [];
+  if (isConnected && pool) {
+    try {
+      const [rows] = await pool.query(
+        'SELECT id, guild_id as guildId, name, color, permissions, position, created_at as createdAt FROM guild_roles WHERE guild_id = ? ORDER BY position ASC, created_at ASC',
+        [gId]
+      );
+      if (rows) return rows;
+    } catch (e) {
+      console.warn('Erro ao buscar cargos no MariaDB:', e.message);
+    }
+  }
+  return memoryStore.guildRoles.filter(r => r.guildId === gId);
+}
+
+export async function createGuildRole(guildId, { name, color = '#99aab5', permissions = [] }) {
+  const gId = (guildId || '').trim();
+  const cleanName = (name || '').trim();
+  if (!gId || !cleanName) throw new Error('Servidor e nome do cargo são obrigatórios.');
+
+  const id = `role-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
+  const cleanColor = (color || '#99aab5').trim();
+  const position = memoryStore.guildRoles.filter(r => r.guildId === gId).length;
+
+  const roleObj = {
+    id,
+    guildId: gId,
+    name: cleanName,
+    color: cleanColor,
+    permissions: Array.isArray(permissions) ? permissions : [],
+    position,
+    createdAt: new Date().toISOString()
+  };
+
+  memoryStore.guildRoles.push(roleObj);
+
+  if (isConnected && pool) {
+    try {
+      await pool.query(
+        'INSERT INTO guild_roles (id, guild_id, name, color, permissions, position) VALUES (?, ?, ?, ?, ?, ?)',
+        [id, gId, cleanName, cleanColor, JSON.stringify(roleObj.permissions), position]
+      );
+    } catch (e) {
+      console.warn('Erro ao criar cargo no MariaDB:', e.message);
+    }
+  }
+  return roleObj;
+}
+
+export async function deleteGuildRole(guildId, roleId) {
+  const gId = (guildId || '').trim();
+  const rId = (roleId || '').trim();
+  if (!gId || !rId) throw new Error('ID do servidor e do cargo são obrigatórios.');
+
+  memoryStore.guildRoles = memoryStore.guildRoles.filter(r => !(r.guildId === gId && r.id === rId));
+  memoryStore.guildMemberRoles = memoryStore.guildMemberRoles.filter(mr => !(mr.guildId === gId && mr.roleId === rId));
+
+  if (isConnected && pool) {
+    try {
+      await pool.query('DELETE FROM guild_member_roles WHERE guild_id = ? AND role_id = ?', [gId, rId]);
+      await pool.query('DELETE FROM guild_roles WHERE guild_id = ? AND id = ?', [gId, rId]);
+    } catch (e) {
+      console.warn('Erro ao excluir cargo no MariaDB:', e.message);
+    }
+  }
+  return true;
+}
+
+export async function assignMemberRole(guildId, username, roleId) {
+  const gId = (guildId || '').trim();
+  const u = (username || '').trim();
+  const rId = (roleId || '').trim();
+  if (!gId || !u || !rId) throw new Error('Servidor, usuário e cargo são obrigatórios.');
+
+  const exists = memoryStore.guildMemberRoles.some(
+    mr => mr.guildId === gId && mr.username.toLowerCase() === u.toLowerCase() && mr.roleId === rId
+  );
+  if (!exists) {
+    memoryStore.guildMemberRoles.push({ guildId: gId, username: u, roleId: rId });
+  }
+
+  if (isConnected && pool) {
+    try {
+      await pool.query(
+        'INSERT IGNORE INTO guild_member_roles (guild_id, username, role_id) VALUES (?, ?, ?)',
+        [gId, u, rId]
+      );
+    } catch (e) {
+      console.warn('Erro ao atribuir cargo no MariaDB:', e.message);
+    }
+  }
+  return { guildId: gId, username: u, roleId: rId };
+}
+
+export async function removeMemberRole(guildId, username, roleId) {
+  const gId = (guildId || '').trim();
+  const u = (username || '').trim();
+  const rId = (roleId || '').trim();
+  if (!gId || !u || !rId) throw new Error('Servidor, usuário e cargo são obrigatórios.');
+
+  memoryStore.guildMemberRoles = memoryStore.guildMemberRoles.filter(
+    mr => !(mr.guildId === gId && mr.username.toLowerCase() === u.toLowerCase() && mr.roleId === rId)
+  );
+
+  if (isConnected && pool) {
+    try {
+      await pool.query(
+        'DELETE FROM guild_member_roles WHERE guild_id = ? AND LOWER(username) = ? AND role_id = ?',
+        [gId, u.toLowerCase(), rId]
+      );
+    } catch (e) {
+      console.warn('Erro ao remover cargo no MariaDB:', e.message);
+    }
+  }
+  return true;
+}
+
+export async function getGuildMembersWithRoles(guildId) {
+  const gId = (guildId || '').trim();
+  if (!gId) return [];
+
+  if (isConnected && pool) {
+    try {
+      const [members] = await pool.query(
+        `SELECT gm.username, gm.role as baseRole, u.avatar, u.status_mode as statusMode
+         FROM guild_members gm
+         LEFT JOIN users u ON LOWER(u.username) = LOWER(gm.username)
+         WHERE gm.guild_id = ?`,
+        [gId]
+      );
+
+      const [memberRoles] = await pool.query(
+        `SELECT gmr.username, gr.id as roleId, gr.name as roleName, gr.color as roleColor, gr.position
+         FROM guild_member_roles gmr
+         JOIN guild_roles gr ON gr.id = gmr.role_id
+         WHERE gmr.guild_id = ?
+         ORDER BY gr.position ASC`,
+        [gId]
+      );
+
+      const rolesByMember = new Map();
+      for (const r of memberRoles) {
+        const key = r.username.toLowerCase();
+        if (!rolesByMember.has(key)) rolesByMember.set(key, []);
+        rolesByMember.get(key).push({ id: r.roleId, name: r.roleName, color: r.roleColor, position: r.position });
+      }
+
+      return members.map(m => ({
+        username: m.username,
+        baseRole: m.baseRole,
+        avatar: m.avatar,
+        statusMode: m.statusMode,
+        roles: rolesByMember.get(m.username.toLowerCase()) || []
+      }));
+    } catch (e) {
+      console.warn('Erro ao buscar membros com cargos no MariaDB:', e.message);
+    }
+  }
+
+  const mems = memoryStore.guildMembers.filter(m => m.guildId === gId);
+  return mems.map(m => {
+    const userRoles = memoryStore.guildMemberRoles
+      .filter(mr => mr.guildId === gId && mr.username.toLowerCase() === m.username.toLowerCase())
+      .map(mr => {
+        const r = memoryStore.guildRoles.find(gr => gr.id === mr.roleId);
+        return r ? { id: r.id, name: r.name, color: r.color, position: r.position } : null;
+      })
+      .filter(Boolean);
+
+    return {
+      username: m.username,
+      baseRole: m.role,
+      roles: userRoles
+    };
+  });
 }
 
 // ==========================================

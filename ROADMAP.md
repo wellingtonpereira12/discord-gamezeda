@@ -91,14 +91,26 @@ Este documento reúne todas as funcionalidades que ainda faltam em relação ao 
 
 ---
 
-### 🛡️ Fase 5: Servidor, Organização & Permissões
-- [ ] **Mensagens Diretas (DMs Privadas):**
-  - Aba de "Mensagens Diretas" para conversar 1 a 1 no privado com qualquer amigo do grupo.
-- [ ] **Cargos e Cores (Roles):**
-  - Criação de cargos no servidor (ex: *Admin*, *VIP*, *Gamer*).
-  - Atribuição de cores que mudam o nome do usuário no chat e na lista de membros.
-- [ ] **Canais Privados:**
-  - Opção de marcar canais com cadeado 🔒 visíveis apenas para quem possui o cargo específico.
+### 🛡️ Fase 5: Multi-Servidores, Mensagens Diretas (DMs) & Configurações de Servidor — Em Conclusão 🚀
+- [x] **Multi-Servidores (Guilds / Servidores Independentes):**
+  - Barra lateral de servidores estilo Discord oficial com ícones circulares e animação de foco.
+  - Criação de servidores personalizados com upload de foto/ícone e nome próprio.
+  - Sistema de convites por código e entrada via código de convite.
+  - Isolamento completo de canais, categorias e membros entre servidores com MariaDB.
+- [x] **Mensagens Diretas (DMs Privadas 1 a 1):**
+  - Aba "Home" dedicada no topo da barra de servidores alternando para o painel de Mensagens Diretas.
+  - Lista de conversas privadas recentes com indicador online/offline e contador de não lidas.
+  - Início rápido de DM privada via clique com botão direito ou clique no perfil de qualquer membro.
+  - Histórico 1 a 1 persistido no MariaDB.
+- [x] **Indicador de Digitação em Tempo Real (Typing Indicator):**
+  - Notificação sutil `"[Nome] está digitando..."` nos canais e nas DMs com debounce automático de 3s.
+- [x] **Menu & Configurações do Servidor:**
+  - Dropdown no cabeçalho do servidor ("Convidar Pessoas" e "Configurações do Servidor").
+  - Modal de configurações com aba Visão Geral (trocar nome e foto do servidor).
+- [x] **Cargos e Cores (Roles):**
+  - Criação de cargos no servidor (ex: *Admin*, *VIP*, *Moderador*) com cores personalizadas.
+  - Atribuição e remoção de cargos para membros do servidor.
+  - Destaque com cores dos cargos no chat e na lista de membros.
 
 ---
 
@@ -106,23 +118,22 @@ Este documento reúne todas as funcionalidades que ainda faltam em relação ao 
 - [ ] **Organização de Scripts de Automação:**
   - Mover scripts soltos da raiz (`deploy_docker.*`, `check_*`) para diretórios organizados `scripts/deploy/` e `scripts/diagnostics/`.
   - Atualizar referências no `.gitignore` e documentação.
-- [ ] **Modularização Progressiva do `public/app.js`:**
-  - Fatiar o arquivo monolítico do frontend em submódulos ES (`public/modules/`):
-    - `modules/chat.js`: Lógica de renderização de mensagens, anexos, reações e pins.
-    - `modules/profile.js`: Gerenciamento de status, bio, banner e preview de avatar.
-    - `modules/channels.js`: Controle de categorias, sidebar e canais de texto/voz.
-    - `modules/soundboard.js`: Popover de soundboard, upload e reprodução.
+- [ ] **Modularização Progressiva do Frontend:**
+  - Segregação de módulos ES dedicados em `public/js/modules/`:
+    - `guilds.js`: Gerenciamento e alternância de servidores.
+    - `directMessages.js`: Histórico e mensagens 1 a 1.
+    - `serverSettings.js`: Cargos, permissões e customização de servidores.
+    - `channels.js`: Controle de categorias e canais de texto/voz.
 
 ---
 
-## 🛠️ Ordem de Execução Recomendada
-
-Para irmos fazendo aos poucos, a ordem com melhor retorno de usabilidade para o grupo é:
+## 🛠️ Ordem de Execução e Status Atual
 
 1. **Reações com Emojis nas mensagens** (fácil de usar, divertido para o grupo) — ✅ Concluído
 2. **Responder Mensagem (Reply)** (organiza as conversas) — ✅ Concluído
 3. **Card de Perfil com Upload de Foto Própria & Presença** (identidade visual) — ✅ Concluído
 4. **Push-to-Talk (PTT), PiP e Modo Grade** (voz e vídeo) — ✅ Concluído
 5. **Notificações Nativas e Badges de Mensagens Não Lidas** (desktop) — ✅ Concluído
-6. **Mensagens Diretas (DMs) e Cargos (Roles)** (organização e privacidade) — ⏳ Próximo
+6. **Multi-Servidores, DMs, Typing Indicator, Configurações de Servidor e Cargos (Roles)** — ✅ Concluído (v1.3.0)
 7. **Modularização e Faxina de Scripts** (manutenibilidade de código) — 📋 Na Lista
+

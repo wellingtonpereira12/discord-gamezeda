@@ -261,6 +261,12 @@ function createMainWindow(targetUrl) {
 
 function getAppVersion() {
   try {
+    if (app && app.isPackaged && typeof app.getVersion === 'function') {
+      const v = app.getVersion();
+      if (v && v !== '0.0.0') return v;
+    }
+  } catch (e) {}
+  try {
     const rootPkgPath = path.join(__dirname, '..', 'package.json');
     if (fs.existsSync(rootPkgPath)) {
       const rootPkg = JSON.parse(fs.readFileSync(rootPkgPath, 'utf8'));
@@ -274,7 +280,7 @@ function getAppVersion() {
       if (localPkg.version) return localPkg.version;
     }
   } catch (e) {}
-  return app.getVersion();
+  return (app && typeof app.getVersion === 'function') ? app.getVersion() : '1.3.0';
 }
 
 /**

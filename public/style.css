@@ -6488,4 +6488,115 @@ body.is-electron #btn-download-desktop {
   }
 }
 
+/* ==========================================================================
+   FAKEDC - CONFIGURAÇÕES DO SERVIDOR & CARGOS (ROLES)
+   ========================================================================== */
+.server-header {
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease;
+  position: relative;
+}
+
+.server-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.server-dropdown-menu {
+  position: absolute;
+  top: 52px;
+  left: 8px;
+  width: 220px;
+  background: #111214;
+  border-radius: 6px;
+  padding: 6px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+  z-index: 10040;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.server-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #dbdee1;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.server-menu-item:hover {
+  background: #5865F2;
+  color: #ffffff;
+}
+
+.server-menu-item:hover i,
+.server-menu-item:hover span {
+  color: #ffffff !important;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid currentColor;
+}
+
+.role-badge-remove {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 2px;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+
+.role-badge-remove:hover {
+  opacity: 1;
+}
+
+.role-row-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #2b2d31;
+  border-radius: 4px;
+  border: 1px solid #383a40;
+}
+
+.role-color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.member-settings-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #2b2d31;
+  border-radius: 4px;
+  border: 1px solid #383a40;
+}
+
 

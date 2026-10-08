@@ -1,6 +1,6 @@
 {
   "name": "FakeDC",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "releaseDate": "2026-10-08",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe",
@@ -12,5 +12,5 @@
     "iosUrl": "/download/ios",
     "iosIpa": "FakeDC.ipa"
   },
-  "notes": "FakeDC v1.3.0: Fase 5 completa com Multi-Servidores (criar servidor com foto e nome personalizado), Mensagens Diretas (DMs privadas 1 a 1), Indicador de Digitação em tempo real e persistência no MariaDB."
+  "notes": "FakeDC v1.3.1: Menu de Configurações do Servidor (Nome e Foto), Sistema de Cargos e Cores (Roles), DMs rápidas via clique direito e correções de silenciamento no instalador desktop."
 }

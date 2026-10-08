@@ -1254,6 +1254,8 @@ socket.on('voice:update', (data = {}) => {
 });
 
 socket.on('channel:created', (newChannel) => {
+  const currentGId = (window.getActiveGuildId && window.getActiveGuildId()) || 'gamezeda';
+  if (newChannel.guildId && newChannel.guildId !== currentGId) return;
   const existingIdx = allChannels.findIndex(c => c.id === newChannel.id);
   if (existingIdx >= 0) allChannels[existingIdx] = newChannel;
   else allChannels.push(newChannel);
@@ -1280,6 +1282,8 @@ socket.on('channel:deleted', ({ channelId }) => {
 });
 
 socket.on('category:created', (newCat) => {
+  const currentGId = (window.getActiveGuildId && window.getActiveGuildId()) || 'gamezeda';
+  if (newCat.guildId && newCat.guildId !== currentGId) return;
   const existingIdx = allCategories.findIndex(c => c.id === newCat.id);
   if (existingIdx >= 0) allCategories[existingIdx] = newCat;
   else allCategories.push(newCat);
@@ -1501,6 +1505,8 @@ function openUserProfileCard(user, triggerEl, clickEvent) {
         performLogout();
       };
     }
+    const btnPopoutDmAction = document.getElementById('btn-popout-dm-action');
+    if (btnPopoutDmAction) btnPopoutDmAction.style.display = 'none';
   } else {
     if (btnPopoutPrimaryAction) {
       btnPopoutPrimaryAction.textContent = 'Mencionar';
@@ -1513,6 +1519,17 @@ function openUserProfileCard(user, triggerEl, clickEvent) {
             chatInput.value = `${chatInput.value}${mentionText}`;
           }
           chatInput.focus();
+        }
+      };
+    }
+    const btnPopoutDmAction = document.getElementById('btn-popout-dm-action');
+    if (btnPopoutDmAction) {
+      btnPopoutDmAction.style.display = 'block';
+      btnPopoutDmAction.onclick = (e) => {
+        if (e) e.stopPropagation();
+        closeUserProfileCard();
+        if (typeof window.startDirectMessage === 'function') {
+          window.startDirectMessage(user.name);
         }
       };
     }
@@ -2158,8 +2175,12 @@ function switchTextChannel(chName) {
     c.classList.remove('active');
   });
 
-  currentChannelNameEl.textContent = chName;
-  chatInput.placeholder = `Conversar em #${chName}`;
+  const chObj = (allChannels || []).find(c => c.id === chName);
+  let displayName = chObj ? chObj.name : chName;
+  if (displayName.startsWith('geral-guild-')) displayName = 'geral';
+
+  currentChannelNameEl.textContent = displayName;
+  chatInput.placeholder = `Conversar em #${displayName}`;
 
   if (videoStage) videoStage.style.display = 'none';
   if (messagesContainer) messagesContainer.style.display = 'flex';
@@ -2187,12 +2208,16 @@ function renderCurrentChannelMessages(filterText = '') {
     messages = messages.filter(m => (m.text && m.text.toLowerCase().includes(query)) || (m.sender && m.sender.toLowerCase().includes(query)));
   }
 
+  const chObj = (allChannels || []).find(c => c.id === currentTextChannel);
+  let cleanDisplayName = chObj ? chObj.name : currentTextChannel;
+  if (cleanDisplayName.startsWith('geral-guild-')) cleanDisplayName = 'geral';
+
   const welcomeBanner = document.createElement('div');
   welcomeBanner.className = 'channel-welcome-banner';
   welcomeBanner.innerHTML = `
     <div class="channel-welcome-icon">#</div>
-    <h2 class="channel-welcome-title">Bem-vindo(a) a #${escapeHtml(currentTextChannel)}!</h2>
-    <p class="channel-welcome-desc">Este é o início do canal #${escapeHtml(currentTextChannel)}.</p>
+    <h2 class="channel-welcome-title">Bem-vindo(a) a #${escapeHtml(cleanDisplayName)}!</h2>
+    <p class="channel-welcome-desc">Este é o início do canal #${escapeHtml(cleanDisplayName)}.</p>
   `;
   messagesContainer.appendChild(welcomeBanner);
 
@@ -5106,14 +5131,14 @@ initGuilds({
     if (data.chatMessages) Object.assign(channelMessagesStore, data.chatMessages);
 
     // Seleciona o primeiro canal de texto do servidor selecionado
+    // Seleciona o primeiro canal de texto do servidor selecionado
     const firstTextChannel = (data.channels || []).find(c => c.type === 'text');
     if (firstTextChannel) {
-      currentTextChannel = firstTextChannel.id;
+      switchTextChannel(firstTextChannel.id);
+    } else {
+      renderSidebarChannels();
+      renderCurrentChannelMessages();
     }
-
-    renderSidebarChannels();
-    renderCurrentChannelMessages();
-    updateChannelHeader();
   },
   onHomeSelected: () => {
     const channelsServerView = document.getElementById('channels-server-view');
@@ -5251,6 +5276,17 @@ function openContextMenu(e, peerId, peerName) {
   ctxCheckMute.classList.toggle('checked', config.muted);
   ctxCheckSfx.classList.toggle('checked', config.sfxMuted);
   ctxCheckVideo.classList.toggle('checked', config.videoDisabled);
+
+  const ctxItemSendDm = document.getElementById('ctx-item-send-dm');
+  if (ctxItemSendDm) {
+    ctxItemSendDm.onclick = (ev) => {
+      ev.stopPropagation();
+      closeContextMenu();
+      if (typeof window.startDirectMessage === 'function') {
+        window.startDirectMessage(peerName);
+      }
+    };
+  }
 
   userContextMenu.style.display = 'flex';
   const menuWidth = 240;
@@ -5729,12 +5765,14 @@ if (btnConfirmCreateChannel) {
 
     const isVoice = optionTypeVoice && optionTypeVoice.classList.contains('active');
     const type = isVoice ? 'voice' : 'text';
-    const categoryId = selectChannelCategory ? selectChannelCategory.value : (isVoice ? 'cat-voice' : 'cat-text');
+    const activeGuild = (window.getActiveGuildId && window.getActiveGuildId()) || 'gamezeda';
+    const defaultCat = isVoice ? `cat-voice-${activeGuild}` : `cat-text-${activeGuild}`;
+    const categoryId = selectChannelCategory ? selectChannelCategory.value : defaultCat;
 
     btnConfirmCreateChannel.disabled = true;
     btnConfirmCreateChannel.textContent = 'Criando...';
 
-    socket.emit('channel:create', { name: rawName, type, categoryId }, (res) => {
+    socket.emit('channel:create', { name: rawName, type, categoryId, guildId: activeGuild }, (res) => {
       btnConfirmCreateChannel.disabled = false;
       btnConfirmCreateChannel.textContent = 'Criar Canal';
 
@@ -5801,10 +5839,11 @@ if (btnConfirmCreateCategory) {
       return;
     }
 
+    const activeGuild = (window.getActiveGuildId && window.getActiveGuildId()) || 'gamezeda';
     btnConfirmCreateCategory.disabled = true;
     btnConfirmCreateCategory.textContent = 'Criando...';
 
-    socket.emit('category:create', { name: rawName }, (res) => {
+    socket.emit('category:create', { name: rawName, guildId: activeGuild }, (res) => {
       btnConfirmCreateCategory.disabled = false;
       btnConfirmCreateCategory.textContent = 'Criar Categoria';
 
@@ -5816,6 +5855,10 @@ if (btnConfirmCreateCategory) {
     });
   });
 }
+
+window.openCreateChannelModal = openCreateChannelModal;
+window.openCreateCategoryModal = openCreateCategoryModal;
+window.getAllOnlineUsers = () => allOnlineUsers;
 
 // Modal Confirmar Exclusão
 function openDeleteModal(type, id, name) {

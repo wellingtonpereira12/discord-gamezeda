@@ -19,6 +19,8 @@ export function initDirectMessages({ socket, getCurrentUser, onOpenDm }) {
       handleIncomingDm(msg);
     });
   }
+
+  initNewDmModal();
 }
 
 export function loadConversations() {
@@ -103,6 +105,71 @@ export function getActiveDmTarget() {
 
 export function clearActiveDmTarget() {
   activeDmTarget = null;
+}
+
+export function startDirectMessage(targetUsername) {
+  if (!targetUsername) return;
+  const btnServerHome = document.getElementById('btn-server-home');
+  if (btnServerHome) {
+    btnServerHome.click();
+  }
+  openDirectChat(targetUsername);
+}
+
+window.startDirectMessage = startDirectMessage;
+window.openDirectChat = openDirectChat;
+
+// Inicializa modal de nova DM
+export function initNewDmModal() {
+  const btnStartNewDm = document.getElementById('btn-start-new-dm');
+  const modalNewDm = document.getElementById('new-dm-modal');
+  const btnCloseNewDm = document.getElementById('btn-close-new-dm');
+  const listContainer = document.getElementById('new-dm-members-list');
+
+  if (btnStartNewDm && modalNewDm) {
+    btnStartNewDm.addEventListener('click', () => {
+      const currentUser = getCurrentUserFn();
+      const onlineUsers = window.getAllOnlineUsers ? window.getAllOnlineUsers() : [];
+
+      if (listContainer) {
+        listContainer.innerHTML = '';
+        const validUsers = onlineUsers.filter(u => !currentUser || u.name.toLowerCase() !== currentUser.name.toLowerCase());
+
+        if (validUsers.length === 0) {
+          listContainer.innerHTML = `
+            <div style="color: #949ba4; font-size: 13px; text-align: center; padding: 24px 10px;">
+              Nenhum outro membro online no momento.
+            </div>
+          `;
+        } else {
+          validUsers.forEach(u => {
+            const item = document.createElement('div');
+            item.className = 'dm-member-select-item';
+            item.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 4px; cursor: pointer; transition: background 0.15s ease;';
+            item.innerHTML = `
+              <img src="${u.avatar}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+              <span style="color: #dbdee1; font-weight: 600; font-size: 14px;">${escapeHtml(u.name)}</span>
+            `;
+            item.onmouseenter = () => item.style.background = '#35373c';
+            item.onmouseleave = () => item.style.background = 'transparent';
+            item.onclick = () => {
+              modalNewDm.style.display = 'none';
+              startDirectMessage(u.name);
+            };
+            listContainer.appendChild(item);
+          });
+        }
+      }
+
+      modalNewDm.style.display = 'flex';
+    });
+  }
+
+  if (btnCloseNewDm && modalNewDm) {
+    btnCloseNewDm.addEventListener('click', () => {
+      modalNewDm.style.display = 'none';
+    });
+  }
 }
 
 function handleIncomingDm(msg) {

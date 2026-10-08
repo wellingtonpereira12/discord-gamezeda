@@ -3,7 +3,7 @@ import { leaveVoiceRoom } from './voiceHandler.js';
 
 export function registerChannelHandlers(io, socket, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers) {
   // Criar Categoria ("Abinha Separadora")
-  socket.on('category:create', async ({ name }, callback) => {
+  socket.on('category:create', async ({ name, guildId }, callback) => {
     try {
       const user = users.get(socket.id);
       const userName = user ? user.name : 'Usuário';
@@ -16,8 +16,9 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
         return;
       }
 
-      const newCat = await createCategory({ name: cleanName });
-      console.log(`[+] Categoria criada por ${userName}: ${newCat.name} (${newCat.id})`);
+      const targetGuild = guildId || (user && user.currentGuildId) || 'gamezeda';
+      const newCat = await createCategory({ name: cleanName, guildId: targetGuild });
+      console.log(`[+] Categoria criada por ${userName} no servidor [${targetGuild}]: ${newCat.name} (${newCat.id})`);
       io.emit('category:created', newCat);
 
       if (typeof callback === 'function') {
@@ -67,7 +68,7 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
   });
 
   // Criar Canal (Texto ou Voz)
-  socket.on('channel:create', async ({ name, type, categoryId }, callback) => {
+  socket.on('channel:create', async ({ name, type, categoryId, guildId }, callback) => {
     try {
       const user = users.get(socket.id);
       const userName = user ? user.name : 'Usuário';
@@ -81,9 +82,10 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
       }
 
       const channelType = (type === 'voice') ? 'voice' : 'text';
+      const targetGuild = guildId || (user && user.currentGuildId) || 'gamezeda';
 
-      const newChannel = await createChannel({ name: cleanName, type: channelType, categoryId });
-      console.log(`[+] Canal criado por ${userName}: #${newChannel.name} [${newChannel.type}] (${newChannel.id})`);
+      const newChannel = await createChannel({ name: cleanName, type: channelType, categoryId, guildId: targetGuild });
+      console.log(`[+] Canal criado por ${userName} no servidor [${targetGuild}]: #${newChannel.name} [${newChannel.type}] (${newChannel.id})`);
       io.emit('channel:created', newChannel);
 
       if (typeof callback === 'function') {

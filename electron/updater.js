@@ -355,11 +355,11 @@ function launchInstallerAndExit(installerPath) {
       // 2. Espera a conclusão do instalador NSIS silencioso com 'start /wait'
       // 3. Inicia o aplicativo recém-instalado
       const scriptContent = `@echo off
-timeout /t 1 /nobreak >nul
+ping 127.0.0.1 -n 2 >nul
 taskkill /F /IM "Jogos Bolados.exe" /IM "FakeDC.exe" /T >nul 2>&1
-timeout /t 1 /nobreak >nul
+ping 127.0.0.1 -n 2 >nul
 start /wait "" "${installerPath}" /S
-timeout /t 1 /nobreak >nul
+ping 127.0.0.1 -n 2 >nul
 if exist "${fakeDcExe}" (
   start "" "${fakeDcExe}"
 ) else if exist "${jogosBoladosExe}" (
@@ -369,10 +369,17 @@ if exist "${fakeDcExe}" (
 )
 del "%~f0" >nul 2>&1
 `;
-      const updateBatPath = path.join(os.tmpdir(), `fakedc_update_${Date.now()}.bat`);
+      const ts = Date.now();
+      const updateBatPath = path.join(os.tmpdir(), `fakedc_update_${ts}.bat`);
       fs.writeFileSync(updateBatPath, scriptContent, 'utf8');
 
-      const child = spawn('cmd.exe', ['/c', updateBatPath], {
+      // Cria launcher VBScript para executar o .bat em modo 100% oculto (SW_HIDE = 0)
+      // eliminando completamente o piscar ou abertura de janelas de CMD
+      const vbsContent = `Set WshShell = CreateObject("WScript.Shell")\r\nWshShell.Run chr(34) & "${updateBatPath.replace(/\\/g, '\\\\')}" & chr(34), 0, False\r\n`;
+      const updateVbsPath = path.join(os.tmpdir(), `fakedc_update_${ts}.vbs`);
+      fs.writeFileSync(updateVbsPath, vbsContent, 'utf8');
+
+      const child = spawn('wscript.exe', ['//B', '//Nologo', updateVbsPath], {
         detached: true,
         stdio: 'ignore',
         windowsHide: true
