@@ -2316,6 +2316,38 @@ body {
   animation: modalFadeIn 0.15s ease-out;
 }
 
+.discord-modal.settings-card {
+  max-width: 600px;
+  max-height: 88vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.settings-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.settings-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-content::-webkit-scrollbar-thumb {
+  background: #202225;
+  border-radius: 4px;
+}
+
+.settings-content::-webkit-scrollbar-thumb:hover {
+  background: #18191c;
+}
+
 .modal-header-with-close {
   display: flex;
   justify-content: space-between;
@@ -3212,9 +3244,10 @@ body {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  margin-top: 22px;
-  padding-top: 16px;
+  margin-top: 16px;
+  padding-top: 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
 }
 
 @keyframes spin-cw {

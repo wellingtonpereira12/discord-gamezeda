@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
   <title>FakeDC</title>
-  <link rel="stylesheet" href="style.css?v=20261007_v1.1.2">
+  <link rel="stylesheet" href="style.css?v=20261007_v1.1.3">
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/logo.png?v=20261005">
   <link rel="shortcut icon" href="/favicon.ico?v=20261005">
   <link rel="apple-touch-icon" href="/assets/logo.png?v=20261005">
@@ -657,8 +657,12 @@
       <!-- Abas de Navegação -->
       <div class="settings-tabs-bar">
         <button type="button" class="settings-tab-btn active" id="tab-btn-voice">
-          <i data-lucide="sliders" style="width: 16px; height: 16px;"></i>
-          <span>Voz & Vídeo</span>
+          <i data-lucide="mic" style="width: 16px; height: 16px;"></i>
+          <span>Voz & Áudio</span>
+        </button>
+        <button type="button" class="settings-tab-btn" id="tab-btn-stream">
+          <i data-lucide="monitor" style="width: 16px; height: 16px;"></i>
+          <span>Transmissão</span>
         </button>
         <button type="button" class="settings-tab-btn" id="tab-btn-profile">
           <i data-lucide="user" style="width: 16px; height: 16px;"></i>
@@ -766,10 +770,10 @@
               </div>
             </div>
           </div>
+        </div>
 
-          <div class="context-menu-separator" style="margin: 18px 0;"></div>
-
-          <!-- QUALIDADE DE TRANSMISSÃO DE TELA & VÍDEO (SCREEN SHARE) -->
+        <!-- ABA 2: TRANSMISSÃO DE TELA & VÍDEO -->
+        <div id="tab-content-stream" style="display: none;">
           <div class="settings-section">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
               <div style="display: flex; align-items: center; gap: 8px;">
@@ -777,11 +781,11 @@
                 <span style="background: #23A55A; color: #fff; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">60 FPS & 1080p+</span>
               </div>
             </div>
-            <div style="font-size: 12px; color: #949ba4; margin-bottom: 12px; line-height: 1.4;">
-              Escolha a taxa de quadros (FPS), resolução e taxa de bits (bitrate) para jogos suaves ou transmissões nítidas.
+            <div style="font-size: 12px; color: #949ba4; margin-bottom: 16px; line-height: 1.4;">
+              Personalize a taxa de quadros (FPS), resolução e taxa de bits (bitrate) para jogos suaves ou apresentações nítidas.
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
               <!-- Resolução -->
               <div>
                 <label class="settings-label" for="setting-stream-resolution">RESOLUÇÃO</label>
@@ -804,7 +808,7 @@
               </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
               <!-- Bitrate Máximo -->
               <div>
                 <label class="settings-label" for="setting-stream-bitrate">BITRATE MÁXIMO</label>
@@ -828,9 +832,11 @@
               </div>
             </div>
 
-            <div style="margin-top: 10px; font-size: 11.5px; color: #949ba4; display: flex; align-items: center; gap: 6px;">
-              <i data-lucide="zap" style="width: 14px; height: 14px; color: #FEE75C; flex-shrink: 0;"></i>
-              <span>Aceleração por hardware GPU H.264 (NVIDIA / AMD / Intel) e codecs de alto desempenho ativados.</span>
+            <div style="margin-top: 14px; background: rgba(88, 101, 242, 0.1); border: 1px solid rgba(88, 101, 242, 0.25); border-radius: 6px; padding: 10px 14px;">
+              <div style="font-size: 12.5px; color: #dbdee1; display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="zap" style="width: 16px; height: 16px; color: #FEE75C; flex-shrink: 0;"></i>
+                <span>Aceleração por hardware GPU H.264 (NVIDIA NVENC, AMD AMF e Intel QuickSync) ativa para máximo desempenho e menor uso de CPU.</span>
+              </div>
             </div>
           </div>
         </div>
@@ -1430,7 +1436,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261007_v1.1.2"></script>
+  <script type="module" src="app.js?v=20261007_v1.1.3"></script>
 
 </body>
 </html>

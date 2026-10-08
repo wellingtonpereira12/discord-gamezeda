@@ -1,5 +1,5 @@
 import { sounds } from './sounds.js?v=20261007_v7';
-import { WebRTCManager } from './webrtc.js?v=20261007_v1.1.2';
+import { WebRTCManager } from './webrtc.js?v=20261007_v1.1.3';
 
 if (window.lucide) {
   window.lucide.createIcons();
@@ -262,9 +262,11 @@ const btnForceUpdateText = document.getElementById('btn-force-update-text');
 
 // Configurações - Abas e Telas
 const tabBtnVoice = document.getElementById('tab-btn-voice');
+const tabBtnStream = document.getElementById('tab-btn-stream');
 const tabBtnProfile = document.getElementById('tab-btn-profile');
 const tabBtnAccount = document.getElementById('tab-btn-account');
 const tabContentVoice = document.getElementById('tab-content-voice');
+const tabContentStream = document.getElementById('tab-content-stream');
 const tabContentProfile = document.getElementById('tab-content-profile');
 const tabContentAccount = document.getElementById('tab-content-account');
 
@@ -4273,14 +4275,18 @@ function switchSettingsTab(tabName) {
   const targetTab = (typeof tabName === 'string') ? tabName : 'voice';
 
   // Limpa estados das abas
-  [tabBtnVoice, tabBtnProfile, tabBtnAccount].forEach(b => {
+  [tabBtnVoice, tabBtnStream, tabBtnProfile, tabBtnAccount].forEach(b => {
     if (b) b.classList.remove('active');
   });
-  [tabContentVoice, tabContentProfile, tabContentAccount].forEach(c => {
+  [tabContentVoice, tabContentStream, tabContentProfile, tabContentAccount].forEach(c => {
     if (c) c.style.display = 'none';
   });
 
-  if (targetTab === 'profile') {
+  if (targetTab === 'stream') {
+    if (tabBtnStream) tabBtnStream.classList.add('active');
+    if (tabContentStream) tabContentStream.style.display = 'block';
+    syncStreamQualityUI();
+  } else if (targetTab === 'profile') {
     if (tabBtnProfile) tabBtnProfile.classList.add('active');
     if (tabContentProfile) tabContentProfile.style.display = 'block';
     if (profileSaveAlert) profileSaveAlert.style.display = 'none';
@@ -4322,6 +4328,10 @@ function switchSettingsTab(tabName) {
 
 if (tabBtnVoice) {
   tabBtnVoice.addEventListener('click', () => switchSettingsTab('voice'));
+}
+
+if (tabBtnStream) {
+  tabBtnStream.addEventListener('click', () => switchSettingsTab('stream'));
 }
 
 if (tabBtnProfile) {

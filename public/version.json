@@ -1,6 +1,6 @@
 {
   "name": "FakeDC",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "releaseDate": "2026-10-07",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe",
@@ -12,5 +12,5 @@
     "iosUrl": "/download/ios",
     "iosIpa": "FakeDC.ipa"
   },
-  "notes": "FakeDC v1.1.2: Seleção de qualidade de transmissão (60 FPS, 1080p+, Bitrates customizáveis, Modo Gamer com aceleração por hardware GPU) e botão de Forçar Atualização nas configurações."
+  "notes": "FakeDC v1.1.3: Aba dedicada de Transmissão nas configurações com 60 FPS, 1080p+, Bitrates customizáveis e correção de layout com scroll inteligente no modal de configurações."
 }
