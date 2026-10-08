@@ -14,10 +14,10 @@ Vamos implementar e validar **um a um**, testando cada ponto antes de avançar p
 
 ---
 
-### [ ] 2. Isolamento Estrito de Canais entre Servidores
-- **Problema:** Ao trocar entre servidores (ex: do servidor novo para o Gamezeda e vice-versa), os canais de um estão se misturando com os do outro.
-- **Causa:** O estado local de canais e categorias no frontend não está sendo limpo e filtrado estritamente pelo `guild_id` do servidor selecionado ao trocar.
-- **Critério de Aceite:** Cada servidor deve exibir única e exclusivamente os seus próprios canais. Ao alternar entre servidores, a lista deve recarregar limpa, sem qualquer canal vazando de outro servidor.
+### [x] 2. Isolamento Estrito de Canais entre Servidores e Roteamento
+- **Problema:** Ao trocar entre servidores os canais estavam misturando e mensagens enviadas estavam caindo no `#geral`.
+- **Status:** ✅ Concluído e validado pelo usuário nos testes práticos (canais isolados e mensagens roteadas para o canal correto).
+- **Critério de Aceite:** Cada servidor exibe seus próprios canais e as mensagens são enviadas e armazenadas no canal correto.
 
 ---
 
@@ -35,8 +35,9 @@ Vamos implementar e validar **um a um**, testando cada ponto antes de avançar p
 
 ---
 
-### [ ] 5. Modal de Configurações do Servidor (Nome e Foto)
+### [x] 5. Modal de Configurações do Servidor (Nome e Foto)
 - **Problema:** Abrir as configurações do servidor e salvar alterações de nome e ícone.
+- **Status:** ✅ Concluído e validado pelo usuário nos testes práticos.
 - **Critério de Aceite:** Clicar em "Configurações do Servidor" no menu abre o modal na aba "Visão Geral". Alterar o nome e/ou enviar nova foto e clicar em salvar atualiza o servidor no MariaDB, na barra lateral e no cabeçalho em tempo real.
 
 ---
@@ -47,7 +48,9 @@ Vamos implementar e validar **um a um**, testando cada ponto antes de avançar p
 
 ---
 
-### [ ] 7. Exclusão de Servidor
-- **Problema:** O dono do servidor precisa conseguir excluir um servidor que criou.
-- **Critério de Aceite:** Adicionar opção de "Excluir Servidor" (em destaque vermelho com aviso de confirmação). Ao confirmar, o servidor, seus canais, mensagens e cargos são removidos do banco de dados, e os membros são redirecionados de volta ao servidor padrão.
+### [x] 7. Exclusão de Servidor e Canais
+- **Problema:** O dono do servidor precisa conseguir excluir canais e o servidor que criou.
+- **Status:** ✅ Concluído e validado pelo usuário nos testes práticos.
+- **Critério de Aceite:** Exclusão de canais via lixeira / clique direito e exclusão de servidor via menu / configurações com limpeza em cascata e redirecionamento.
+
 

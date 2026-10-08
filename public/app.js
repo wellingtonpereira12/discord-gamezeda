@@ -3230,7 +3230,7 @@ function appendMessageToContainer(msg) {
     <div class="message-content">
       ${replyHtml}
       <div class="message-header">
-        <span class="message-author" style="color: ${isBot ? '#23a55a' : '#5865F2'};">${escapeHtml(msg.sender)}</span>
+        <span class="message-author" style="color: ${isBot ? '#23a55a' : (msg.roleColor || '#5865F2')};">${escapeHtml(msg.sender)}</span>
         ${isBot ? '<span class="bot-tag">BOT</span>' : ''}
         <span class="message-time">${escapeHtml(displayTime)}</span>
         <span class="message-edited-slot">${msg.edited ? '<span class="message-edited-tag" title="Editada">(editado)</span>' : ''}</span>

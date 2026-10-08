@@ -307,6 +307,11 @@ export async function initDatabase() {
       }
     }
 
+    // Garante que usuários registrados sejam membros do FakeDC principal
+    try {
+      await conn.query("INSERT IGNORE INTO guild_members (guild_id, username, role) SELECT 'gamezeda', username, 'member' FROM users");
+    } catch (e) {}
+
     conn.release();
     return true;
   } catch (err) {
@@ -639,6 +644,10 @@ export async function assignMemberRole(guildId, username, roleId) {
   if (isConnected && pool) {
     try {
       await pool.query(
+        'INSERT IGNORE INTO guild_members (guild_id, username, role) VALUES (?, ?, ?)',
+        [gId, u, 'member']
+      );
+      await pool.query(
         'INSERT IGNORE INTO guild_member_roles (guild_id, username, role_id) VALUES (?, ?, ?)',
         [gId, u, rId]
       );
@@ -678,13 +687,36 @@ export async function getGuildMembersWithRoles(guildId) {
 
   if (isConnected && pool) {
     try {
-      const [members] = await pool.query(
-        `SELECT gm.username, gm.role as baseRole, u.avatar, u.status_mode as statusMode
-         FROM guild_members gm
-         LEFT JOIN users u ON LOWER(u.username) = LOWER(gm.username)
-         WHERE gm.guild_id = ?`,
-        [gId]
-      );
+      let membersQuery;
+      let queryParams;
+      if (gId === 'gamezeda') {
+        membersQuery = `
+          SELECT u.username, 'member' as baseRole, u.avatar, u.status_mode as statusMode
+          FROM users u
+          ORDER BY u.username ASC
+        `;
+        queryParams = [];
+      } else {
+        membersQuery = `
+          SELECT m.username, MAX(m.baseRole) as baseRole, MAX(m.avatar) as avatar, MAX(m.statusMode) as statusMode
+          FROM (
+            SELECT gm.username, gm.role as baseRole, u.avatar, u.status_mode as statusMode
+            FROM guild_members gm
+            LEFT JOIN users u ON LOWER(u.username) = LOWER(gm.username)
+            WHERE gm.guild_id = ?
+            UNION ALL
+            SELECT g.owner_username as username, 'owner' as baseRole, u.avatar, u.status_mode as statusMode
+            FROM guilds g
+            LEFT JOIN users u ON LOWER(u.username) = LOWER(g.owner_username)
+            WHERE g.id = ? AND g.owner_username IS NOT NULL AND g.owner_username != ''
+          ) m
+          GROUP BY m.username
+          ORDER BY m.username ASC
+        `;
+        queryParams = [gId, gId];
+      }
+
+      const [members] = await pool.query(membersQuery, queryParams);
 
       const [memberRoles] = await pool.query(
         `SELECT gmr.username, gr.id as roleId, gr.name as roleName, gr.color as roleColor, gr.position
@@ -714,7 +746,20 @@ export async function getGuildMembersWithRoles(guildId) {
     }
   }
 
-  const mems = memoryStore.guildMembers.filter(m => m.guildId === gId);
+  let mems = [];
+  if (gId === 'gamezeda') {
+    const allUsers = Object.values(memoryStore.users);
+    mems = allUsers.map(u => ({ username: u.username, role: 'member', avatar: u.avatar }));
+  } else {
+    mems = [...memoryStore.guildMembers.filter(m => m.guildId === gId)];
+    const targetGuild = memoryStore.guilds.find(g => g.id === gId);
+    if (targetGuild && targetGuild.ownerUsername) {
+      if (!mems.some(m => m.username.toLowerCase() === targetGuild.ownerUsername.toLowerCase())) {
+        mems.push({ username: targetGuild.ownerUsername, role: 'owner' });
+      }
+    }
+  }
+
   return mems.map(m => {
     const userRoles = memoryStore.guildMemberRoles
       .filter(mr => mr.guildId === gId && mr.username.toLowerCase() === m.username.toLowerCase())
@@ -726,10 +771,48 @@ export async function getGuildMembersWithRoles(guildId) {
 
     return {
       username: m.username,
-      baseRole: m.role,
+      baseRole: m.role || 'member',
+      avatar: m.avatar,
       roles: userRoles
     };
   });
+}
+
+export async function getUserHighestRoleColor(guildId, username) {
+  const gId = (guildId || 'gamezeda').trim();
+  const u = (username || '').trim();
+  if (!gId || !u) return null;
+
+  if (isConnected && pool) {
+    try {
+      const [rows] = await pool.query(
+        `SELECT gr.color
+         FROM guild_member_roles gmr
+         JOIN guild_roles gr ON gr.id = gmr.role_id
+         WHERE gmr.guild_id = ? AND LOWER(gmr.username) = ?
+         ORDER BY gr.position ASC, gr.created_at ASC
+         LIMIT 1`,
+        [gId, u.toLowerCase()]
+      );
+      if (rows && rows.length > 0 && rows[0].color) {
+        return rows[0].color;
+      }
+    } catch (e) {
+      console.warn('Erro ao obter cor de cargo:', e.message);
+    }
+  }
+
+  const memberRoles = memoryStore.guildMemberRoles.filter(
+    mr => mr.guildId === gId && mr.username.toLowerCase() === u.toLowerCase()
+  );
+  if (memberRoles.length > 0) {
+    for (const mr of memberRoles) {
+      const role = memoryStore.guildRoles.find(r => r.id === mr.roleId);
+      if (role && role.color) return role.color;
+    }
+  }
+
+  return null;
 }
 
 // ==========================================

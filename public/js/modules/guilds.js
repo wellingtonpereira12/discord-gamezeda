@@ -620,6 +620,14 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
         `;
       });
 
+      const unassignedRoles = availableRoles.filter(ar => !(member.roles || []).some(mr => mr.id === ar.id));
+      const roleSelectHtml = unassignedRoles.length > 0
+        ? `<select class="member-role-select" style="background: #1e1f22; color: #dbdee1; border: 1px solid #383a40; border-radius: 4px; padding: 4px 8px; font-size: 12px; outline: none; cursor: pointer;">
+            <option value="">+ Atribuir Cargo</option>
+            ${unassignedRoles.map(ar => `<option value="${ar.id}">${escapeHtml(ar.name)}</option>`).join('')}
+          </select>`
+        : `<span style="color: #949ba4; font-size: 11px; font-style: italic;">Todos os cargos atribuídos</span>`;
+
       card.innerHTML = `
         <div style="display: flex; align-items: center; gap: 10px;">
           <img src="${avatarUrl}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
@@ -631,10 +639,7 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
           </div>
         </div>
         <div>
-          <select class="member-role-select" style="background: #1e1f22; color: #dbdee1; border: 1px solid #383a40; border-radius: 4px; padding: 4px 8px; font-size: 12px; outline: none; cursor: pointer;">
-            <option value="">+ Atribuir Cargo</option>
-            ${availableRoles.map(ar => `<option value="${ar.id}">${escapeHtml(ar.name)}</option>`).join('')}
-          </select>
+          ${roleSelectHtml}
         </div>
       `;
 
@@ -688,6 +693,7 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
     activeSocket.on('guild:roles:updated', ({ guildId }) => {
       if (guildId === activeGuildId) {
         loadGuildRoles();
+        loadGuildMembers();
       }
     });
 

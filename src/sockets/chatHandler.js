@@ -10,7 +10,8 @@ import {
   getPinnedMessages,
   saveDirectMessage,
   getDirectMessages,
-  getUserConversations
+  getUserConversations,
+  getUserHighestRoleColor
 } from '../config/db.js';
 import { musicBot, BOT_USER, RADIO_STATIONS } from '../services/musicBot.js';
 import { watchPartyService } from '../services/watchParty.js';
@@ -34,11 +35,14 @@ export function registerChatHandlers(io, socket, users, voiceRooms, broadcastVoi
       hour12: false
     });
 
+    const roleColor = await getUserHighestRoleColor(user.currentGuildId || 'gamezeda', user.name);
+
     const msgPayload = {
       id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       channelId: targetChannel,
       sender: user.name,
       avatar: user.avatar,
+      roleColor: roleColor || null,
       isSystem: false,
       text: cleanText,
       attachmentUrl: attachmentUrl || null,
