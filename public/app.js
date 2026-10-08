@@ -64,8 +64,9 @@ import {
   renderGuildsList,
   selectGuild,
   setActiveGuild,
-  getActiveGuildId
-} from './js/modules/guilds.js?v=20261008_v1.3.0';
+  getActiveGuildId,
+  openServerSettingsModal
+} from './js/modules/guilds.js?v=20261008_v1.3.2';
 import {
   initDirectMessages,
   loadConversations,
@@ -5834,6 +5835,7 @@ if (btnConfirmCreateCategory) {
 
 window.openCreateChannelModal = openCreateChannelModal;
 window.openCreateCategoryModal = openCreateCategoryModal;
+window.openServerSettingsModal = openServerSettingsModal;
 window.getAllOnlineUsers = () => allOnlineUsers;
 
 // Modal Confirmar Exclusão

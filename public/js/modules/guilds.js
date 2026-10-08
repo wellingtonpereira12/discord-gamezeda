@@ -285,6 +285,14 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
   let updatedServerIconUrl = null;
 
   function switchSettingsTab(tab) {
+    const tabBtnOverview = document.getElementById('tab-btn-server-overview');
+    const tabBtnRoles = document.getElementById('tab-btn-server-roles');
+    const tabBtnMembers = document.getElementById('tab-btn-server-members');
+
+    const tabContentOverview = document.getElementById('tab-content-server-overview');
+    const tabContentRoles = document.getElementById('tab-content-server-roles');
+    const tabContentMembers = document.getElementById('tab-content-server-members');
+
     [tabBtnOverview, tabBtnRoles, tabBtnMembers].forEach(b => {
       if (b) {
         b.style.background = 'transparent';
@@ -322,28 +330,56 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
   if (tabBtnRoles) tabBtnRoles.addEventListener('click', () => switchSettingsTab('roles'));
   if (tabBtnMembers) tabBtnMembers.addEventListener('click', () => switchSettingsTab('members'));
 
+  function openServerSettingsModal(e) {
+    if (e && typeof e.stopPropagation === 'function') {
+      e.stopPropagation();
+    }
+    const serverDropdownMenu = document.getElementById('server-dropdown-menu');
+    if (serverDropdownMenu) serverDropdownMenu.style.display = 'none';
+
+    const curGuild = cachedGuilds.find(g => String(g.id) === String(activeGuildId)) || { name: 'FakeDC', iconUrl: '/assets/logo.png' };
+
+    const titleEl = document.getElementById('server-settings-title');
+    if (titleEl) titleEl.textContent = `Configurações: ${curGuild.name || 'Servidor'}`;
+
+    const settingsNameInput = document.getElementById('server-settings-name-input');
+    if (settingsNameInput) settingsNameInput.value = curGuild.name || '';
+
+    const settingsPreviewImg = document.getElementById('server-settings-preview-img');
+    if (settingsPreviewImg) settingsPreviewImg.src = curGuild.iconUrl || '/assets/logo.png';
+    updatedServerIconUrl = curGuild.iconUrl || null;
+
+    const settingsFeedback = document.getElementById('server-settings-feedback');
+    if (settingsFeedback) settingsFeedback.style.display = 'none';
+
+    switchSettingsTab('overview');
+
+    const serverSettingsModal = document.getElementById('server-settings-modal');
+    if (serverSettingsModal) {
+      serverSettingsModal.style.display = 'flex';
+      if (window.lucide) window.lucide.createIcons();
+    }
+  }
+  window.openServerSettingsModal = openServerSettingsModal;
+
   if (btnMenuServerSettings) {
-    btnMenuServerSettings.addEventListener('click', () => {
-      if (serverDropdownMenu) serverDropdownMenu.style.display = 'none';
-      const curGuild = cachedGuilds.find(g => g.id === activeGuildId) || { name: 'FakeDC', iconUrl: '/assets/logo.png' };
-
-      const titleEl = document.getElementById('server-settings-title');
-      if (titleEl) titleEl.textContent = `Configurações: ${curGuild.name}`;
-
-      if (settingsNameInput) settingsNameInput.value = curGuild.name || '';
-      if (settingsPreviewImg) settingsPreviewImg.src = curGuild.iconUrl || '/assets/logo.png';
-      updatedServerIconUrl = curGuild.iconUrl || null;
-
-      if (settingsFeedback) settingsFeedback.style.display = 'none';
-
-      switchSettingsTab('overview');
-      if (serverSettingsModal) serverSettingsModal.style.display = 'flex';
+    btnMenuServerSettings.addEventListener('click', (e) => {
+      openServerSettingsModal(e);
     });
   }
 
-  if (btnCloseServerSettings && serverSettingsModal) {
+  if (btnCloseServerSettings) {
     btnCloseServerSettings.addEventListener('click', () => {
-      serverSettingsModal.style.display = 'none';
+      const serverSettingsModal = document.getElementById('server-settings-modal');
+      if (serverSettingsModal) serverSettingsModal.style.display = 'none';
+    });
+  }
+
+  if (serverSettingsModal) {
+    serverSettingsModal.addEventListener('click', (e) => {
+      if (e.target === serverSettingsModal) {
+        serverSettingsModal.style.display = 'none';
+      }
     });
   }
 
