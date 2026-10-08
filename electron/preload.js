@@ -56,5 +56,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showNotification: (data) => ipcRenderer.send('notification:show', data),
   onNotificationClicked: (callback) => {
     ipcRenderer.on('notification:clicked', (event, data) => callback(data));
-  }
+  },
+
+  // Área de Transferência (Clipboard Nativo - Copiar Imagem e Texto)
+  copyImage: (data) => ipcRenderer.invoke('electron:copy-image', data),
+  copyText: (text) => ipcRenderer.invoke('electron:copy-text', text)
 });

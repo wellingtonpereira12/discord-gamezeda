@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session, Menu, desktopCapturer, globalShortcut, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, session, Menu, desktopCapturer, globalShortcut, Notification, clipboard, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -514,6 +514,66 @@ app.whenReady().then(() => {
       }
     } catch (err) {
       console.warn('[Notification] Erro ao disparar notificação nativa:', err.message);
+    }
+  });
+
+  // Handlers de Área de Transferência (Clipboard Nativo)
+  ipcMain.handle('electron:copy-image', async (event, { url, dataUrl }) => {
+    try {
+      let img = null;
+      if (dataUrl && dataUrl.startsWith('data:image')) {
+        img = nativeImage.createFromDataURL(dataUrl);
+      } else if (url) {
+        if (url.startsWith('data:image')) {
+          img = nativeImage.createFromDataURL(url);
+        } else if (url.startsWith('http://') || url.startsWith('https://')) {
+          const client = url.startsWith('https://') ? require('https') : require('http');
+          const buf = await new Promise((resolve, reject) => {
+            client.get(url, { rejectUnauthorized: false }, (res) => {
+              if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                let loc = res.headers.location;
+                if (loc.startsWith('/')) {
+                  const u = new URL(url);
+                  loc = `${u.origin}${loc}`;
+                }
+                const cl = loc.startsWith('https://') ? require('https') : require('http');
+                cl.get(loc, { rejectUnauthorized: false }, (res2) => {
+                  const chunks2 = [];
+                  res2.on('data', c => chunks2.push(c));
+                  res2.on('end', () => resolve(Buffer.concat(chunks2)));
+                  res2.on('error', reject);
+                }).on('error', reject);
+                return;
+              }
+              const chunks = [];
+              res.on('data', c => chunks.push(c));
+              res.on('end', () => resolve(Buffer.concat(chunks)));
+              res.on('error', reject);
+            }).on('error', reject);
+          });
+          img = nativeImage.createFromBuffer(buf);
+        } else if (fs.existsSync(url)) {
+          img = nativeImage.createFromPath(url);
+        }
+      }
+
+      if (img && !img.isEmpty()) {
+        clipboard.writeImage(img);
+        return { success: true };
+      }
+      return { success: false, error: 'Imagem vazia ou inválida' };
+    } catch (err) {
+      console.error('[Electron] Erro ao copiar imagem para clipboard:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('electron:copy-text', (event, text) => {
+    try {
+      clipboard.writeText(text || '');
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
     }
   });
 
