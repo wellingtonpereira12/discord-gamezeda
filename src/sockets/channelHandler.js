@@ -45,16 +45,17 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
         return;
       }
 
-      if (categoryId === 'cat-text' || categoryId === 'cat-voice') {
+      if (categoryId === 'cat-text' || categoryId === 'cat-voice' || categoryId.startsWith('cat-text-') || categoryId.startsWith('cat-voice-')) {
         if (typeof callback === 'function') {
           callback({ success: false, message: 'Esta categoria padrão não pode ser excluída.' });
         }
         return;
       }
 
+      const targetGuild = (user && user.currentGuildId) || 'gamezeda';
       await deleteCategory(categoryId);
       console.log(`[-] Categoria excluída por ${userName}: ${categoryId}`);
-      io.emit('category:deleted', { categoryId });
+      io.emit('category:deleted', { categoryId, guildId: targetGuild });
 
       if (typeof callback === 'function') {
         callback({ success: true });
@@ -112,9 +113,16 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
         return;
       }
 
-      if (channelId === 'geral') {
+      if (channelId === 'geral' || channelId.startsWith('geral-guild-')) {
         if (typeof callback === 'function') {
           callback({ success: false, message: 'O canal geral é fixo e não pode ser excluído.' });
+        }
+        return;
+      }
+
+      if (channelId === 'gamezeda' || channelId.startsWith('voz-guild-')) {
+        if (typeof callback === 'function') {
+          callback({ success: false, message: 'O canal de voz principal não pode ser excluído.' });
         }
         return;
       }
@@ -131,9 +139,10 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
         }
       }
 
+      const targetGuild = (user && user.currentGuildId) || 'gamezeda';
       await deleteChannel(channelId);
       console.log(`[-] Canal excluído por ${userName}: ${channelId}`);
-      io.emit('channel:deleted', { channelId });
+      io.emit('channel:deleted', { channelId, guildId: targetGuild });
 
       if (typeof callback === 'function') {
         callback({ success: true });

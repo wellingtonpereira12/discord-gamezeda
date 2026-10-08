@@ -65,7 +65,7 @@ import {
   selectGuild,
   setActiveGuild,
   getActiveGuildId
-} from './js/modules/guilds.js?v=20261008_v1.3.4';
+} from './js/modules/guilds.js?v=20261008_v1.3.5';
 import {
   initDirectMessages,
   loadConversations,
@@ -1141,14 +1141,25 @@ socket.on('init:state', (data) => {
   allOnlineUsers = data.onlineUsers || [];
   allVoiceUsers = data.voiceUsers || [];
   allVoiceRoomsState = data.voiceRooms || { 'gamezeda': allVoiceUsers };
-  if (data.categories && data.categories.length > 0) {
-    allCategories = data.categories;
+  const targetGuildId = data.activeGuildId || 'gamezeda';
+  if (typeof setActiveGuild === 'function') {
+    setActiveGuild(targetGuildId);
   }
-  if (data.channels && data.channels.length > 0) {
-    allChannels = data.channels;
+  if (data.categories) {
+    allCategories = Array.isArray(data.categories) ? data.categories : [];
+  }
+  if (data.channels) {
+    allChannels = Array.isArray(data.channels) ? data.channels : [];
   }
   if (data.guilds) {
     renderGuildsList(data.guilds);
+    const curGuild = (data.guilds || []).find(g => g.id === targetGuildId);
+    if (curGuild) {
+      const headerName = document.getElementById('server-header-name');
+      const headerIcon = document.getElementById('server-header-icon');
+      if (headerName) headerName.textContent = curGuild.name;
+      if (headerIcon) headerIcon.src = curGuild.iconUrl || '/assets/logo.png';
+    }
   }
   syncCurrentUserFromList();
   renderSidebarChannels();
@@ -1254,15 +1265,21 @@ socket.on('voice:update', (data = {}) => {
 });
 
 socket.on('channel:created', (newChannel) => {
+  if (!newChannel) return;
   const currentGId = (window.getActiveGuildId && window.getActiveGuildId()) || 'gamezeda';
-  if (newChannel.guildId && newChannel.guildId !== currentGId) return;
+  const chGuildId = newChannel.guildId || newChannel.guild_id || 'gamezeda';
+  if (chGuildId !== currentGId) return;
+
   const existingIdx = allChannels.findIndex(c => c.id === newChannel.id);
   if (existingIdx >= 0) allChannels[existingIdx] = newChannel;
   else allChannels.push(newChannel);
   renderSidebarChannels();
 });
 
-socket.on('channel:deleted', ({ channelId }) => {
+socket.on('channel:deleted', ({ channelId, guildId }) => {
+  const currentGId = (window.getActiveGuildId && window.getActiveGuildId()) || 'gamezeda';
+  if (guildId && guildId !== currentGId) return;
+
   allChannels = allChannels.filter(c => c.id !== channelId);
   delete channelMessagesStore[channelId];
   if (unreadChannelCounts.has(channelId)) {
@@ -1271,7 +1288,15 @@ socket.on('channel:deleted', ({ channelId }) => {
   }
 
   if (currentTextChannel === channelId) {
-    switchTextChannel('geral');
+    const firstTextChannel = allChannels.find(c => c.type === 'text');
+    if (firstTextChannel) {
+      switchTextChannel(firstTextChannel.id);
+    } else {
+      currentTextChannel = null;
+      if (currentChannelNameEl) currentChannelNameEl.textContent = 'Nenhum canal';
+      if (chatInput) chatInput.placeholder = 'Nenhum canal de texto disponível';
+      renderCurrentChannelMessages();
+    }
   }
   if (currentVoiceChannelId === channelId) {
     leaveVoice(true);
@@ -1282,18 +1307,25 @@ socket.on('channel:deleted', ({ channelId }) => {
 });
 
 socket.on('category:created', (newCat) => {
+  if (!newCat) return;
   const currentGId = (window.getActiveGuildId && window.getActiveGuildId()) || 'gamezeda';
-  if (newCat.guildId && newCat.guildId !== currentGId) return;
+  const catGuildId = newCat.guildId || newCat.guild_id || 'gamezeda';
+  if (catGuildId !== currentGId) return;
+
   const existingIdx = allCategories.findIndex(c => c.id === newCat.id);
   if (existingIdx >= 0) allCategories[existingIdx] = newCat;
   else allCategories.push(newCat);
   renderSidebarChannels();
 });
 
-socket.on('category:deleted', ({ categoryId }) => {
+socket.on('category:deleted', ({ categoryId, guildId }) => {
+  const currentGId = (window.getActiveGuildId && window.getActiveGuildId()) || 'gamezeda';
+  if (guildId && guildId !== currentGId) return;
+
   allCategories = allCategories.filter(c => c.id !== categoryId);
+  const fallbackCat = currentGId === 'gamezeda' ? 'cat-text' : `cat-text-${currentGId}`;
   allChannels.forEach(ch => {
-    if (ch.categoryId === categoryId) ch.categoryId = 'cat-text';
+    if (ch.categoryId === categoryId) ch.categoryId = fallbackCat;
   });
   renderSidebarChannels();
 });
@@ -1711,6 +1743,16 @@ function renderSidebarChannels() {
   if (!channelsScrollContainer) return;
   channelsScrollContainer.innerHTML = '';
 
+  // Auto-aloca canais órfãos ou sem categoria existente nas categorias padrão
+  const uncategorized = allChannels.filter(c => !allCategories.some(cat => cat.id === c.categoryId));
+  if (uncategorized.length > 0 && allCategories.length > 0) {
+    const defaultTextCat = allCategories.find(c => c.id.startsWith('cat-text')) || allCategories[0];
+    const defaultVoiceCat = allCategories.find(c => c.id.startsWith('cat-voice')) || allCategories[allCategories.length - 1];
+    uncategorized.forEach(ch => {
+      ch.categoryId = (ch.type === 'voice') ? (defaultVoiceCat ? defaultVoiceCat.id : ch.categoryId) : (defaultTextCat ? defaultTextCat.id : ch.categoryId);
+    });
+  }
+
   allCategories.forEach(category => {
     const isCollapsed = collapsedCategories.has(category.id);
     const catChannels = allChannels.filter(c => c.categoryId === category.id);
@@ -1720,7 +1762,7 @@ function renderSidebarChannels() {
     catHeader.className = `channel-category ${isCollapsed ? 'collapsed' : ''}`;
     catHeader.setAttribute('data-category-id', category.id);
 
-    const isCoreCategory = category.id === 'cat-text' || category.id === 'cat-voice';
+    const isCoreCategory = category.id === 'cat-text' || category.id === 'cat-voice' || category.id.startsWith('cat-text-') || category.id.startsWith('cat-voice-');
 
     catHeader.innerHTML = `
       <div class="category-header-left">
@@ -1798,7 +1840,7 @@ function renderSidebarChannels() {
           <div class="channel-item-right">
             ${effectiveCount > 0 ? `<span class="channel-unread-badge">${effectiveCount > 99 ? '99+' : effectiveCount}</span>` : ''}
             <div class="channel-item-actions">
-              ${channel.id !== 'geral' ? `
+              ${(channel.id !== 'geral' && !channel.id.startsWith('geral-guild-')) ? `
                 <button type="button" class="btn-channel-delete" title="Excluir Canal" data-channel-id="${channel.id}" data-channel-name="${escapeHtml(channel.name)}">
                   <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
                 </button>
@@ -1844,7 +1886,7 @@ function renderSidebarChannels() {
               ${isCurrentVoiceRoom ? 'Conectado' : (voiceUsers.length > 0 ? `${voiceUsers.length} online` : 'Conectar')}
             </span>
             <div class="channel-item-actions">
-              ${channel.id !== 'gamezeda' ? `
+              ${(channel.id !== 'gamezeda' && !channel.id.startsWith('voz-guild-')) ? `
                 <button type="button" class="btn-channel-delete" title="Excluir Canal de Voz" data-channel-id="${channel.id}" data-channel-name="${escapeHtml(channel.name)}">
                   <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
                 </button>
@@ -5126,17 +5168,21 @@ initGuilds({
 
     clearActiveDmTarget();
 
-    if (data.categories) allCategories = data.categories;
-    if (data.channels) allChannels = data.channels;
+    allCategories = Array.isArray(data.categories) ? data.categories : [];
+    allChannels = Array.isArray(data.channels) ? data.channels : [];
     if (data.chatMessages) Object.assign(channelMessagesStore, data.chatMessages);
 
-    // Seleciona o primeiro canal de texto do servidor selecionado
-    // Seleciona o primeiro canal de texto do servidor selecionado
-    const firstTextChannel = (data.channels || []).find(c => c.type === 'text');
+    // 1. Renderiza imediatamente a lista exclusiva de canais deste servidor
+    renderSidebarChannels();
+
+    // 2. Seleciona o primeiro canal de texto do servidor selecionado
+    const firstTextChannel = allChannels.find(c => c.type === 'text');
     if (firstTextChannel) {
       switchTextChannel(firstTextChannel.id);
     } else {
-      renderSidebarChannels();
+      currentTextChannel = null;
+      if (currentChannelNameEl) currentChannelNameEl.textContent = 'Nenhum canal';
+      if (chatInput) chatInput.placeholder = 'Nenhum canal de texto disponível';
       renderCurrentChannelMessages();
     }
   },
@@ -5742,8 +5788,10 @@ if (btnConfirmCreateChannel) {
     const isVoice = optionTypeVoice && optionTypeVoice.classList.contains('active');
     const type = isVoice ? 'voice' : 'text';
     const activeGuild = (window.getActiveGuildId && window.getActiveGuildId()) || 'gamezeda';
-    const defaultCat = isVoice ? `cat-voice-${activeGuild}` : `cat-text-${activeGuild}`;
-    const categoryId = selectChannelCategory ? selectChannelCategory.value : defaultCat;
+    const defaultCat = isVoice 
+      ? (activeGuild === 'gamezeda' ? 'cat-voice' : `cat-voice-${activeGuild}`)
+      : (activeGuild === 'gamezeda' ? 'cat-text' : `cat-text-${activeGuild}`);
+    const categoryId = (selectChannelCategory && selectChannelCategory.value) ? selectChannelCategory.value : defaultCat;
 
     btnConfirmCreateChannel.disabled = true;
     btnConfirmCreateChannel.textContent = 'Criando...';

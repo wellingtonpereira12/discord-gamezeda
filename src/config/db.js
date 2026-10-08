@@ -690,7 +690,7 @@ export async function getCategories(guildId = 'gamezeda') {
         'SELECT id, guild_id as guildId, name, position FROM categories WHERE guild_id = ? ORDER BY position ASC, created_at ASC',
         [targetGuild]
       );
-      if (rows && rows.length > 0) return rows;
+      if (rows) return rows;
     } catch (e) {
       console.warn('Erro ao obter categorias do MariaDB:', e.message);
     }
@@ -722,16 +722,28 @@ export async function createCategory({ name, guildId = 'gamezeda' }) {
 }
 
 export async function deleteCategory(categoryId) {
+  let gId = 'gamezeda';
+  const targetCat = memoryStore.categories.find(c => c.id === categoryId);
+  if (targetCat) {
+    gId = targetCat.guildId || 'gamezeda';
+  } else if (isConnected && pool) {
+    try {
+      const [rows] = await pool.query('SELECT guild_id FROM categories WHERE id = ? LIMIT 1', [categoryId]);
+      if (rows && rows.length > 0) gId = rows[0].guild_id || 'gamezeda';
+    } catch (e) {}
+  }
+  const fallbackCat = (gId === 'gamezeda') ? 'cat-text' : `cat-text-${gId}`;
+
   memoryStore.categories = memoryStore.categories.filter(c => c.id !== categoryId);
   memoryStore.channels.forEach(ch => {
     if (ch.categoryId === categoryId) {
-      ch.categoryId = 'cat-text';
+      ch.categoryId = fallbackCat;
     }
   });
 
   if (isConnected && pool) {
     try {
-      await pool.query("UPDATE channels SET category_id = 'cat-text' WHERE category_id = ?", [categoryId]);
+      await pool.query("UPDATE channels SET category_id = ? WHERE category_id = ?", [fallbackCat, categoryId]);
       await pool.query('DELETE FROM categories WHERE id = ?', [categoryId]);
     } catch (e) {
       console.warn('Erro ao excluir categoria do MariaDB:', e.message);
@@ -748,7 +760,7 @@ export async function getChannelsFull(guildId = 'gamezeda') {
         'SELECT id, guild_id as guildId, name, type, category_id as categoryId, position FROM channels WHERE guild_id = ? ORDER BY position ASC, created_at ASC',
         [targetGuild]
       );
-      if (rows && rows.length > 0) return rows;
+      if (rows) return rows;
     } catch (e) {
       console.warn('Erro ao obter canais completos do MariaDB:', e.message);
     }
@@ -766,7 +778,9 @@ export async function createChannel({ name, type = 'text', categoryId, guildId =
   if (!cleanName) throw new Error('Nome do canal é obrigatório.');
   const cleanType = type === 'voice' ? 'voice' : 'text';
   const targetGuild = guildId || 'gamezeda';
-  const defaultCat = cleanType === 'voice' ? `cat-voice-${targetGuild}` : `cat-text-${targetGuild}`;
+  const defaultCat = cleanType === 'voice' 
+    ? (targetGuild === 'gamezeda' ? 'cat-voice' : `cat-voice-${targetGuild}`)
+    : (targetGuild === 'gamezeda' ? 'cat-text' : `cat-text-${targetGuild}`);
   const targetCat = categoryId || defaultCat;
 
   let slug = cleanName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');

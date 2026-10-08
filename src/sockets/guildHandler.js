@@ -107,6 +107,8 @@ export function registerGuildHandlers(io, socket, users) {
       const categories = await getCategories(targetGuildId);
       const channels = await getChannelsFull(targetGuildId);
       const roles = await getGuildRoles(targetGuildId);
+      const userGuilds = await getUserGuilds(user ? user.name : null);
+      const currentGuild = userGuilds.find(g => g.id === targetGuildId);
 
       const messagesMap = {};
       for (const ch of channels) {
@@ -119,6 +121,7 @@ export function registerGuildHandlers(io, socket, users) {
         callback({
           success: true,
           guildId: targetGuildId,
+          guild: currentGuild,
           categories,
           channels,
           roles,

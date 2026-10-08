@@ -722,8 +722,14 @@ export function selectGuild(guildId) {
   if (!activeSocket) return;
 
   activeSocket.emit('guild:select', { guildId }, (res) => {
-    if (res && res.success && typeof onGuildSelectedCallback === 'function') {
-      onGuildSelectedCallback(res);
+    if (res && res.success) {
+      if (res.guild) {
+        if (headerName) headerName.textContent = res.guild.name;
+        if (headerIcon) headerIcon.src = res.guild.iconUrl || '/assets/logo.png';
+      }
+      if (typeof onGuildSelectedCallback === 'function') {
+        onGuildSelectedCallback(res);
+      }
     }
   });
 }
