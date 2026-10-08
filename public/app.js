@@ -8077,24 +8077,33 @@ function initImageLightboxAndClipboard() {
         return;
       }
 
-      const imgEl = e.target.closest('.chat-clickable-image');
+      const imgEl = e.target.closest('.chat-clickable-image') || e.target.closest('.message-image-container') || (e.target.tagName === 'IMG' && e.target.closest('.message-attachment'));
       if (imgEl) {
         e.stopPropagation();
         e.preventDefault();
-        const container = imgEl.closest('.message-image-container');
-        const imgUrl = container ? container.getAttribute('data-img-url') : imgEl.src;
-        const imgName = container ? container.getAttribute('data-img-name') : (imgEl.alt || 'Imagem');
-        openImageLightbox(imgUrl, imgName);
+        const container = imgEl.classList.contains('message-image-container') ? imgEl : imgEl.closest('.message-image-container');
+        const imgTag = container ? container.querySelector('img') : (imgEl.tagName === 'IMG' ? imgEl : null);
+        const imgUrl = (container && container.getAttribute('data-img-url')) || (imgTag ? imgTag.src : '');
+        const imgName = (container && container.getAttribute('data-img-name')) || (imgTag ? imgTag.alt : 'Imagem');
+        if (imgUrl) {
+          openImageLightbox(imgUrl, imgName);
+        }
       }
     });
 
     messagesContainer.addEventListener('contextmenu', (e) => {
-      const imgTarget = e.target.closest('.chat-clickable-image') || e.target.closest('.message-image-container');
+      const imgTarget = e.target.closest('.chat-clickable-image') || e.target.closest('.message-image-container') || (e.target.tagName === 'IMG' && e.target.closest('.message-attachment'));
       if (imgTarget) {
         e.preventDefault();
         e.stopPropagation();
-        const imgUrl = imgTarget.getAttribute('data-img-url') || imgTarget.src;
-        copyImageToClipboard(imgUrl);
+        const container = imgTarget.classList.contains('message-image-container') ? imgTarget : imgTarget.closest('.message-image-container');
+        const imgTag = container ? container.querySelector('img') : (imgTarget.tagName === 'IMG' ? imgTarget : null);
+        const imgUrl = (container && container.getAttribute('data-img-url')) || (imgTag ? imgTag.src : '');
+        const imgName = (container && container.getAttribute('data-img-name')) || (imgTag ? imgTag.alt : 'Imagem');
+        if (imgUrl) {
+          copyImageToClipboard(imgUrl);
+          openImageContextMenu(e, imgUrl, imgName);
+        }
       }
     });
   }
