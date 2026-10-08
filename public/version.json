@@ -1,6 +1,6 @@
 {
   "name": "FakeDC",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "releaseDate": "2026-10-08",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe",
@@ -12,5 +12,5 @@
     "iosUrl": "/download/ios",
     "iosIpa": "FakeDC.ipa"
   },
-  "notes": "FakeDC v1.2.0: Modularização completa da arquitetura do Frontend em módulos CSS e JavaScript ES6 nativos (lightbox, linkPreview, soundboard, watchParty, emojiPicker, desktopClient, utils)."
+  "notes": "FakeDC v1.2.1: Correção e restauração total do style.css íntegro do tema oficial com preservação dos módulos JS."
 }

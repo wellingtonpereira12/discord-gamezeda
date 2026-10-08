@@ -10,7 +10,7 @@ import {
   regenerateDeviceId,
   updateAppHeight,
   applyMobileAppFixes
-} from './js/modules/utils.js?v=20261008_v1.2.0';
+} from './js/modules/utils.js?v=20261008_v1.2.1';
 import {
   openImageLightbox,
   closeImageLightbox,
@@ -18,22 +18,22 @@ import {
   copyLinkToClipboard,
   downloadImageFile,
   initImageLightboxAndClipboard
-} from './js/modules/lightbox.js?v=20261008_v1.2.0';
+} from './js/modules/lightbox.js?v=20261008_v1.2.1';
 import {
   linkPreviewCache,
   extractFirstPreviewUrl,
   loadLinkPreview,
   renderEmbedCard,
   startInlineVideoPlayer
-} from './js/modules/linkPreview.js?v=20261008_v1.2.0';
-import { EMOJI_CATEGORIES } from './js/modules/emojiData.js?v=20261008_v1.2.0';
+} from './js/modules/linkPreview.js?v=20261008_v1.2.1';
+import { EMOJI_CATEGORIES } from './js/modules/emojiData.js?v=20261008_v1.2.1';
 import {
   initEmojiPicker,
   openEmojiPicker,
   closeEmojiPicker,
   toggleEmojiPicker,
   insertEmojiAtCursor
-} from './js/modules/emojiPicker.js?v=20261008_v1.2.0';
+} from './js/modules/emojiPicker.js?v=20261008_v1.2.1';
 import {
   initSoundboard,
   openSoundboardModal,
@@ -41,12 +41,12 @@ import {
   loadSoundboardSounds,
   playSoundLocally,
   showSoundToast
-} from './js/modules/soundboard.js?v=20261008_v1.2.0';
+} from './js/modules/soundboard.js?v=20261008_v1.2.1';
 import {
   initMobileModal,
   openMobileModal,
   closeMobileModal
-} from './js/modules/mobileModal.js?v=20261008_v1.2.0';
+} from './js/modules/mobileModal.js?v=20261008_v1.2.1';
 import {
   initWatchParty,
   applyMusicBotVolume,
@@ -57,8 +57,8 @@ import {
   stopMusicTrack,
   loadOrUpdateWatchPartyPlayer,
   stopWatchPartyVideo
-} from './js/modules/watchParty.js?v=20261008_v1.2.0';
-import { setupDesktopClient } from './js/modules/desktopClient.js?v=20261008_v1.2.0';
+} from './js/modules/watchParty.js?v=20261008_v1.2.1';
+import { setupDesktopClient } from './js/modules/desktopClient.js?v=20261008_v1.2.1';
 
 if (window.lucide) {
   window.lucide.createIcons();
