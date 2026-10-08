@@ -65,7 +65,7 @@ import {
   selectGuild,
   setActiveGuild,
   getActiveGuildId
-} from './js/modules/guilds.js?v=20261008_v1.3.3';
+} from './js/modules/guilds.js?v=20261008_v1.3.4';
 import {
   initDirectMessages,
   loadConversations,

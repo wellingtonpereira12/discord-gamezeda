@@ -337,7 +337,7 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
     const serverDropdownMenu = document.getElementById('server-dropdown-menu');
     if (serverDropdownMenu) serverDropdownMenu.style.display = 'none';
 
-    const curGuild = cachedGuilds.find(g => String(g.id) === String(activeGuildId)) || { name: 'FakeDC', iconUrl: '/assets/logo.png' };
+    const curGuild = cachedGuilds.find(g => g && String(g.id) === String(activeGuildId)) || { name: 'FakeDC', iconUrl: '/assets/logo.png' };
 
     const titleEl = document.getElementById('server-settings-title');
     if (titleEl) titleEl.textContent = `Configurações: ${curGuild.name || 'Servidor'}`;
