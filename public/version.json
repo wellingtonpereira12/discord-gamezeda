@@ -1,6 +1,6 @@
 {
   "name": "FakeDC",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "releaseDate": "2026-10-08",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe",
@@ -12,5 +12,5 @@
     "iosUrl": "/download/ios",
     "iosIpa": "FakeDC.ipa"
   },
-  "notes": "FakeDC v1.1.6: Link Preview e Open Graph Embed estilo Discord em tempo real para links (YouTube, sites e Markdown); pré-visualização com capa HD 16:9, título, canal/site, descrição e barra lateral colorida; lightbox de imagens integrado."
+  "notes": "FakeDC v1.1.7: Player de vídeo inline no chat para YouTube (toque na thumbnail para assistir sem sair do chat, com botão fechar); sons oficiais de entrada/saída de participantes no canal de voz (Discord chimes sintetizados via Web Audio API); adaptação responsiva completa para Mobile."
 }

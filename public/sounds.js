@@ -64,6 +64,74 @@ class SoundManager {
     }
   }
 
+  // Som de outro participante entrando na sala de voz (Discord User Connect Chime)
+  playUserJoin() {
+    try {
+      this.init();
+      const now = this.ctx.currentTime;
+
+      // Nota 1: C5 (523.25 Hz)
+      const osc1 = this.ctx.createOscillator();
+      const gain1 = this.ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(523.25, now);
+      gain1.gain.setValueAtTime(0.12, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      osc1.connect(gain1);
+      gain1.connect(this.ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.12);
+
+      // Nota 2: G5 (783.99 Hz) logo em seguida ascendente
+      const osc2 = this.ctx.createOscillator();
+      const gain2 = this.ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(783.99, now + 0.08);
+      gain2.gain.setValueAtTime(0.14, now + 0.08);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+      osc2.connect(gain2);
+      gain2.connect(this.ctx.destination);
+      osc2.start(now + 0.08);
+      osc2.stop(now + 0.32);
+    } catch (e) {
+      console.warn("Sound error:", e);
+    }
+  }
+
+  // Som de outro participante saindo da sala de voz (Discord User Disconnect Chime)
+  playUserLeave() {
+    try {
+      this.init();
+      const now = this.ctx.currentTime;
+
+      // Nota 1: G5 (783.99 Hz)
+      const osc1 = this.ctx.createOscillator();
+      const gain1 = this.ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(783.99, now);
+      gain1.gain.setValueAtTime(0.12, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      osc1.connect(gain1);
+      gain1.connect(this.ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.12);
+
+      // Nota 2: C5 (523.25 Hz) logo em seguida descendente
+      const osc2 = this.ctx.createOscillator();
+      const gain2 = this.ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(523.25, now + 0.08);
+      gain2.gain.setValueAtTime(0.14, now + 0.08);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      osc2.connect(gain2);
+      gain2.connect(this.ctx.destination);
+      osc2.start(now + 0.08);
+      osc2.stop(now + 0.3);
+    } catch (e) {
+      console.warn("Sound error:", e);
+    }
+  }
+
   // Som de nova mensagem (Discord Notification Ping)
   playMessage() {
     try {

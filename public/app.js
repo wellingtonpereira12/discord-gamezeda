@@ -1,4 +1,4 @@
-import { sounds } from './sounds.js?v=20261007_v7';
+import { sounds } from './sounds.js?v=20261008_v1.1.7';
 import { WebRTCManager } from './webrtc.js?v=20261007_v1.1.4';
 
 if (window.lucide) {
@@ -1284,6 +1284,23 @@ socket.on('voice:peer-camera-status', ({ peerId, isActive }) => {
   if (!isActive) {
     unregisterStream(peerId);
     unregisterStream(`${peerId}-camera`);
+  }
+});
+
+// Sons de Entrada e Saída de participantes na sala de voz (Discord Chimes)
+socket.on('voice:peer-joined', ({ peerId, user }) => {
+  if (inVoice && peerId !== socket.id && !isDeafened) {
+    if (sounds && typeof sounds.playUserJoin === 'function') {
+      sounds.playUserJoin();
+    }
+  }
+});
+
+socket.on('voice:peer-left', ({ peerId }) => {
+  if (inVoice && peerId !== socket.id && !isDeafened) {
+    if (sounds && typeof sounds.playUserLeave === 'function') {
+      sounds.playUserLeave();
+    }
   }
 });
 
@@ -2850,13 +2867,13 @@ function renderEmbedCard(slotEl, data) {
     ${thumbHtml}
   `;
 
-  // Clique na thumbnail
+  // Clique na thumbnail (Vídeo inline ou Lightbox de imagem)
   const thumbContainer = card.querySelector('.discord-embed-thumb-container');
   if (thumbContainer) {
     thumbContainer.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (data.mediaType === 'video') {
-        window.open(data.url, '_blank', 'noopener,noreferrer');
+      if (data.mediaType === 'video' && data.videoId) {
+        startInlineVideoPlayer(thumbContainer, data);
       } else {
         openImageLightbox(data.image, data.title || 'Imagem');
       }
@@ -2865,6 +2882,42 @@ function renderEmbedCard(slotEl, data) {
 
   slotEl.innerHTML = '';
   slotEl.appendChild(card);
+}
+
+// Reprodução de Vídeo Inline (YouTube Embed no Chat estilo Discord)
+function startInlineVideoPlayer(thumbContainer, data) {
+  if (!thumbContainer || !data.videoId) return;
+
+  const playerWrapper = document.createElement('div');
+  playerWrapper.className = 'discord-embed-video-wrapper';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'discord-embed-close-video';
+  closeBtn.title = 'Fechar player de vídeo';
+  closeBtn.innerHTML = `
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+    <span>Fechar</span>
+  `;
+
+  const iframe = document.createElement('iframe');
+  iframe.className = 'discord-embed-video-iframe';
+  iframe.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(data.videoId)}?autoplay=1&rel=0&modestbranding=1`;
+  iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+  iframe.allowFullscreen = true;
+  iframe.title = data.title || 'YouTube Video Player';
+
+  playerWrapper.appendChild(closeBtn);
+  playerWrapper.appendChild(iframe);
+
+  thumbContainer.style.display = 'none';
+  thumbContainer.parentNode.insertBefore(playerWrapper, thumbContainer.nextSibling);
+
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    playerWrapper.remove();
+    thumbContainer.style.display = 'block';
+  });
 }
 
 // Renderizar linha de reações

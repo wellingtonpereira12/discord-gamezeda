@@ -3297,6 +3297,67 @@ body {
   box-shadow: 0 6px 20px rgba(255, 0, 0, 0.5);
 }
 
+/* Player de Vídeo Inline (YouTube Embed no Chat) */
+.discord-embed-video-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: #000000;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  margin-top: 6px;
+  animation: embedFadeIn 0.2s ease-out;
+}
+
+.discord-embed-video-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+.discord-embed-close-video {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(17, 18, 20, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #f2f3f5;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.discord-embed-close-video:hover {
+  background: #da373c;
+  border-color: #da373c;
+  color: #ffffff;
+}
+
+@media (max-width: 600px) {
+  .discord-embed-card {
+    max-width: 100%;
+    padding: 10px 12px;
+  }
+  .discord-embed-title {
+    font-size: 14.5px;
+  }
+  .discord-embed-description {
+    font-size: 12.5px;
+    -webkit-line-clamp: 3;
+  }
+}
+
 /* ==========================================
    MODAL LIGHTBOX DE TELA CHEIA (DISCORD STYLE)
 ========================================== */
