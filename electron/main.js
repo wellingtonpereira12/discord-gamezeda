@@ -383,6 +383,7 @@ app.whenReady().then(() => {
       const updateResult = await checkAndApplyUpdates({
         currentVersion,
         serverUrl,
+        force: true,
         onStatus: (status) => {
           logDebug('[FakeDC Update Status]', status);
           if (mainWindow && !mainWindow.isDestroyed()) {

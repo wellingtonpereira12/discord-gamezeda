@@ -216,8 +216,12 @@ function saveUpdaterState(state) {
 /**
  * Verifica atualizações e faz download caso uma nova versão seja detectada
  */
-async function checkAndApplyUpdates({ currentVersion, serverUrl, onStatus, onProgress }) {
+async function checkAndApplyUpdates({ currentVersion, serverUrl, onStatus, onProgress, force = false }) {
   if (onStatus) onStatus({ step: 'checking', message: 'Verificando atualizações...' });
+
+  if (force) {
+    saveUpdaterState({});
+  }
 
   let versionInfo = null;
 
@@ -250,10 +254,10 @@ async function checkAndApplyUpdates({ currentVersion, serverUrl, onStatus, onPro
     saveUpdaterState({});
   }
 
-  // Se versão remota é superior à atual
-  if (compareVersions(remoteVersion, currentVersion) > 0) {
-    // Proteção Anti-Loop: se a atualização falhou 3 ou mais vezes para a mesma versão
-    if (state.lastAttemptedVersion === remoteVersion && (state.attemptCount || 0) >= 3) {
+  // Se versão remota é superior à atual (ou se force === true e versões diferem)
+  if (compareVersions(remoteVersion, currentVersion) > 0 || (force && compareVersions(remoteVersion, currentVersion) !== 0)) {
+    // Proteção Anti-Loop: se a atualização falhou 3 ou mais vezes para a mesma versão (ignorado se force === true)
+    if (!force && state.lastAttemptedVersion === remoteVersion && (state.attemptCount || 0) >= 3) {
       const timeSinceAttempt = Date.now() - (state.lastAttemptTime || 0);
       if (timeSinceAttempt < 3 * 60 * 1000) { // 3 minutos
         console.warn(`[Updater] Atualização para v${remoteVersion} já foi tentada 3 vezes. Abrindo versão atual.`);
@@ -286,7 +290,17 @@ async function checkAndApplyUpdates({ currentVersion, serverUrl, onStatus, onPro
     const tempInstaller = path.join(os.tmpdir(), `${installerBaseName}-v${remoteVersion}.exe`);
 
     try {
-      await downloadFile(downloadUrl, tempInstaller, onProgress);
+      try {
+        await downloadFile(downloadUrl, tempInstaller, onProgress);
+      } catch (errMain) {
+        console.warn('[Updater] Falha no link primário do instalador, tentando fallback no servidor VPS:', errMain.message);
+        const fallbackDownloadUrl = `${serverUrl.replace(/\/+$/, '')}/download/windows`;
+        if (downloadUrl !== fallbackDownloadUrl) {
+          await downloadFile(fallbackDownloadUrl, tempInstaller, onProgress);
+        } else {
+          throw errMain;
+        }
+      }
 
       if (onStatus) {
         onStatus({
@@ -331,28 +345,62 @@ function launchInstallerAndExit(installerPath) {
   console.log(`[Updater] Executando instalador: ${installerPath}`);
   try {
     if (process.platform === 'win32') {
-      // Espera 2 segundos para liberar locks de arquivos, executa com /S para instalação silenciosa e reabre o app
-      const appExe = process.execPath;
-      const cmd = `timeout /t 2 /nobreak >nul & "${installerPath}" /S & timeout /t 3 /nobreak >nul & start "" "${appExe}"`;
-      const child = spawn('cmd.exe', ['/c', cmd], {
+      const currentExe = process.execPath;
+      const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+      const fakeDcExe = path.join(localAppData, 'Programs', 'FakeDC', 'FakeDC.exe');
+      const jogosBoladosExe = path.join(localAppData, 'Programs', 'Jogos Bolados', 'Jogos Bolados.exe');
+
+      // Cria script bat independente que:
+      // 1. Encerra com força os processos antigos para liberar todos os arquivos bloqueados
+      // 2. Espera a conclusão do instalador NSIS silencioso com 'start /wait'
+      // 3. Inicia o aplicativo recém-instalado
+      const scriptContent = `@echo off
+timeout /t 1 /nobreak >nul
+taskkill /F /IM "Jogos Bolados.exe" /IM "FakeDC.exe" /T >nul 2>&1
+timeout /t 1 /nobreak >nul
+start /wait "" "${installerPath}" /S
+timeout /t 1 /nobreak >nul
+if exist "${fakeDcExe}" (
+  start "" "${fakeDcExe}"
+) else if exist "${jogosBoladosExe}" (
+  start "" "${jogosBoladosExe}"
+) else (
+  start "" "${currentExe}"
+)
+del "%~f0" >nul 2>&1
+`;
+      const updateBatPath = path.join(os.tmpdir(), `fakedc_update_${Date.now()}.bat`);
+      fs.writeFileSync(updateBatPath, scriptContent, 'utf8');
+
+      const child = spawn('cmd.exe', ['/c', updateBatPath], {
         detached: true,
         stdio: 'ignore',
         windowsHide: true
       });
       child.unref();
+
+      setTimeout(() => {
+        if (electronApp && typeof electronApp.exit === 'function') {
+          electronApp.exit(0);
+        } else if (electronApp && typeof electronApp.quit === 'function') {
+          electronApp.quit();
+        } else {
+          process.exit(0);
+        }
+      }, 500);
+      return;
     } else {
       const child = spawn(installerPath, [], {
         detached: true,
         stdio: 'ignore'
       });
       child.unref();
-    }
 
-    setTimeout(() => {
-      if (electronApp && typeof electronApp.quit === 'function') {
-        electronApp.quit();
-      }
-    }, 600);
+      setTimeout(() => {
+        if (electronApp) electronApp.quit();
+        else process.exit(0);
+      }, 500);
+    }
   } catch (e) {
     console.error('[Updater] Falha ao executar instalador:', e);
   }
