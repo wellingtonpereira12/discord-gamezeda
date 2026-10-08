@@ -21,16 +21,16 @@ Vamos implementar e validar **um a um**, testando cada ponto antes de avançar p
 
 ---
 
-### [ ] 3. Mensagens Diretas (DMs Privadas 1 a 1)
+### [x] 3. Mensagens Diretas (DMs Privadas 1 a 1)
 - **Problema:** Ao abrir uma conversa privada, o chat continua exibindo `#geral`, a mensagem enviada não é entregue nem salva na DM, e ao recarregar ela some.
-- **Causa:** O formulário de envio e a área de mensagens não estão alternando o contexto para o modo privado (`dmTarget`), caindo de volta no canal de texto geral.
+- **Status:** ✅ Concluído e validado pelo usuário nos testes práticos (chat privado isolado `@NomeDoAmigo`, status de presença, entrega em tempo real, anexos/Ctrl+V e histórico no MariaDB).
 - **Critério de Aceite:** Clicar em um amigo na lista de DMs (ou pelo botão `+` / botão direito) abre um chat privado exclusivo (`@NomeDoAmigo`), a mensagem é entregue em tempo real para a outra pessoa, gravada no banco de dados e restaurada ao reabrir a conversa.
 
 ---
 
-### [ ] 4. Foto Personalizada do Usuário nas Mensagens
+### [x] 4. Foto Personalizada do Usuário nas Mensagens
 - **Problema:** Ao enviar mensagens, está aparecendo o avatar padrão em vez da foto personalizada que o usuário enviou no perfil.
-- **Causa:** O payload da mensagem está enviando o avatar padrão em vez da URL real do avatar salva na sessão/perfil do usuário.
+- **Status:** ✅ Concluído e validado pelo usuário nos testes práticos (avatar real sincronizado na sessão, persistido e exibido tanto nos canais quanto nas DMs).
 - **Critério de Aceite:** Mensagens enviadas no chat e nas DMs devem sempre exibir a foto/avatar personalizada do usuário.
 
 ---
