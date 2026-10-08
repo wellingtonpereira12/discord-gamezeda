@@ -84,13 +84,29 @@ app.get('/api/desktop/version', (req, res) => {
 app.get('/download/windows', (req, res) => {
   const localExePath = path.join(__dirname, 'public', 'downloads', 'FakeDC-Setup.exe');
   if (fs.existsSync(localExePath)) {
-    return res.download(localExePath, 'FakeDC-Setup.exe');
+    try {
+      const stat = fs.statSync(localExePath);
+      if (stat.size > 1000000) {
+        res.setHeader('Content-Type', 'application/vnd.microsoft.portable-executable');
+        res.setHeader('Content-Disposition', 'attachment; filename="FakeDC-Setup.exe"');
+        return res.download(localExePath, 'FakeDC-Setup.exe');
+      }
+    } catch (e) {
+      console.warn('[Download Windows] Erro ao ler arquivo local:', e);
+    }
   }
   const legacyExePath = path.join(__dirname, 'public', 'downloads', 'Jogos-Bolados-Setup.exe');
   if (fs.existsSync(legacyExePath)) {
-    return res.download(legacyExePath, 'FakeDC-Setup.exe');
+    try {
+      const stat = fs.statSync(legacyExePath);
+      if (stat.size > 1000000) {
+        res.setHeader('Content-Type', 'application/vnd.microsoft.portable-executable');
+        res.setHeader('Content-Disposition', 'attachment; filename="FakeDC-Setup.exe"');
+        return res.download(legacyExePath, 'FakeDC-Setup.exe');
+      }
+    } catch (e) {}
   }
-  // Se ainda não existir localmente no container, redireciona para a release mais recente no GitHub
+  // Se ainda não existir localmente no container ou for inválido, redireciona para a release mais recente no GitHub
   const githubReleaseUrl = 'https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe';
   return res.redirect(302, githubReleaseUrl);
 });

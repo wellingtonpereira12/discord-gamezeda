@@ -5224,6 +5224,20 @@ initSoundboard({
 
 initMobileModal();
 
+// Disparo de Download do Executável Windows (FakeDC PC)
+if (btnDownloadDesktop) {
+  btnDownloadDesktop.addEventListener('click', (e) => {
+    if (window.electronAPI && window.electronAPI.isElectron) {
+      e.preventDefault();
+      if (typeof showSoundToast === 'function') {
+        showSoundToast('Você já está utilizando o aplicativo FakeDC Desktop!');
+      }
+      return;
+    }
+    window.location.href = '/download/windows';
+  });
+}
+
 // ==========================================
 // SERVIDORES (GUILDS) & MENSAGENS DIRETAS (DMs)
 // ==========================================
