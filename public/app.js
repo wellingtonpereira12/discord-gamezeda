@@ -10,7 +10,7 @@ import {
   regenerateDeviceId,
   updateAppHeight,
   applyMobileAppFixes
-} from './js/modules/utils.js?v=20261008_v1.2.1';
+} from './js/modules/utils.js?v=20261008_v1.3.0';
 import {
   openImageLightbox,
   closeImageLightbox,
@@ -18,22 +18,22 @@ import {
   copyLinkToClipboard,
   downloadImageFile,
   initImageLightboxAndClipboard
-} from './js/modules/lightbox.js?v=20261008_v1.2.1';
+} from './js/modules/lightbox.js?v=20261008_v1.3.0';
 import {
   linkPreviewCache,
   extractFirstPreviewUrl,
   loadLinkPreview,
   renderEmbedCard,
   startInlineVideoPlayer
-} from './js/modules/linkPreview.js?v=20261008_v1.2.1';
-import { EMOJI_CATEGORIES } from './js/modules/emojiData.js?v=20261008_v1.2.1';
+} from './js/modules/linkPreview.js?v=20261008_v1.3.0';
+import { EMOJI_CATEGORIES } from './js/modules/emojiData.js?v=20261008_v1.3.0';
 import {
   initEmojiPicker,
   openEmojiPicker,
   closeEmojiPicker,
   toggleEmojiPicker,
   insertEmojiAtCursor
-} from './js/modules/emojiPicker.js?v=20261008_v1.2.1';
+} from './js/modules/emojiPicker.js?v=20261008_v1.3.0';
 import {
   initSoundboard,
   openSoundboardModal,
@@ -41,12 +41,12 @@ import {
   loadSoundboardSounds,
   playSoundLocally,
   showSoundToast
-} from './js/modules/soundboard.js?v=20261008_v1.2.1';
+} from './js/modules/soundboard.js?v=20261008_v1.3.0';
 import {
   initMobileModal,
   openMobileModal,
   closeMobileModal
-} from './js/modules/mobileModal.js?v=20261008_v1.2.1';
+} from './js/modules/mobileModal.js?v=20261008_v1.3.0';
 import {
   initWatchParty,
   applyMusicBotVolume,
@@ -57,8 +57,22 @@ import {
   stopMusicTrack,
   loadOrUpdateWatchPartyPlayer,
   stopWatchPartyVideo
-} from './js/modules/watchParty.js?v=20261008_v1.2.1';
-import { setupDesktopClient } from './js/modules/desktopClient.js?v=20261008_v1.2.1';
+} from './js/modules/watchParty.js?v=20261008_v1.3.0';
+import { setupDesktopClient } from './js/modules/desktopClient.js?v=20261008_v1.3.0';
+import {
+  initGuilds,
+  renderGuildsList,
+  selectGuild,
+  setActiveGuild,
+  getActiveGuildId
+} from './js/modules/guilds.js?v=20261008_v1.3.0';
+import {
+  initDirectMessages,
+  loadConversations,
+  openDirectChat,
+  getActiveDmTarget,
+  clearActiveDmTarget
+} from './js/modules/directMessages.js?v=20261008_v1.3.0';
 
 if (window.lucide) {
   window.lucide.createIcons();
@@ -1132,6 +1146,9 @@ socket.on('init:state', (data) => {
   }
   if (data.channels && data.channels.length > 0) {
     allChannels = data.channels;
+  }
+  if (data.guilds) {
+    renderGuildsList(data.guilds);
   }
   syncCurrentUserFromList();
   renderSidebarChannels();
@@ -2225,11 +2242,23 @@ const pinnedMessagesPopover = document.getElementById('pinned-messages-popover')
 const btnClosePinnedPopover = document.getElementById('btn-close-pinned-popover');
 const pinnedMessagesList = document.getElementById('pinned-messages-list');
 
-// Envio de mensagem de texto com suporte a resposta (reply)
+// Envio de mensagem de texto com suporte a resposta (reply) e DMs
 chatForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const text = chatInput.value.trim();
   if (!text) return;
+
+  const dmTarget = getActiveDmTarget();
+  if (dmTarget) {
+    socket.emit('dm:send', {
+      receiver: dmTarget,
+      text: text
+    });
+    chatInput.value = '';
+    clearReplyTarget();
+    closeMentionAutocomplete();
+    return;
+  }
 
   const payload = {
     channelId: currentTextChannel,
@@ -2251,6 +2280,7 @@ chatForm.addEventListener('submit', (e) => {
   closeMentionAutocomplete();
 });
 
+let typingDebounceTimer = null;
 if (chatInput) {
   chatInput.addEventListener('focus', () => {
     setTimeout(() => {
@@ -2261,9 +2291,25 @@ if (chatInput) {
     }, 200);
   });
 
-  // Autocomplete de Menções ao digitar @
+  // Autocomplete de Menções ao digitar @ e Emissão de Digitação
   chatInput.addEventListener('input', () => {
     handleMentionAutocomplete();
+
+    if (socket) {
+      const dmTarget = getActiveDmTarget();
+      const targetChan = dmTarget ? `dm-${dmTarget}` : currentTextChannel;
+      socket.emit('chat:typing', {
+        channelId: targetChan,
+        isTyping: chatInput.value.trim().length > 0
+      });
+      clearTimeout(typingDebounceTimer);
+      typingDebounceTimer = setTimeout(() => {
+        socket.emit('chat:typing', {
+          channelId: targetChan,
+          isTyping: false
+        });
+      }, 3000);
+    }
   });
 
   // Navegação no Autocomplete e Cancelamento de Resposta
@@ -5041,6 +5087,136 @@ initSoundboard({
 });
 
 initMobileModal();
+
+// ==========================================
+// SERVIDORES (GUILDS) & MENSAGENS DIRETAS (DMs)
+// ==========================================
+initGuilds({
+  socket,
+  onGuildSelected: (data) => {
+    const channelsServerView = document.getElementById('channels-server-view');
+    const channelsDmView = document.getElementById('channels-dm-view');
+    if (channelsServerView) channelsServerView.style.display = 'flex';
+    if (channelsDmView) channelsDmView.style.display = 'none';
+
+    clearActiveDmTarget();
+
+    if (data.categories) allCategories = data.categories;
+    if (data.channels) allChannels = data.channels;
+    if (data.chatMessages) Object.assign(channelMessagesStore, data.chatMessages);
+
+    // Seleciona o primeiro canal de texto do servidor selecionado
+    const firstTextChannel = (data.channels || []).find(c => c.type === 'text');
+    if (firstTextChannel) {
+      currentTextChannel = firstTextChannel.id;
+    }
+
+    renderSidebarChannels();
+    renderCurrentChannelMessages();
+    updateChannelHeader();
+  },
+  onHomeSelected: () => {
+    const channelsServerView = document.getElementById('channels-server-view');
+    const channelsDmView = document.getElementById('channels-dm-view');
+    if (channelsServerView) channelsServerView.style.display = 'none';
+    if (channelsDmView) channelsDmView.style.display = 'flex';
+
+    loadConversations();
+  }
+});
+
+initDirectMessages({
+  socket,
+  getCurrentUser: () => currentUser,
+  onOpenDm: ({ targetUser, messages }) => {
+    openDmChatView(targetUser, messages);
+  }
+});
+
+function openDmChatView(targetUser, messages = []) {
+  if (currentChannelName) {
+    currentChannelName.textContent = `@${targetUser}`;
+  }
+  if (channelDesc) {
+    channelDesc.textContent = `Mensagens Diretas com ${targetUser}`;
+  }
+  if (chatInput) {
+    chatInput.placeholder = `Conversar com @${targetUser}`;
+  }
+
+  if (messagesContainer) {
+    messagesContainer.innerHTML = '';
+    const welcomeDiv = document.createElement('div');
+    welcomeDiv.style.padding = '32px 16px 16px 16px';
+    welcomeDiv.innerHTML = `
+      <div style="width: 56px; height: 56px; border-radius: 50%; background: #5865F2; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 800; margin-bottom: 12px; color: #fff;">
+        @
+      </div>
+      <h2 style="font-size: 22px; font-weight: 800; color: #f2f3f5; margin-bottom: 6px;">${escapeHtml(targetUser)}</h2>
+      <p style="color: #949ba4; font-size: 13px;">Este é o início da sua história de mensagens diretas com <strong>${escapeHtml(targetUser)}</strong>.</p>
+    `;
+    messagesContainer.appendChild(welcomeDiv);
+
+    messages.forEach(msg => {
+      appendDirectMessageToChat(msg);
+    });
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+}
+
+window.appendDirectMessageToChat = function(msg) {
+  if (!messagesContainer) return;
+  const div = document.createElement('div');
+  div.className = 'message-group';
+  div.id = `msg-${msg.id}`;
+
+  const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(msg.sender)}`;
+
+  div.innerHTML = `
+    <img src="${avatarUrl}" class="message-avatar" alt="${escapeHtml(msg.sender)}">
+    <div class="message-content">
+      <div class="message-header">
+        <span class="message-author">${escapeHtml(msg.sender)}</span>
+        <span class="message-timestamp">${escapeHtml(msg.timestamp || '')}</span>
+      </div>
+      <div class="message-body">${escapeHtml(msg.text || '')}</div>
+    </div>
+  `;
+  messagesContainer.appendChild(div);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+};
+
+// Listener do Indicador de Digitação (Typing Indicator)
+const activeTypingUsers = new Set();
+socket.on('chat:user-typing', ({ channelId, username, isTyping }) => {
+  const dmTarget = getActiveDmTarget();
+  const currentTarget = dmTarget ? `dm-${dmTarget}` : currentTextChannel;
+  if (channelId !== currentTarget) return;
+
+  if (isTyping) {
+    activeTypingUsers.add(username);
+  } else {
+    activeTypingUsers.delete(username);
+  }
+
+  const typingEl = document.getElementById('chat-typing-indicator');
+  const typingTextEl = document.getElementById('chat-typing-text');
+  if (!typingEl || !typingTextEl) return;
+
+  if (activeTypingUsers.size === 0) {
+    typingEl.style.display = 'none';
+  } else {
+    const list = Array.from(activeTypingUsers);
+    if (list.length === 1) {
+      typingTextEl.innerHTML = `<strong>${escapeHtml(list[0])}</strong> está digitando...`;
+    } else if (list.length === 2) {
+      typingTextEl.innerHTML = `<strong>${escapeHtml(list[0])}</strong> e <strong>${escapeHtml(list[1])}</strong> estão digitando...`;
+    } else {
+      typingTextEl.textContent = 'Várias pessoas estão digitando...';
+    }
+    typingEl.style.display = 'flex';
+  }
+});
 
 // ==========================================
 // MENU DE CONTEXTO (DISCORD BOTÃO DIREITO)

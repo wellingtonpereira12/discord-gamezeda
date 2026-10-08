@@ -13,25 +13,39 @@ let isConnected = false;
 // Fallback em memória caso o banco esteja indisponível
 const memoryStore = {
   users: {}, // username_lower -> { id, username, password_hash, avatar, devices: [] }
+  guilds: [
+    {
+      id: 'gamezeda',
+      name: 'FakeDC',
+      iconUrl: '/assets/logo.png',
+      ownerUsername: 'Sistema',
+      inviteCode: 'fakedc',
+      createdAt: new Date().toISOString()
+    }
+  ],
+  guildMembers: [
+    // { guildId: 'gamezeda', username: '...', role: 'member' }
+  ],
   categories: [
-    { id: 'cat-text', name: 'Canais de Texto', position: 0 },
-    { id: 'cat-voice', name: 'Canais de Voz', position: 1 }
+    { id: 'cat-text', guildId: 'gamezeda', name: 'Canais de Texto', position: 0 },
+    { id: 'cat-voice', guildId: 'gamezeda', name: 'Canais de Voz', position: 1 }
   ],
   channels: [
-    { id: 'geral', name: 'geral', type: 'text', categoryId: 'cat-text', position: 0 },
-    { id: 'links', name: 'links', type: 'text', categoryId: 'cat-text', position: 1 },
-    { id: 'meme-imagem-videos', name: 'meme-imagem-videos', type: 'text', categoryId: 'cat-text', position: 2 },
-    { id: 'musicas', name: 'musicas', type: 'text', categoryId: 'cat-text', position: 3 },
-    { id: 'novo-video-youtube', name: 'novo-video-youtube', type: 'text', categoryId: 'cat-text', position: 4 },
-    { id: 'clips-twitch', name: 'clips twitch', type: 'text', categoryId: 'cat-text', position: 5 },
-    { id: 'blogger', name: 'blogger', type: 'text', categoryId: 'cat-text', position: 6 },
-    { id: 'informacoes-eventos-regras', name: 'informações-eventos-regras', type: 'text', categoryId: 'cat-text', position: 7 },
-    { id: 'nova-live', name: 'nova-live', type: 'text', categoryId: 'cat-text', position: 8 },
-    { id: 'vendo-mousepad', name: 'vendo-mousepad', type: 'text', categoryId: 'cat-text', position: 9 },
-    { id: 'to-sem-mic', name: 'to-sem-mic', type: 'text', categoryId: 'cat-text', position: 10 },
-    { id: 'gamezeda', name: 'Gamezeda', type: 'voice', categoryId: 'cat-voice', position: 0 }
+    { id: 'geral', guildId: 'gamezeda', name: 'geral', type: 'text', categoryId: 'cat-text', position: 0 },
+    { id: 'links', guildId: 'gamezeda', name: 'links', type: 'text', categoryId: 'cat-text', position: 1 },
+    { id: 'meme-imagem-videos', guildId: 'gamezeda', name: 'meme-imagem-videos', type: 'text', categoryId: 'cat-text', position: 2 },
+    { id: 'musicas', guildId: 'gamezeda', name: 'musicas', type: 'text', categoryId: 'cat-text', position: 3 },
+    { id: 'novo-video-youtube', guildId: 'gamezeda', name: 'novo-video-youtube', type: 'text', categoryId: 'cat-text', position: 4 },
+    { id: 'clips-twitch', guildId: 'gamezeda', name: 'clips twitch', type: 'text', categoryId: 'cat-text', position: 5 },
+    { id: 'blogger', guildId: 'gamezeda', name: 'blogger', type: 'text', categoryId: 'cat-text', position: 6 },
+    { id: 'informacoes-eventos-regras', guildId: 'gamezeda', name: 'informações-eventos-regras', type: 'text', categoryId: 'cat-text', position: 7 },
+    { id: 'nova-live', guildId: 'gamezeda', name: 'nova-live', type: 'text', categoryId: 'cat-text', position: 8 },
+    { id: 'vendo-mousepad', guildId: 'gamezeda', name: 'vendo-mousepad', type: 'text', categoryId: 'cat-text', position: 9 },
+    { id: 'to-sem-mic', guildId: 'gamezeda', name: 'to-sem-mic', type: 'text', categoryId: 'cat-text', position: 10 },
+    { id: 'gamezeda', guildId: 'gamezeda', name: 'Gamezeda', type: 'voice', categoryId: 'cat-voice', position: 0 }
   ],
   messages: {},
+  directMessages: [], // { id, sender, receiver, text, attachmentUrl, timestamp, read, createdAt }
   soundboard: [
     {
       id: 'default-airhorn',
@@ -92,8 +106,30 @@ export async function initDatabase() {
 
     // Criação das tabelas
     await conn.query(`
+      CREATE TABLE IF NOT EXISTS guilds (
+        id VARCHAR(64) PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        icon_url VARCHAR(255) NULL,
+        owner_username VARCHAR(64) NOT NULL,
+        invite_code VARCHAR(32) UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS guild_members (
+        guild_id VARCHAR(64) NOT NULL,
+        username VARCHAR(64) NOT NULL,
+        role VARCHAR(32) DEFAULT 'member',
+        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (guild_id, username)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS categories (
         id VARCHAR(64) PRIMARY KEY,
+        guild_id VARCHAR(64) DEFAULT 'gamezeda',
         name VARCHAR(100) NOT NULL,
         position INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -103,6 +139,7 @@ export async function initDatabase() {
     await conn.query(`
       CREATE TABLE IF NOT EXISTS channels (
         id VARCHAR(64) PRIMARY KEY,
+        guild_id VARCHAR(64) DEFAULT 'gamezeda',
         name VARCHAR(100) NOT NULL,
         type VARCHAR(20) DEFAULT 'text',
         category_id VARCHAR(64) DEFAULT 'cat-text',
@@ -111,13 +148,29 @@ export async function initDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
 
-    // Migração de colunas caso a tabela channels já existisse previamente
+    // Migração de colunas caso as tabelas já existissem previamente
     try {
+      await conn.query(`ALTER TABLE categories ADD COLUMN IF NOT EXISTS guild_id VARCHAR(64) DEFAULT 'gamezeda'`);
+      await conn.query(`ALTER TABLE channels ADD COLUMN IF NOT EXISTS guild_id VARCHAR(64) DEFAULT 'gamezeda'`);
       await conn.query(`ALTER TABLE channels ADD COLUMN IF NOT EXISTS category_id VARCHAR(64) DEFAULT 'cat-text'`);
       await conn.query(`ALTER TABLE channels ADD COLUMN IF NOT EXISTS position INT DEFAULT 0`);
     } catch (e) {
       // Ignora caso já existam ou versão antiga de engine
     }
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS direct_messages (
+        id VARCHAR(64) PRIMARY KEY,
+        sender_name VARCHAR(64) NOT NULL,
+        receiver_name VARCHAR(64) NOT NULL,
+        text TEXT NOT NULL,
+        attachment_url VARCHAR(255) NULL,
+        timestamp VARCHAR(64) NOT NULL,
+        read_status BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_dm_pair (sender_name, receiver_name, created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
 
     await conn.query(`
       CREATE TABLE IF NOT EXISTS messages (
@@ -177,16 +230,24 @@ export async function initDatabase() {
     try { await conn.query("ALTER TABLE users ADD COLUMN custom_status_text VARCHAR(128) NULL"); } catch (e) {}
     try { await conn.query("ALTER TABLE users ADD COLUMN status_mode VARCHAR(32) DEFAULT 'online'"); } catch (e) {}
 
+    // Semeia servidor padrão FakeDC / Gamezeda
+    await conn.query(`
+      INSERT IGNORE INTO guilds (id, name, icon_url, owner_username, invite_code)
+      VALUES ('gamezeda', 'FakeDC', '/assets/logo.png', 'Sistema', 'fakedc')
+    `);
+
     // Semeia categorias se a tabela estiver vazia
     const [catRows] = await conn.query('SELECT COUNT(*) as count FROM categories');
     if (catRows[0].count === 0) {
       console.log('[*] Populando categorias padrão no MariaDB...');
       for (const cat of memoryStore.categories) {
         await conn.query(
-          'INSERT IGNORE INTO categories (id, name, position) VALUES (?, ?, ?)',
-          [cat.id, cat.name, cat.position]
+          'INSERT IGNORE INTO categories (id, guild_id, name, position) VALUES (?, ?, ?, ?)',
+          [cat.id, cat.guildId || 'gamezeda', cat.name, cat.position]
         );
       }
+    } else {
+      await conn.query("UPDATE categories SET guild_id = 'gamezeda' WHERE guild_id IS NULL OR guild_id = ''");
     }
 
     // Semeia canais iniciais se a tabela estiver vazia
@@ -195,14 +256,15 @@ export async function initDatabase() {
       console.log('[*] Populando canais padrão no MariaDB...');
       for (const ch of memoryStore.channels) {
         await conn.query(
-          'INSERT IGNORE INTO channels (id, name, type, category_id, position) VALUES (?, ?, ?, ?, ?)',
-          [ch.id, ch.name, ch.type, ch.categoryId, ch.position]
+          'INSERT IGNORE INTO channels (id, guild_id, name, type, category_id, position) VALUES (?, ?, ?, ?, ?, ?)',
+          [ch.id, ch.guildId || 'gamezeda', ch.name, ch.type, ch.categoryId, ch.position]
         );
       }
     } else {
       // Garante integridade de dados e canal oficial de voz
+      await conn.query("UPDATE channels SET guild_id = 'gamezeda' WHERE guild_id IS NULL OR guild_id = ''");
       await conn.query("UPDATE channels SET category_id = 'cat-text' WHERE category_id IS NULL OR category_id = ''");
-      await conn.query("INSERT IGNORE INTO channels (id, name, type, category_id, position) VALUES ('gamezeda', 'Gamezeda', 'voice', 'cat-voice', 0)");
+      await conn.query("INSERT IGNORE INTO channels (id, guild_id, name, type, category_id, position) VALUES ('gamezeda', 'gamezeda', 'Gamezeda', 'voice', 'cat-voice', 0)");
     }
 
     // Semeia sons iniciais no Soundboard se vazio
@@ -226,35 +288,198 @@ export async function initDatabase() {
 }
 
 // ==========================================
-// CATEGORIAS & CANAIS
+// SERVIDORES (GUILDS)
 // ==========================================
-export async function getCategories() {
+export async function getGuilds() {
   if (isConnected && pool) {
     try {
-      const [rows] = await pool.query('SELECT id, name, position FROM categories ORDER BY position ASC, created_at ASC');
+      const [rows] = await pool.query('SELECT id, name, icon_url as iconUrl, owner_username as ownerUsername, invite_code as inviteCode, created_at as createdAt FROM guilds ORDER BY created_at ASC');
+      if (rows && rows.length > 0) return rows;
+    } catch (e) {
+      console.warn('Erro ao obter guilds do MariaDB:', e.message);
+    }
+  }
+  return [...memoryStore.guilds];
+}
+
+export async function getUserGuilds(username) {
+  const allGuilds = await getGuilds();
+  if (!username) return allGuilds.filter(g => g.id === 'gamezeda');
+
+  const cleanName = username.trim().toLowerCase();
+
+  if (isConnected && pool) {
+    try {
+      const [rows] = await pool.query(
+        `SELECT g.id, g.name, g.icon_url as iconUrl, g.owner_username as ownerUsername, g.invite_code as inviteCode, g.created_at as createdAt,
+                COALESCE(gm.role, IF(g.id = 'gamezeda', 'member', NULL)) as userRole
+         FROM guilds g
+         LEFT JOIN guild_members gm ON g.id = gm.guild_id AND LOWER(gm.username) = ?
+         WHERE g.id = 'gamezeda' OR LOWER(g.owner_username) = ? OR gm.username IS NOT NULL
+         ORDER BY g.created_at ASC`,
+        [cleanName, cleanName]
+      );
+      if (rows && rows.length > 0) return rows;
+    } catch (e) {
+      console.warn('Erro ao obter servidores do usuário do MariaDB:', e.message);
+    }
+  }
+
+  // Fallback em memória
+  return memoryStore.guilds.filter(g => {
+    if (g.id === 'gamezeda') return true;
+    if (g.ownerUsername && g.ownerUsername.toLowerCase() === cleanName) return true;
+    return memoryStore.guildMembers.some(m => m.guildId === g.id && m.username.toLowerCase() === cleanName);
+  });
+}
+
+export async function createGuild({ name, iconUrl = null, ownerUsername }) {
+  const cleanName = (name || '').trim();
+  if (!cleanName) throw new Error('Nome do servidor é obrigatório.');
+  const owner = (ownerUsername || 'Sistema').trim();
+
+  let slug = cleanName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  if (!slug) slug = 'servidor';
+  const id = `guild-${slug}-${Date.now().toString(36)}`;
+  const inviteCode = Math.random().toString(36).substring(2, 8).toLowerCase();
+
+  const guildObj = {
+    id,
+    name: cleanName,
+    iconUrl: iconUrl || null,
+    ownerUsername: owner,
+    inviteCode,
+    createdAt: new Date().toISOString()
+  };
+
+  memoryStore.guilds.push(guildObj);
+  memoryStore.guildMembers.push({ guildId: id, username: owner, role: 'owner' });
+
+  // Cria categorias e canais padrão para o novo servidor
+  const catTextId = `cat-text-${id}`;
+  const catVoiceId = `cat-voice-${id}`;
+  const defaultCats = [
+    { id: catTextId, guildId: id, name: 'Canais de Texto', position: 0 },
+    { id: catVoiceId, guildId: id, name: 'Canais de Voz', position: 1 }
+  ];
+  memoryStore.categories.push(...defaultCats);
+
+  const chGeralId = `geral-${id}`;
+  const chVozId = `voz-${id}`;
+  const defaultChannels = [
+    { id: chGeralId, guildId: id, name: 'geral', type: 'text', categoryId: catTextId, position: 0 },
+    { id: chVozId, guildId: id, name: 'Geral', type: 'voice', categoryId: catVoiceId, position: 0 }
+  ];
+  memoryStore.channels.push(...defaultChannels);
+  memoryStore.messages[chGeralId] = [];
+
+  if (isConnected && pool) {
+    try {
+      await pool.query(
+        'INSERT INTO guilds (id, name, icon_url, owner_username, invite_code) VALUES (?, ?, ?, ?, ?)',
+        [id, cleanName, iconUrl || null, owner, inviteCode]
+      );
+      await pool.query(
+        'INSERT INTO guild_members (guild_id, username, role) VALUES (?, ?, ?)',
+        [id, owner, 'owner']
+      );
+      for (const cat of defaultCats) {
+        await pool.query(
+          'INSERT INTO categories (id, guild_id, name, position) VALUES (?, ?, ?, ?)',
+          [cat.id, id, cat.name, cat.position]
+        );
+      }
+      for (const ch of defaultChannels) {
+        await pool.query(
+          'INSERT INTO channels (id, guild_id, name, type, category_id, position) VALUES (?, ?, ?, ?, ?, ?)',
+          [ch.id, id, ch.name, ch.type, ch.categoryId, ch.position]
+        );
+      }
+    } catch (e) {
+      console.warn('Erro ao salvar novo servidor no MariaDB:', e.message);
+    }
+  }
+
+  return guildObj;
+}
+
+export async function joinGuildByInvite(username, inviteCode) {
+  const code = (inviteCode || '').trim().toLowerCase();
+  const cleanUser = (username || '').trim();
+  if (!code || !cleanUser) throw new Error('Código de convite e usuário são obrigatórios.');
+
+  let targetGuild = null;
+  if (isConnected && pool) {
+    try {
+      const [rows] = await pool.query(
+        'SELECT id, name, icon_url as iconUrl, owner_username as ownerUsername, invite_code as inviteCode FROM guilds WHERE LOWER(invite_code) = ? LIMIT 1',
+        [code]
+      );
+      if (rows && rows.length > 0) targetGuild = rows[0];
+    } catch (e) {
+      console.warn('Erro ao buscar servidor por convite no MariaDB:', e.message);
+    }
+  }
+  if (!targetGuild) {
+    targetGuild = memoryStore.guilds.find(g => (g.inviteCode || '').toLowerCase() === code);
+  }
+  if (!targetGuild) throw new Error('Servidor não encontrado com este código de convite.');
+
+  // Adiciona como membro
+  const existingMem = memoryStore.guildMembers.find(m => m.guildId === targetGuild.id && m.username.toLowerCase() === cleanUser.toLowerCase());
+  if (!existingMem) {
+    memoryStore.guildMembers.push({ guildId: targetGuild.id, username: cleanUser, role: 'member' });
+  }
+
+  if (isConnected && pool) {
+    try {
+      await pool.query(
+        'INSERT IGNORE INTO guild_members (guild_id, username, role) VALUES (?, ?, ?)',
+        [targetGuild.id, cleanUser, 'member']
+      );
+    } catch (e) {
+      console.warn('Erro ao registrar membro no MariaDB:', e.message);
+    }
+  }
+
+  return targetGuild;
+}
+
+// ==========================================
+// CATEGORIAS & CANAIS
+// ==========================================
+export async function getCategories(guildId = 'gamezeda') {
+  const targetGuild = guildId || 'gamezeda';
+  if (isConnected && pool) {
+    try {
+      const [rows] = await pool.query(
+        'SELECT id, guild_id as guildId, name, position FROM categories WHERE guild_id = ? ORDER BY position ASC, created_at ASC',
+        [targetGuild]
+      );
       if (rows && rows.length > 0) return rows;
     } catch (e) {
       console.warn('Erro ao obter categorias do MariaDB:', e.message);
     }
   }
-  return [...memoryStore.categories];
+  return memoryStore.categories.filter(c => (c.guildId || 'gamezeda') === targetGuild);
 }
 
-export async function createCategory({ name }) {
+export async function createCategory({ name, guildId = 'gamezeda' }) {
   const cleanName = (name || '').trim();
   if (!cleanName) throw new Error('Nome da categoria é obrigatório.');
+  const targetGuild = guildId || 'gamezeda';
 
   let slug = cleanName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
   if (!slug) slug = 'cat-' + Date.now().toString(36);
   const id = `cat-${slug}-${Date.now().toString(36).substring(2, 6)}`;
-  const position = memoryStore.categories.length;
+  const position = memoryStore.categories.filter(c => (c.guildId || 'gamezeda') === targetGuild).length;
 
-  const catObj = { id, name: cleanName, position };
+  const catObj = { id, guildId: targetGuild, name: cleanName, position };
   memoryStore.categories.push(catObj);
 
   if (isConnected && pool) {
     try {
-      await pool.query('INSERT INTO categories (id, name, position) VALUES (?, ?, ?)', [id, cleanName, position]);
+      await pool.query('INSERT INTO categories (id, guild_id, name, position) VALUES (?, ?, ?, ?)', [id, targetGuild, cleanName, position]);
     } catch (e) {
       console.warn('Erro ao salvar categoria no MariaDB:', e.message);
     }
@@ -264,7 +489,6 @@ export async function createCategory({ name }) {
 
 export async function deleteCategory(categoryId) {
   memoryStore.categories = memoryStore.categories.filter(c => c.id !== categoryId);
-  // Reatribui canais órfãos para cat-text
   memoryStore.channels.forEach(ch => {
     if (ch.categoryId === categoryId) {
       ch.categoryId = 'cat-text';
@@ -282,40 +506,43 @@ export async function deleteCategory(categoryId) {
   return true;
 }
 
-export async function getChannelsFull() {
+export async function getChannelsFull(guildId = 'gamezeda') {
+  const targetGuild = guildId || 'gamezeda';
   if (isConnected && pool) {
     try {
-      const [rows] = await pool.query('SELECT id, name, type, category_id as categoryId, position FROM channels ORDER BY position ASC, created_at ASC');
+      const [rows] = await pool.query(
+        'SELECT id, guild_id as guildId, name, type, category_id as categoryId, position FROM channels WHERE guild_id = ? ORDER BY position ASC, created_at ASC',
+        [targetGuild]
+      );
       if (rows && rows.length > 0) return rows;
     } catch (e) {
       console.warn('Erro ao obter canais completos do MariaDB:', e.message);
     }
   }
-  return [...memoryStore.channels];
+  return memoryStore.channels.filter(c => (c.guildId || 'gamezeda') === targetGuild);
 }
 
-export async function getChannels() {
-  const full = await getChannelsFull();
+export async function getChannels(guildId = 'gamezeda') {
+  const full = await getChannelsFull(guildId);
   return full.filter(c => c.type === 'text').map(c => c.id);
 }
 
-export async function createChannel({ name, type = 'text', categoryId }) {
+export async function createChannel({ name, type = 'text', categoryId, guildId = 'gamezeda' }) {
   const cleanName = (name || '').trim();
   if (!cleanName) throw new Error('Nome do canal é obrigatório.');
   const cleanType = type === 'voice' ? 'voice' : 'text';
-  const defaultCat = cleanType === 'voice' ? 'cat-voice' : 'cat-text';
+  const targetGuild = guildId || 'gamezeda';
+  const defaultCat = cleanType === 'voice' ? `cat-voice-${targetGuild}` : `cat-text-${targetGuild}`;
   const targetCat = categoryId || defaultCat;
 
-  // Slug identificador
   let slug = cleanName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
   if (!slug) slug = `canal-${Date.now().toString(36)}`;
 
-  // Evita duplicatas de id
-  const existing = memoryStore.channels.find(c => c.id === slug);
+  const existing = memoryStore.channels.find(c => c.id === slug && (c.guildId || 'gamezeda') === targetGuild);
   const id = existing ? `${slug}-${Date.now().toString(36).substring(2, 6)}` : slug;
 
-  const position = memoryStore.channels.filter(c => c.categoryId === targetCat).length;
-  const chObj = { id, name: cleanName, type: cleanType, categoryId: targetCat, position };
+  const position = memoryStore.channels.filter(c => c.categoryId === targetCat && (c.guildId || 'gamezeda') === targetGuild).length;
+  const chObj = { id, guildId: targetGuild, name: cleanName, type: cleanType, categoryId: targetCat, position };
 
   memoryStore.channels.push(chObj);
   if (cleanType === 'text') {
@@ -325,8 +552,8 @@ export async function createChannel({ name, type = 'text', categoryId }) {
   if (isConnected && pool) {
     try {
       await pool.query(
-        'INSERT INTO channels (id, name, type, category_id, position) VALUES (?, ?, ?, ?, ?)',
-        [id, cleanName, cleanType, targetCat, position]
+        'INSERT INTO channels (id, guild_id, name, type, category_id, position) VALUES (?, ?, ?, ?, ?, ?)',
+        [id, targetGuild, cleanName, cleanType, targetCat, position]
       );
     } catch (e) {
       console.warn('Erro ao salvar canal no MariaDB:', e.message);
@@ -334,6 +561,7 @@ export async function createChannel({ name, type = 'text', categoryId }) {
   }
   return chObj;
 }
+
 
 export async function deleteChannel(channelId) {
   if (channelId === 'geral') {
@@ -907,4 +1135,109 @@ export async function removeAuthorizedDevice(username, deviceId) {
       }
     }
   }
+}
+
+// ==========================================
+// MENSAGENS DIRETAS (DMs 1 a 1)
+// ==========================================
+export async function saveDirectMessage({ id, sender, receiver, text, attachmentUrl = null, timestamp }) {
+  const msgObj = {
+    id: id || `dm-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    sender,
+    receiver,
+    text,
+    attachmentUrl: attachmentUrl || null,
+    timestamp,
+    read: false,
+    createdAt: new Date().toISOString()
+  };
+
+  memoryStore.directMessages.push(msgObj);
+  if (memoryStore.directMessages.length > 500) memoryStore.directMessages.shift();
+
+  if (isConnected && pool) {
+    try {
+      await pool.query(
+        `INSERT INTO direct_messages (id, sender_name, receiver_name, text, attachment_url, timestamp, read_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [msgObj.id, sender, receiver, text, attachmentUrl || null, timestamp, 0]
+      );
+    } catch (e) {
+      console.warn('Erro ao salvar DM no MariaDB:', e.message);
+    }
+  }
+  return msgObj;
+}
+
+export async function getDirectMessages(user1, user2, limit = 50) {
+  const u1 = (user1 || '').toLowerCase();
+  const u2 = (user2 || '').toLowerCase();
+
+  if (isConnected && pool) {
+    try {
+      const [rows] = await pool.query(
+        `SELECT id, sender_name as sender, receiver_name as receiver, text, attachment_url as attachmentUrl, timestamp, read_status as readStatus, created_at as createdAt
+         FROM direct_messages
+         WHERE (LOWER(sender_name) = ? AND LOWER(receiver_name) = ?)
+            OR (LOWER(sender_name) = ? AND LOWER(receiver_name) = ?)
+         ORDER BY created_at DESC LIMIT ?`,
+        [u1, u2, u2, u1, limit]
+      );
+      return rows.reverse();
+    } catch (e) {
+      console.warn('Erro ao carregar DMs do MariaDB:', e.message);
+    }
+  }
+
+  return memoryStore.directMessages
+    .filter(m => (m.sender.toLowerCase() === u1 && m.receiver.toLowerCase() === u2) ||
+                 (m.sender.toLowerCase() === u2 && m.receiver.toLowerCase() === u1))
+    .slice(-limit);
+}
+
+export async function getUserConversations(username) {
+  const u = (username || '').toLowerCase();
+  const contactsMap = new Map();
+
+  if (isConnected && pool) {
+    try {
+      const [rows] = await pool.query(
+        `SELECT id, sender_name as sender, receiver_name as receiver, text, timestamp, created_at as createdAt
+         FROM direct_messages
+         WHERE LOWER(sender_name) = ? OR LOWER(receiver_name) = ?
+         ORDER BY created_at DESC`,
+        [u, u]
+      );
+      for (const row of rows) {
+        const contact = row.sender.toLowerCase() === u ? row.receiver : row.sender;
+        if (!contactsMap.has(contact.toLowerCase())) {
+          contactsMap.set(contact.toLowerCase(), {
+            username: contact,
+            lastMessage: row.text,
+            timestamp: row.timestamp,
+            createdAt: row.createdAt
+          });
+        }
+      }
+      return Array.from(contactsMap.values());
+    } catch (e) {
+      console.warn('Erro ao carregar conversas do MariaDB:', e.message);
+    }
+  }
+
+  for (let i = memoryStore.directMessages.length - 1; i >= 0; i--) {
+    const row = memoryStore.directMessages[i];
+    if (row.sender.toLowerCase() === u || row.receiver.toLowerCase() === u) {
+      const contact = row.sender.toLowerCase() === u ? row.receiver : row.sender;
+      if (!contactsMap.has(contact.toLowerCase())) {
+        contactsMap.set(contact.toLowerCase(), {
+          username: contact,
+          lastMessage: row.text,
+          timestamp: row.timestamp,
+          createdAt: row.createdAt
+        });
+      }
+    }
+  }
+  return Array.from(contactsMap.values());
 }

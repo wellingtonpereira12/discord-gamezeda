@@ -1,4 +1,16 @@
-import { saveMessage, getChannelMessages, getChannels, editMessage, deleteMessage, toggleReaction, togglePinMessage, getPinnedMessages } from '../config/db.js';
+import {
+  saveMessage,
+  getChannelMessages,
+  getChannels,
+  editMessage,
+  deleteMessage,
+  toggleReaction,
+  togglePinMessage,
+  getPinnedMessages,
+  saveDirectMessage,
+  getDirectMessages,
+  getUserConversations
+} from '../config/db.js';
 import { musicBot, BOT_USER, RADIO_STATIONS } from '../services/musicBot.js';
 import { watchPartyService } from '../services/watchParty.js';
 
@@ -150,6 +162,75 @@ export function registerChatHandlers(io, socket, users, voiceRooms, broadcastVoi
       channelId: targetChannel,
       messages
     });
+  });
+
+  // Indicador de "Digitando..." (Typing indicator)
+  socket.on('chat:typing', ({ channelId, isTyping }) => {
+    const user = users.get(socket.id);
+    if (!user) return;
+    socket.broadcast.emit('chat:user-typing', {
+      channelId,
+      username: user.name,
+      isTyping: !!isTyping
+    });
+  });
+
+  // Mensagens Diretas (DMs) - Envio 1 a 1
+  socket.on('dm:send', async ({ receiver, text, attachmentUrl }) => {
+    const user = users.get(socket.id);
+    if (!user) return;
+    const cleanText = (text || '').trim();
+    if (!cleanText && !attachmentUrl) return;
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+
+    const dmMsg = {
+      id: `dm-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      sender: user.name,
+      receiver: (receiver || '').trim(),
+      text: cleanText,
+      attachmentUrl: attachmentUrl || null,
+      timestamp: `Hoje às ${timeStr}`,
+      createdAt: now.toISOString()
+    };
+
+    const saved = await saveDirectMessage(dmMsg);
+
+    // Envia de volta para o remetente
+    socket.emit('dm:new-message', saved);
+
+    // Envia para o destinatário se estiver online
+    for (const [sId, u] of users.entries()) {
+      if (u.name.toLowerCase() === receiver.trim().toLowerCase()) {
+        io.to(sId).emit('dm:new-message', saved);
+      }
+    }
+  });
+
+  // Histórico de DM 1 a 1
+  socket.on('dm:history', async ({ targetUser }, callback) => {
+    const user = users.get(socket.id);
+    if (!user) return;
+    const history = await getDirectMessages(user.name, targetUser, 50);
+    if (typeof callback === 'function') {
+      callback({ success: true, messages: history });
+    }
+  });
+
+  // Lista de conversas DMs ativas
+  socket.on('dm:conversations', async (callback) => {
+    const user = users.get(socket.id);
+    if (!user) return;
+    const list = await getUserConversations(user.name);
+    if (typeof callback === 'function') {
+      callback({ success: true, conversations: list });
+    }
   });
 }
 

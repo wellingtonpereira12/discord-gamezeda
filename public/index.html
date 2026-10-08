@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
   <title>FakeDC</title>
-  <link rel="stylesheet" href="style.css?v=20261008_v1.2.1">
+  <link rel="stylesheet" href="style.css?v=20261008_v1.3.0">
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/logo.png?v=20261008_v1.1.8">
   <link rel="shortcut icon" href="/favicon.ico?v=20261008_v1.1.8">
   <link rel="apple-touch-icon" href="/assets/logo.png?v=20261008_v1.1.8">
@@ -105,14 +105,46 @@
     <!-- Overlay Escuro para Drawers Laterais no Mobile (estilo Discord) -->
     <div id="mobile-drawer-overlay" class="mobile-drawer-overlay" style="display: none;"></div>
 
-    <!-- COLUNA 1: BARRA DE CANAIS DO SERVIDOR FAKEDC / GAMEZEDA -->
+    <!-- COLUNA 0: BARRA LATERAL DE SERVIDORES (ESTILO DISCORD) -->
+    <nav class="servers-sidebar" id="servers-sidebar" aria-label="Servidores">
+      <!-- Botão Home / Direct Messages -->
+      <button type="button" class="guild-icon-btn active" id="btn-server-home" title="Mensagens Diretas" aria-label="Mensagens Diretas">
+        <div class="guild-pill"></div>
+        <div class="guild-avatar home-icon">
+          <img src="/assets/logo.png?v=20261008_v1.1.8" alt="FakeDC" class="guild-img">
+        </div>
+      </button>
+
+      <div class="guild-separator"></div>
+
+      <!-- Lista de Servidores Dinâmica -->
+      <div class="guilds-scroll" id="guilds-scroll-container"></div>
+
+      <!-- Botão Adicionar / Criar Servidor -->
+      <button type="button" class="guild-icon-btn action-btn add-guild-btn" id="btn-create-server-trigger" title="Adicionar um Servidor" aria-label="Adicionar um Servidor">
+        <div class="guild-pill"></div>
+        <div class="guild-avatar">
+          <i data-lucide="plus" style="width: 22px; height: 22px;"></i>
+        </div>
+      </button>
+
+      <!-- Botão Entrar com Código de Convite -->
+      <button type="button" class="guild-icon-btn action-btn join-guild-btn" id="btn-join-server-trigger" title="Entrar em um Servidor" aria-label="Entrar em um Servidor">
+        <div class="guild-pill"></div>
+        <div class="guild-avatar">
+          <i data-lucide="compass" style="width: 20px; height: 20px;"></i>
+        </div>
+      </button>
+    </nav>
+
+    <!-- COLUNA 1: BARRA DE CANAIS DO SERVIDOR / DMS -->
     <div class="channels-sidebar">
       
       <!-- Cabeçalho do Servidor -->
       <div class="server-header" id="server-header-btn">
         <span style="display: flex; align-items: center; gap: 8px;">
-          <img src="/assets/logo.png?v=20261008_v1.1.8" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1.5px solid rgba(255, 255, 255, 0.25);" alt="FakeDC">
-          <span style="font-weight: 800;">FakeDC</span>
+          <img id="server-header-icon" src="/assets/logo.png?v=20261008_v1.1.8" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1.5px solid rgba(255, 255, 255, 0.25);" alt="Servidor">
+          <span id="server-header-name" style="font-weight: 800;">FakeDC</span>
           <i data-lucide="badge-check" style="width: 16px; height: 16px; color: #5865F2;"></i>
         </span>
         <i data-lucide="chevron-down" style="width: 18px; height: 18px;"></i>
@@ -120,6 +152,10 @@
 
       <!-- Menu Dropdown do Servidor (estilo Discord) -->
       <div id="server-dropdown-menu" class="server-dropdown-menu" style="display: none;">
+        <button class="server-menu-item" id="btn-menu-invite-people">
+          <i data-lucide="user-plus" style="width: 16px; height: 16px; color: #5865F2;"></i>
+          <span style="color: #dbdee1;">Convidar Amigos</span>
+        </button>
         <button class="server-menu-item" id="btn-menu-create-channel">
           <i data-lucide="plus-circle" style="width: 16px; height: 16px;"></i>
           <span>Criar Canal</span>
@@ -130,8 +166,20 @@
         </button>
       </div>
 
-      <!-- Lista de Canais Rolável (Renderizada dinamicamente com categorias, abinhas e participantes) -->
-      <div class="channels-scroll" id="channels-scroll-container"></div>
+      <!-- Modo 1: Canais do Servidor Ativo -->
+      <div id="channels-server-view" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+        <div class="channels-scroll" id="channels-scroll-container"></div>
+      </div>
+
+      <!-- Modo 2: Painel de Mensagens Diretas / DMs -->
+      <div id="channels-dm-view" style="display: none; flex-direction: column; flex: 1; overflow: hidden;">
+        <div class="dm-sidebar-header">
+          <span>MENSAGENS DIRETAS</span>
+        </div>
+        <div class="dm-conversations-scroll" id="dm-conversations-container">
+          <!-- Renderizado dinamicamente via JS -->
+        </div>
+      </div>
 
       <!-- Barra de Status de Voz (quando conectado - Layout Fixo estilo Discord) -->
       <div class="voice-connection-status" id="voice-status-box">
@@ -557,6 +605,16 @@
             <span id="btn-emoji-trigger" title="Inserir Emoji" style="cursor: pointer; font-size: 20px;">😊</span>
           </div>
         </form>
+
+        <!-- INDICADOR DE DIGITAÇÃO ESTILO DISCORD -->
+        <div id="chat-typing-indicator" class="chat-typing-indicator" style="display: none;">
+          <div class="typing-dots">
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+          </div>
+          <span id="chat-typing-text" class="typing-text"></span>
+        </div>
       </div>
 
     </div>
@@ -1514,8 +1572,90 @@
     </button>
   </div>
 
+  <!-- MODAL: CRIAR SERVIDOR (ESTILO DISCORD) -->
+  <div id="create-server-modal" class="modal-overlay" style="display: none; z-index: 10050;">
+    <div class="discord-modal" style="max-width: 440px; text-align: center;">
+      <div class="modal-header-with-close">
+        <h2 style="font-size: 22px; font-weight: 800; color: #f2f3f5; width: 100%;">Crie seu servidor</h2>
+        <button class="btn-close-modal" id="btn-close-create-server">&times;</button>
+      </div>
+      <p style="color: #949ba4; font-size: 14px; margin-top: 6px; margin-bottom: 20px; line-height: 1.4;">
+        Seu servidor é onde você e seus amigos se reúnem. Crie o seu e comece a interagir com canais de voz e texto.
+      </p>
+
+      <form id="create-server-form" style="display: flex; flex-direction: column; gap: 16px; text-align: left;">
+        <!-- Upload de Ícone com Preview -->
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+          <label style="font-size: 12px; font-weight: 700; color: #b5bac1; text-transform: uppercase;">ÍCONE DO SERVIDOR</label>
+          <div class="server-icon-upload-wrap" id="server-icon-upload-trigger" style="position: relative; width: 80px; height: 80px; border-radius: 50%; border: 2px dashed #4e5058; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #2b2d31; overflow: hidden;" title="Clique para escolher uma foto">
+            <img id="create-server-preview-img" src="" alt="Ícone" style="display: none; width: 100%; height: 100%; object-fit: cover;">
+            <div id="create-server-upload-placeholder" style="display: flex; flex-direction: column; align-items: center; color: #949ba4;">
+              <i data-lucide="camera" style="width: 24px; height: 24px;"></i>
+              <span style="font-size: 10px; font-weight: 700; margin-top: 2px;">UPLOAD</span>
+            </div>
+            <input type="file" id="create-server-icon-input" accept="image/*" style="display: none;">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="create-server-name-input" style="font-size: 12px; font-weight: 700; color: #b5bac1; text-transform: uppercase;">NOME DO SERVIDOR</label>
+          <input type="text" id="create-server-name-input" class="form-input" placeholder="Ex: Galera do Game" required maxlength="100">
+        </div>
+
+        <div class="modal-footer" style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <button type="button" class="btn-subtle" id="btn-cancel-create-server">Voltar</button>
+          <button type="submit" class="btn-enter" id="btn-submit-create-server" style="padding: 10px 24px;">Criar Servidor</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ENTRAR EM SERVIDOR VIA CONVITE -->
+  <div id="join-server-modal" class="modal-overlay" style="display: none; z-index: 10050;">
+    <div class="discord-modal" style="max-width: 440px; text-align: center;">
+      <div class="modal-header-with-close">
+        <h2 style="font-size: 22px; font-weight: 800; color: #f2f3f5; width: 100%;">Entrar em um servidor</h2>
+        <button class="btn-close-modal" id="btn-close-join-server">&times;</button>
+      </div>
+      <p style="color: #949ba4; font-size: 14px; margin-top: 6px; margin-bottom: 20px; line-height: 1.4;">
+        Insira o código de convite abaixo para entrar em um servidor existente:
+      </p>
+
+      <form id="join-server-form" style="display: flex; flex-direction: column; gap: 16px; text-align: left;">
+        <div class="form-group">
+          <label for="join-server-code-input" style="font-size: 12px; font-weight: 700; color: #b5bac1; text-transform: uppercase;">CÓDIGO DE CONVITE</label>
+          <input type="text" id="join-server-code-input" class="form-input" placeholder="Ex: fakedc ou código do servidor" required>
+        </div>
+
+        <div class="modal-footer" style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <button type="button" class="btn-subtle" id="btn-cancel-join-server">Voltar</button>
+          <button type="submit" class="btn-enter" id="btn-submit-join-server" style="padding: 10px 24px;">Entrar no Servidor</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: CONVIDAR AMIGOS -->
+  <div id="invite-server-modal" class="modal-overlay" style="display: none; z-index: 10050;">
+    <div class="discord-modal" style="max-width: 440px;">
+      <div class="modal-header-with-close">
+        <h3 id="invite-server-title" style="font-size: 18px; font-weight: 700; color: #f2f3f5;">Convidar amigos para o servidor</h3>
+        <button class="btn-close-modal" id="btn-close-invite-server">&times;</button>
+      </div>
+      <p style="color: #949ba4; font-size: 13px; margin-top: 6px; margin-bottom: 16px;">
+        Envie este código ou link de convite para um amigo para ele entrar diretamente neste servidor:
+      </p>
+
+      <div style="background: #1e1f22; border-radius: 4px; padding: 10px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #232428;">
+        <input type="text" id="invite-server-code-display" readonly style="background: transparent; border: none; color: #dbdee1; font-weight: 600; width: 100%; outline: none;" value="">
+        <button type="button" id="btn-copy-invite-code" class="btn-enter" style="padding: 6px 14px; font-size: 13px; white-space: nowrap;">Copiar</button>
+      </div>
+      <div id="invite-copy-feedback" style="display: none; color: #23a55a; font-size: 12px; margin-top: 8px; font-weight: 600;">Código copiado com sucesso!</div>
+    </div>
+  </div>
+
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261008_v1.2.1"></script>
+  <script type="module" src="app.js?v=20261008_v1.3.0"></script>
 
 </body>
 </html>

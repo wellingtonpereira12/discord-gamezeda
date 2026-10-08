@@ -6232,3 +6232,260 @@ body.is-electron #btn-download-desktop {
   color: #fff !important;
 }
 
+/* ==========================================
+   SERVIDORES / GUILDS SIDEBAR (ESTILO DISCORD OFICIAL)
+   ========================================== */
+.servers-sidebar {
+  width: 72px;
+  background: #1e1f22;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  gap: 8px;
+  flex-shrink: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  user-select: none;
+  scrollbar-width: none;
+  z-index: 20;
+}
+.servers-sidebar::-webkit-scrollbar {
+  display: none;
+}
+
+.guild-icon-btn {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  outline: none;
+}
+
+.guild-pill {
+  position: absolute;
+  left: -12px;
+  width: 4px;
+  height: 0;
+  background: #fff;
+  border-radius: 0 4px 4px 0;
+  transition: height 0.15s ease-out;
+}
+
+.guild-icon-btn:hover .guild-pill {
+  height: 20px;
+}
+
+.guild-icon-btn.active .guild-pill {
+  height: 40px;
+}
+
+.guild-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #313338;
+  color: #dbdee1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-radius 0.18s ease-out, background 0.18s ease-out, color 0.18s ease-out;
+  overflow: hidden;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.guild-avatar img,
+.guild-avatar .guild-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.guild-icon-btn:hover .guild-avatar,
+.guild-icon-btn.active .guild-avatar {
+  border-radius: 16px;
+  background: #5865F2;
+  color: #fff;
+}
+
+.guild-icon-btn.action-btn:hover .guild-avatar {
+  background: #23a55a;
+  color: #fff;
+}
+
+.guild-separator {
+  width: 32px;
+  height: 2px;
+  background: #35363c;
+  border-radius: 1px;
+  margin: 4px 0;
+}
+
+.guilds-scroll {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+/* ==========================================
+   PAINEL DE MENSAGENS DIRETAS (DMs) NA SIDEBAR
+   ========================================== */
+.dm-sidebar-header {
+  padding: 16px 16px 8px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #949ba4;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dm-conversations-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dm-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  color: #949ba4;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  user-select: none;
+}
+
+.dm-item:hover {
+  background: #35373c;
+  color: #dbdee1;
+}
+
+.dm-item.active {
+  background: #404249;
+  color: #fff;
+}
+
+.dm-item-avatar-wrap {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.dm-item-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.dm-item-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.dm-item-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f2f3f5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dm-item-last {
+  font-size: 12px;
+  color: #949ba4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ==========================================
+   INDICADOR DE DIGITAÇÃO (TYPING INDICATOR)
+   ========================================== */
+.chat-typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 24px;
+  padding: 0 16px;
+  font-size: 12px;
+  color: #b5bac1;
+  user-select: none;
+  animation: typingFadeIn 0.15s ease-out;
+}
+
+.typing-dots {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.typing-dot {
+  width: 5px;
+  height: 5px;
+  background: #dbdee1;
+  border-radius: 50%;
+  animation: typingBounce 1.2s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typingBounce {
+  0%, 80%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@keyframes typingFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsividade Mobile para Servers Sidebar */
+@media (max-width: 768px) {
+  .servers-sidebar {
+    width: 60px;
+    padding: 8px 0;
+  }
+  .guild-icon-btn,
+  .guild-avatar {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+

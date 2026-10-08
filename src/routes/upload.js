@@ -12,8 +12,9 @@ const publicDir = path.join(__dirname, '../../public');
 const soundsUploadDir = path.join(publicDir, 'uploads/sounds');
 const chatUploadDir = path.join(publicDir, 'uploads/chat');
 const avatarsUploadDir = path.join(publicDir, 'uploads/avatars');
+const serversUploadDir = path.join(publicDir, 'uploads/servers');
 
-[soundsUploadDir, chatUploadDir, avatarsUploadDir].forEach(dir => {
+[soundsUploadDir, chatUploadDir, avatarsUploadDir, serversUploadDir].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -187,6 +188,46 @@ uploadRouter.post('/chat-file', uploadChat.single('file'), (req, res) => {
       url: fileUrl,
       filename: req.file.originalname,
       size: req.file.size
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Upload de Ícone de Servidor (Guild Icon)
+const serverIconStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, serversUploadDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const safeName = `server-${Date.now()}-${Math.random().toString(36).substring(2, 7)}${ext}`;
+    cb(null, safeName);
+  }
+});
+
+const uploadServerIcon = multer({
+  storage: serverIconStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB máx
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Formato de imagem inválido! Use PNG, JPG, GIF ou WEBP.'));
+    }
+  }
+});
+
+uploadRouter.post('/upload/server-icon', uploadServerIcon.single('icon'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Nenhuma imagem enviada.' });
+    }
+    const serverIconUrl = `/uploads/servers/${req.file.filename}`;
+    res.json({
+      success: true,
+      url: serverIconUrl,
+      filename: req.file.filename
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
