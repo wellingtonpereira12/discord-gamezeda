@@ -1,0 +1,1092 @@
+﻿/* ========================================================
+   LAYOUT PRINCIPAL, SIDEBARS & RESPONSIVIDADE (FAKEDC)
+   ======================================================== */
+  height: 100%;
+  height: 100vh;
+  height: var(--app-height, 100dvh);
+  max-height: var(--app-height, 100dvh);
+  overflow: hidden;
+}
+
+/* BARRA DE CANAIS (LATERAL ESQUERDA) */
+.channels-sidebar {
+  width: 240px;
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-right: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.server-header {
+  height: 48px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.25);
+  font-weight: 700;
+  color: var(--text-header);
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.server-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.server-badge {
+  background: rgba(255, 255, 255, 0.07);
+  padding: 6px 12px;
+  margin: 10px 10px 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.channels-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.channels-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.channels-scroll::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+}
+
+.channel-category {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 12px 8px 4px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.channel-category:hover {
+  color: var(--text-normal);
+}
+
+.category-header-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.category-header-left * {
+  pointer-events: none;
+}
+
+.category-chevron {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.channel-category.collapsed .category-chevron {
+  transform: rotate(-90deg);
+}
+
+.category-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: auto;
+}
+
+.channel-category:hover .category-actions,
+.channel-category:focus-within .category-actions {
+  opacity: 1;
+}
+
+.btn-cat-action {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px;
+  min-width: 22px;
+  min-height: 22px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+  pointer-events: auto;
+}
+
+.btn-cat-action svg,
+.btn-cat-action i {
+  pointer-events: none;
+}
+
+.btn-cat-action:hover {
+  color: var(--text-header);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.channel-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 2px;
+  transition: background 0.1s, color 0.1s;
+  position: relative;
+  user-select: none;
+}
+
+.channel-item:hover {
+  background: var(--bg-channel-hover);
+  color: var(--text-normal);
+}
+
+.channel-item.active {
+  background: var(--bg-channel-active);
+  color: var(--text-header);
+}
+
+.channel-item-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.channel-item-left * {
+  pointer-events: none;
+}
+
+.channel-item .channel-icon {
+  font-size: 16px;
+  opacity: 0.7;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.channel-item-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.channel-voice-meta,
+.channel-voice-meta * {
+  pointer-events: none;
+}
+
+.channel-item-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.channel-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: auto;
+}
+
+.channel-item:hover .channel-item-actions,
+.channel-item:focus-within .channel-item-actions,
+.channel-item.active .channel-item-actions {
+  opacity: 1;
+}
+
+/* Fase 4: Indicadores e Badges de Mensagens NÃ£o Lidas (Estilo Discord) */
+.channel-item.has-unread {
+  color: #dbdee1;
+  font-weight: 600;
+}
+
+.channel-item.has-unread .channel-item-name {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.channel-item.has-unread .channel-icon {
+  opacity: 1;
+  color: #dbdee1;
+}
+
+.channel-unread-pill {
+  position: absolute;
+  left: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 8px;
+  border-radius: 0 4px 4px 0;
+  background: #ffffff;
+  pointer-events: none;
+  transition: height 0.15s ease, background 0.15s ease;
+}
+
+.channel-item:hover .channel-unread-pill {
+  height: 14px;
+}
+
+.channel-unread-badge {
+  background-color: var(--status-dnd, #f23f43);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+  animation: badgePop 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes badgePop {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.btn-channel-delete {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px;
+  min-width: 22px;
+  min-height: 22px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+  pointer-events: auto;
+}
+
+.btn-channel-delete svg,
+.btn-channel-delete i {
+  pointer-events: none;
+}
+
+.btn-channel-delete:hover {
+  color: #ed4245;
+  background: rgba(237, 66, 69, 0.15);
+}
+
+.voice-users-list {
+  padding-left: 24px;
+  margin: 2px 0 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.voice-user-pill {
+  display: flex;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #949ba4;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.voice-user-pill:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #dbdee1;
+}
+
+.voice-user-pill img {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  margin-right: 8px;
+  transition: box-shadow 0.15s;
+}
+
+.voice-user-pill.speaking img {
+  box-shadow: 0 0 0 2px var(--accent-green);
+}
+
+.voice-user-pill .pill-name {
+  color: #dbdee1;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.voice-user-status-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+.voice-status-icon {
+  width: 14px;
+  height: 14px;
+  color: #ffffff;
+  stroke: #ffffff;
+  opacity: 0.95;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.card-name .voice-user-status-icons {
+  margin-left: 6px;
+}
+
+/* ==========================================================================
+   ESTILOS DE DRAWERS E RESPONSIVIDADE MOBILE (DISCORD MOBILE)
+   ========================================================================== */
+.chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.chat-header-title-wrap {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.channel-header-chevron {
+  display: none;
+}
+
+.channel-header-subinfo {
+  display: none;
+}
+
+.mobile-menu-arrow {
+  display: none;
+}
+
+.desktop-menu-bars {
+  display: inline-block;
+}
+
+.mobile-menu-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background-color 0.15s;
+  flex-shrink: 0;
+}
+
+.mobile-menu-btn:hover {
+  color: var(--text-header);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mobile-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(2px);
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.mobile-drawer-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ==========================================================================
+   RESPONSIVIDADE COMPLETA PARA CELULAR (LAYOUT DISCORD MOBILE OFICIAL)
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* Layout Base */
+  #app {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    height: 100vh;
+    height: var(--app-height, 100dvh);
+    max-height: var(--app-height, 100dvh);
+    overflow: hidden;
+    overflow-x: hidden;
+    display: flex;
+  }
+
+  /* Gaveta Lateral de Canais (Off-Canvas Drawer da Esquerda) */
+  .channels-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 290px;
+    max-width: 84vw;
+    height: 100%;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.65);
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .channels-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  /* Gaveta Lateral de Membros (Off-Canvas Drawer da Direita) */
+  .members-sidebar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 270px;
+    max-width: 80vw;
+    height: 100%;
+    z-index: 1000;
+    transform: translateX(100%);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.65);
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex !important;
+    flex-direction: column;
+  }
+
+  .members-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  /* BotÃ£o Menu Hamburger no CabeÃ§alho */
+  .mobile-menu-btn {
+    display: inline-flex;
+  }
+
+  /* ConteÃºdo Principal (Chat e Palco) Ocupa 100% da Largura e Altura DinÃ¢mica */
+  .main-content {
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    height: 100vh;
+    height: var(--app-height, 100dvh);
+    max-height: var(--app-height, 100dvh);
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    overflow-x: hidden;
+  }
+
+  /* CabeÃ§alho do Chat estilo Discord Mobile Oficial */
+  .chat-header {
+    flex-shrink: 0;
+    padding: 0 12px;
+    height: 52px;
+    background: #1e1f22;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .mobile-menu-btn {
+    display: inline-flex;
+    padding: 6px 4px 6px 0;
+    color: #dbdee1;
+  }
+
+  .mobile-menu-arrow {
+    display: inline-block;
+  }
+
+  .desktop-menu-bars {
+    display: none;
+  }
+
+  .chat-header-title-wrap {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .chat-header-title {
+    display: flex;
+    align-items: center;
+    font-size: 16px;
+    font-weight: 700;
+    color: #ffffff;
+    max-width: 180px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .chat-header-title .hash {
+    font-size: 18px;
+    margin-right: 4px;
+    color: #949ba4;
+    font-weight: 600;
+  }
+
+  .channel-header-chevron {
+    display: inline-block;
+    color: #949ba4;
+    font-size: 16px;
+    font-weight: 600;
+    margin-left: 4px;
+  }
+
+  .channel-header-subinfo {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: #949ba4;
+    font-weight: 500;
+    margin-top: 1px;
+    cursor: pointer;
+  }
+
+  .header-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #23a55a;
+    display: inline-block;
+  }
+
+  /* Oculta botÃµes de download e soundboard do header no celular */
+  .chat-header-icons .btn-download-desktop,
+  .chat-header-icons .btn-download-mobile,
+  .chat-header-icons #btn-open-soundboard-header {
+    display: none !important;
+  }
+
+  .chat-header-icons {
+    gap: 10px;
+  }
+
+  .search-box-wrapper {
+    background: transparent !important;
+    padding: 0 !important;
+    border: none !important;
+    cursor: pointer;
+  }
+
+  .search-box-wrapper input {
+    display: none !important;
+  }
+
+  .search-box-wrapper i {
+    width: 20px !important;
+    height: 20px !important;
+    color: #b5bac1;
+  }
+
+  /* Feed de mensagens no celular */
+  .messages-container {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+
+  .messages-container.is-empty {
+    justify-content: flex-end;
+  }
+
+  /* Banner de boas-vindas no estilo do print 2 */
+  .channel-welcome-banner {
+    padding: 24px 8px 16px 8px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .channel-welcome-icon {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background: #313338;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 38px;
+    font-weight: 800;
+    color: #ffffff;
+    margin-bottom: 16px;
+  }
+
+  .channel-welcome-title {
+    color: #ffffff;
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    line-height: 1.25;
+  }
+
+  .channel-welcome-desc {
+    color: #949ba4;
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  /* Mensagens do sistema no estilo do print 1 */
+  .system-message {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 5px 0;
+    color: #dbdee1;
+    font-size: 14px;
+    line-height: 1.45;
+    margin-top: 6px;
+  }
+
+  .system-arrow {
+    color: #23a55a;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .system-content {
+    flex: 1;
+    word-break: break-word;
+  }
+
+  .system-username {
+    color: #ffffff;
+    font-weight: 600;
+  }
+
+  .system-time {
+    font-size: 11.5px;
+    color: #949ba4;
+    margin-left: 4px;
+    font-weight: normal;
+  }
+
+  /* Barra de digitaÃ§Ã£o formato pÃ­lula como nos prints 1 e 2 */
+  .chat-input-wrapper {
+    flex-shrink: 0;
+    width: 100%;
+    padding: 6px 12px 10px 12px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 10px));
+    background: #1e1f22;
+    box-sizing: border-box;
+    z-index: 20;
+  }
+
+  .chat-input-bar {
+    background: #2b2d31;
+    border-radius: 24px;
+    padding: 0 12px;
+    height: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: none;
+    box-shadow: none;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .chat-plus-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #383a40;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #b5bac1;
+    border: none;
+    cursor: pointer;
+    flex-shrink: 0;
+    font-size: 18px;
+  }
+
+  .chat-plus-btn:hover {
+    color: #ffffff;
+    background: #4e5058;
+  }
+
+  .chat-input-bar input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #f2f3f5;
+    font-size: 14.5px;
+    padding: 0 4px;
+  }
+
+  .chat-input-bar input::placeholder {
+    color: #949ba4;
+    font-size: 14.5px;
+  }
+
+  .chat-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #b5bac1;
+    font-size: 20px;
+  }
+
+  /* Palco de VÃ­deo / TransmissÃ£o / Voz */
+  .video-stage {
+    padding: 0;
+  }
+
+  .video-grid {
+    padding: 8px;
+    gap: 8px;
+    align-content: flex-start;
+  }
+
+  .screen-tile {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 16 / 9;
+    max-height: 40vh;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  }
+
+  .screen-tile-badge {
+    top: 8px;
+    left: 8px;
+    font-size: 11px;
+    padding: 3px 6px;
+    gap: 4px;
+  }
+
+  .screen-tile-controls {
+    top: 8px;
+    right: 8px;
+    gap: 4px;
+  }
+
+  .screen-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .screen-volume-control-box {
+    padding-right: 4px;
+  }
+
+  .screen-volume-slider-wrap {
+    width: 50px;
+  }
+
+  .screen-volume-val {
+    display: none;
+  }
+
+  /* Cards de UsuÃ¡rios na Chamada de Voz */
+  .user-voice-card {
+    width: 105px;
+    height: 95px;
+    padding: 8px 6px;
+  }
+
+  .user-voice-card img {
+    width: 44px;
+    height: 44px;
+    margin-bottom: 4px;
+  }
+
+  .user-voice-card .card-name {
+    font-size: 12px;
+    max-width: 90px;
+  }
+
+  /* Barra Flutuante de Controles de Voz estilo Discord Mobile */
+  .stage-control-bar {
+    bottom: 12px;
+    padding: 6px 10px;
+    border-radius: 30px;
+    gap: 8px;
+    max-width: 96vw;
+    background: rgba(30, 31, 34, 0.96);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  }
+
+  .stage-btn {
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+  }
+
+  /* Modais no Mobile */
+  .welcome-modal {
+    width: 92vw;
+    max-width: 380px;
+    padding: 22px 16px;
+  }
+
+  .discord-modal {
+    width: 94vw !important;
+    max-width: 94vw !important;
+    max-height: 90vh !important;
+    padding: 16px !important;
+    overflow-y: auto !important;
+  }
+
+  .discord-modal.channel-create-modal {
+    width: 94vw !important;
+    max-width: 94vw !important;
+  }
+
+  .modal-body-clean {
+    padding: 16px 14px 12px 14px;
+  }
+
+  .modal-footer-clean {
+    padding: 12px 14px;
+    gap: 8px;
+  }
+
+  .btn-cancel,
+  .btn-primary,
+  .btn-danger-confirm {
+    padding: 8px 16px;
+    font-size: 13.5px;
+  }
+
+  /* ==========================================================================
+     AJUSTES ESPECÃFICOS PARA O APLICATIVO APK (ANDROID WEBVIEW / EXPO)
+     Compensa a barra de status do Android (relÃ³gio/notificaÃ§Ãµes) e navegaÃ§Ã£o
+     ========================================================================== */
+  body.is-mobile-app .chat-header {
+    padding-top: max(28px, env(safe-area-inset-top, 28px)) !important;
+    height: calc(52px + max(28px, env(safe-area-inset-top, 28px))) !important;
+    box-sizing: border-box !important;
+  }
+
+  body.is-mobile-app .channels-sidebar {
+    padding-top: max(28px, env(safe-area-inset-top, 28px)) !important;
+    box-sizing: border-box !important;
+  }
+
+  body.is-mobile-app .members-sidebar {
+    padding-top: max(28px, env(safe-area-inset-top, 28px)) !important;
+    box-sizing: border-box !important;
+  }
+
+  body.is-mobile-app .chat-input-wrapper {
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)) !important;
+    box-sizing: border-box !important;
+  }
+
+  body.is-mobile-app .messages-container {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    box-sizing: border-box !important;
+  }
+}
+
+/* Telas Ultra-Pequenas (max-width: 480px) */
+@media (max-width: 480px) {
+  .chat-header-icons .search-box-wrapper {
+    display: flex !important;
+  }
+
+  .stage-btn span {
+    display: none;
+  }
+
+  .stage-btn {
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  .user-voice-card {
+    width: 90px;
+    height: 85px;
+  }
+
+  .user-voice-card img {
+    width: 38px;
+    height: 38px;
+  }
+
+  .user-voice-card .card-name {
+    font-size: 11px;
+    max-width: 78px;
+  }
+}
+
+/* ==========================================
+   BARRA DE TÃTULO PERSONALIZADA (CLIENTE DESKTOP ELECTRON)
+   Estilo minimalista, sem menu nativo e botÃµes elegantes
+   ========================================== */
+.desktop-titlebar {
+  display: none;
+  height: 28px;
+  min-height: 28px;
+  width: 100vw;
+  background-color: #111214;
+  user-select: none;
+  -webkit-user-select: none;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 99999;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.desktop-titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 12px;
+  pointer-events: none;
+  -webkit-app-region: drag;
+}
+
+.desktop-titlebar-logo {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.desktop-titlebar-brand {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #949ba4;
+  letter-spacing: 0.3px;
+}
+
+.desktop-titlebar-drag {
+  flex: 1;
+  height: 100%;
+  -webkit-app-region: drag;
+}
+
+.desktop-titlebar-controls {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.desktop-control-btn {
+  background: transparent;
+  border: none;
+  color: #949ba4;
+  width: 44px;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+  padding: 0;
+  margin: 0;
+}
+
+.desktop-control-btn:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.desktop-control-btn.close:hover {
+  background-color: #ed4245;
+  color: #ffffff;
+}
+
+.desktop-control-btn.close:active {
+  background-color: #c03537;
+}
+
+/* Regras quando rodando dentro do cliente Electron Desktop */
+body.is-electron {
+  flex-direction: column !important;
+}
+
+body.is-electron .desktop-titlebar {
+  display: flex !important;
+}
+
+body.is-electron #app {
+  height: calc(100vh - 28px) !important;
+  max-height: calc(100vh - 28px) !important;
+}
+
+/* Oculta botÃ£o de download para Windows na versÃ£o Desktop */
+body.is-electron #btn-download-desktop {
+  display: none !important;
+}
+

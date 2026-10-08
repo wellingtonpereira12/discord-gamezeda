@@ -35,5 +35,6 @@ public/uploads/sounds/*
 !public/uploads/sounds/.gitkeep
 public/uploads/avatars/*
 !public/uploads/avatars/.gitkeep
-
+# Scratch / arquivos temporários
+scratch/
 
