@@ -7,8 +7,46 @@ import { escapeHtml } from './utils.js';
 let activeSocket = null;
 let activeGuildId = 'gamezeda';
 let cachedGuilds = [];
+let currentGuildPermissions = { isOwner: false, isAdmin: false, isMod: false, roles: [] };
 let onGuildSelectedCallback = null;
 let onHomeSelectedCallback = null;
+
+export function getCurrentGuildPermissions() {
+  return currentGuildPermissions;
+}
+
+export function updateGuildHeaderPermissionsUI() {
+  const btnMenuServerSettings = document.getElementById('btn-menu-server-settings');
+  const btnMenuCreateChannel = document.getElementById('btn-menu-create-channel');
+  const btnMenuCreateCategory = document.getElementById('btn-menu-create-category');
+  const btnMenuDeleteServer = document.getElementById('btn-menu-delete-server');
+  const serverMenuDeleteSeparator = document.getElementById('server-menu-delete-separator');
+  const serverDangerZone = document.getElementById('server-danger-zone');
+
+  const canAdmin = !!(currentGuildPermissions && (currentGuildPermissions.isAdmin || currentGuildPermissions.isOwner));
+  const canMod = !!(currentGuildPermissions && (currentGuildPermissions.isMod || canAdmin));
+  const isCustomGuild = activeGuildId && activeGuildId !== 'gamezeda';
+  const isOwner = !!(currentGuildPermissions && currentGuildPermissions.isOwner && isCustomGuild);
+
+  if (btnMenuServerSettings) {
+    btnMenuServerSettings.style.display = canAdmin ? 'flex' : 'none';
+  }
+  if (btnMenuCreateChannel) {
+    btnMenuCreateChannel.style.display = canMod ? 'flex' : 'none';
+  }
+  if (btnMenuCreateCategory) {
+    btnMenuCreateCategory.style.display = canMod ? 'flex' : 'none';
+  }
+  if (btnMenuDeleteServer) {
+    btnMenuDeleteServer.style.display = isOwner ? 'flex' : 'none';
+  }
+  if (serverMenuDeleteSeparator) {
+    serverMenuDeleteSeparator.style.display = isOwner ? 'block' : 'none';
+  }
+  if (serverDangerZone) {
+    serverDangerZone.style.display = isOwner ? 'flex' : 'none';
+  }
+}
 
 export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
   activeSocket = socket;
@@ -273,10 +311,7 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
   const serverDangerZone = document.getElementById('server-danger-zone');
 
   function updateDeleteServerVisibility() {
-    const isCustomGuild = activeGuildId && activeGuildId !== 'gamezeda';
-    if (btnMenuDeleteServer) btnMenuDeleteServer.style.display = isCustomGuild ? 'flex' : 'none';
-    if (serverMenuDeleteSeparator) serverMenuDeleteSeparator.style.display = isCustomGuild ? 'block' : 'none';
-    if (serverDangerZone) serverDangerZone.style.display = isCustomGuild ? 'flex' : 'none';
+    updateGuildHeaderPermissionsUI();
   }
 
   const handleDeleteServerClick = () => {
@@ -368,6 +403,11 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
     }
     const serverDropdownMenu = document.getElementById('server-dropdown-menu');
     if (serverDropdownMenu) serverDropdownMenu.style.display = 'none';
+
+    if (!currentGuildPermissions.isAdmin && !currentGuildPermissions.isOwner) {
+      alert('Você não tem permissão para acessar as configurações deste servidor.');
+      return;
+    }
 
     const curGuild = cachedGuilds.find(g => g && String(g.id) === String(activeGuildId)) || { name: 'FakeDC', iconUrl: '/assets/logo.png' };
 
@@ -489,21 +529,33 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
   const btnSubmitNewRole = document.getElementById('btn-submit-new-role');
   const newRoleNameInput = document.getElementById('new-role-name-input');
   const newRoleColorInput = document.getElementById('new-role-color-input');
+  const editingRoleIdInput = document.getElementById('editing-role-id');
+  const roleFormTitle = document.getElementById('role-form-title');
+  const rolePermAdmin = document.getElementById('role-perm-admin');
+  const rolePermMod = document.getElementById('role-perm-mod');
   const rolesListContainer = document.getElementById('roles-list-container');
+
+  function resetRoleForm() {
+    if (editingRoleIdInput) editingRoleIdInput.value = '';
+    if (roleFormTitle) roleFormTitle.textContent = 'CRIAR NOVO CARGO';
+    if (newRoleNameInput) newRoleNameInput.value = '';
+    if (newRoleColorInput) newRoleColorInput.value = '#5865F2';
+    if (rolePermAdmin) rolePermAdmin.checked = false;
+    if (rolePermMod) rolePermMod.checked = false;
+    if (btnSubmitNewRole) btnSubmitNewRole.textContent = 'Salvar Cargo';
+  }
 
   if (btnCreateRoleTrigger && newRolePanel) {
     btnCreateRoleTrigger.addEventListener('click', () => {
       newRolePanel.style.display = 'block';
-      if (newRoleNameInput) {
-        newRoleNameInput.value = '';
-        newRoleNameInput.focus();
-      }
+      resetRoleForm();
+      if (newRoleNameInput) newRoleNameInput.focus();
     });
   }
 
   if (btnCancelNewRole) {
     btnCancelNewRole.addEventListener('click', () => {
-      if (newRoleNameInput) newRoleNameInput.value = '';
+      resetRoleForm();
     });
   }
 
@@ -520,32 +572,59 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
     btnSubmitNewRole.addEventListener('click', () => {
       const roleName = newRoleNameInput ? newRoleNameInput.value.trim() : '';
       const roleColor = newRoleColorInput ? newRoleColorInput.value : '#5865F2';
+      const editingId = editingRoleIdInput ? editingRoleIdInput.value : '';
       if (!roleName) {
         if (newRoleNameInput) newRoleNameInput.focus();
         return;
       }
+
+      const permissions = [];
+      if (rolePermAdmin && rolePermAdmin.checked) permissions.push('admin');
+      if (rolePermMod && rolePermMod.checked) permissions.push('mod');
 
       if (!activeSocket) return;
 
       btnSubmitNewRole.disabled = true;
       btnSubmitNewRole.textContent = 'Salvando...';
 
-      activeSocket.emit('guild:role:create', {
-        guildId: activeGuildId,
-        name: roleName,
-        color: roleColor
-      }, (res) => {
-        btnSubmitNewRole.disabled = false;
-        btnSubmitNewRole.textContent = 'Salvar Cargo';
+      if (editingId) {
+        activeSocket.emit('guild:role:update', {
+          guildId: activeGuildId,
+          roleId: editingId,
+          name: roleName,
+          color: roleColor,
+          permissions
+        }, (res) => {
+          btnSubmitNewRole.disabled = false;
+          btnSubmitNewRole.textContent = 'Salvar Cargo';
 
-        if (res && res.success) {
-          if (newRoleNameInput) newRoleNameInput.value = '';
-          loadGuildRoles();
-          loadGuildMembers();
-        } else {
-          alert((res && res.message) || 'Erro ao criar cargo.');
-        }
-      });
+          if (res && res.success) {
+            resetRoleForm();
+            loadGuildRoles();
+            loadGuildMembers();
+          } else {
+            alert((res && res.message) || 'Erro ao editar cargo.');
+          }
+        });
+      } else {
+        activeSocket.emit('guild:role:create', {
+          guildId: activeGuildId,
+          name: roleName,
+          color: roleColor,
+          permissions
+        }, (res) => {
+          btnSubmitNewRole.disabled = false;
+          btnSubmitNewRole.textContent = 'Salvar Cargo';
+
+          if (res && res.success) {
+            resetRoleForm();
+            loadGuildRoles();
+            loadGuildMembers();
+          } else {
+            alert((res && res.message) || 'Erro ao criar cargo.');
+          }
+        });
+      }
     });
   }
 
@@ -564,32 +643,119 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
     if (roles.length === 0) {
       rolesListContainer.innerHTML = `
         <div style="color: #949ba4; font-size: 13px; text-align: center; padding: 18px;">
-          Nenhum cargo criado ainda. Clique em "+ Criar Cargo" acima.
+          Nenhum cargo criado ainda. Preencha os campos acima para criar um cargo.
         </div>
       `;
       return;
     }
 
-    roles.forEach(role => {
+    const sortedRoles = [...roles].sort((a, b) => (a.position || 0) - (b.position || 0));
+
+    sortedRoles.forEach((role, idx) => {
       const row = document.createElement('div');
       row.className = 'role-row-item';
+      row.style.display = 'flex';
+      row.style.alignItems = 'center';
+      row.style.justifyContent = 'space-between';
+      row.style.padding = '8px 12px';
+      row.style.background = '#2b2d31';
+      row.style.borderRadius = '4px';
+      row.style.border = '1px solid #383a40';
+
+      const permsBadges = [];
+      const p = role.permissions || [];
+      if (p.includes('admin') || p === 'admin') {
+        permsBadges.push(`<span style="background: rgba(237, 66, 69, 0.2); color: #ed4245; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">ADMIN</span>`);
+      }
+      if (p.includes('mod') || p === 'mod') {
+        permsBadges.push(`<span style="background: rgba(88, 101, 242, 0.2); color: #5865F2; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">MOD</span>`);
+      }
+
       row.innerHTML = `
         <div style="display: flex; align-items: center; gap: 10px;">
-          <span class="role-color-dot" style="background-color: ${role.color};"></span>
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <button type="button" class="btn-subtle btn-role-up" title="Mover para cima" style="background: transparent; border: none; color: #949ba4; cursor: pointer; padding: 0 4px; line-height: 1; font-size: 10px;" ${idx === 0 ? 'disabled style="opacity: 0.3; cursor: default;"' : ''}>▲</button>
+            <button type="button" class="btn-subtle btn-role-down" title="Mover para baixo" style="background: transparent; border: none; color: #949ba4; cursor: pointer; padding: 0 4px; line-height: 1; font-size: 10px;" ${idx === sortedRoles.length - 1 ? 'disabled style="opacity: 0.3; cursor: default;"' : ''}>▼</button>
+          </div>
+          <span class="role-color-dot" style="width: 12px; height: 12px; border-radius: 50%; background-color: ${role.color}; flex-shrink: 0;"></span>
           <span style="color: #f2f3f5; font-weight: 600; font-size: 14px;">${escapeHtml(role.name)}</span>
+          <div style="display: flex; gap: 4px; margin-left: 6px;">
+            ${permsBadges.join('')}
+          </div>
         </div>
-        <button type="button" class="btn-subtle" style="color: #ed4245; background: transparent; border: none; cursor: pointer; padding: 4px 8px; font-size: 12px; font-weight: 600;" title="Excluir Cargo">
-          Excluir
-        </button>
+        <div style="display: flex; gap: 6px;">
+          <button type="button" class="btn-subtle btn-role-edit" style="color: #5865F2; background: transparent; border: none; cursor: pointer; padding: 4px 8px; font-size: 12px; font-weight: 600;" title="Editar Cargo">
+            Editar
+          </button>
+          <button type="button" class="btn-subtle btn-role-delete" style="color: #ed4245; background: transparent; border: none; cursor: pointer; padding: 4px 8px; font-size: 12px; font-weight: 600;" title="Excluir Cargo">
+            Excluir
+          </button>
+        </div>
       `;
 
-      const btnDel = row.querySelector('button');
+      // Evento de Editar
+      const btnEdit = row.querySelector('.btn-role-edit');
+      if (btnEdit) {
+        btnEdit.addEventListener('click', () => {
+          if (editingRoleIdInput) editingRoleIdInput.value = role.id;
+          if (roleFormTitle) roleFormTitle.textContent = `EDITAR CARGO: ${role.name}`;
+          if (newRoleNameInput) newRoleNameInput.value = role.name;
+          if (newRoleColorInput) newRoleColorInput.value = role.color || '#5865F2';
+          if (rolePermAdmin) rolePermAdmin.checked = !!(p.includes('admin') || p === 'admin');
+          if (rolePermMod) rolePermMod.checked = !!(p.includes('mod') || p === 'mod');
+          if (btnSubmitNewRole) btnSubmitNewRole.textContent = 'Salvar Alterações';
+          if (newRolePanel) newRolePanel.style.display = 'block';
+          if (newRoleNameInput) newRoleNameInput.focus();
+        });
+      }
+
+      // Evento de Mover para Cima
+      const btnUp = row.querySelector('.btn-role-up');
+      if (btnUp && idx > 0) {
+        btnUp.addEventListener('click', () => {
+          const newOrder = [...sortedRoles];
+          const temp = newOrder[idx - 1];
+          newOrder[idx - 1] = newOrder[idx];
+          newOrder[idx] = temp;
+          activeSocket.emit('guild:role:reorder', {
+            guildId: activeGuildId,
+            orderedRoleIds: newOrder.map(r => r.id)
+          }, () => {
+            loadGuildRoles();
+          });
+        });
+      }
+
+      // Evento de Mover para Baixo
+      const btnDown = row.querySelector('.btn-role-down');
+      if (btnDown && idx < sortedRoles.length - 1) {
+        btnDown.addEventListener('click', () => {
+          const newOrder = [...sortedRoles];
+          const temp = newOrder[idx + 1];
+          newOrder[idx + 1] = newOrder[idx];
+          newOrder[idx] = temp;
+          activeSocket.emit('guild:role:reorder', {
+            guildId: activeGuildId,
+            orderedRoleIds: newOrder.map(r => r.id)
+          }, () => {
+            loadGuildRoles();
+          });
+        });
+      }
+
+      // Evento de Excluir
+      const btnDel = row.querySelector('.btn-role-delete');
       if (btnDel) {
         btnDel.addEventListener('click', () => {
           if (confirm(`Tem certeza que deseja excluir o cargo "${role.name}"?`)) {
             activeSocket.emit('guild:role:delete', { guildId: activeGuildId, roleId: role.id }, (delRes) => {
               if (delRes && delRes.success) {
+                if (editingRoleIdInput && editingRoleIdInput.value === role.id) {
+                  resetRoleForm();
+                }
                 loadGuildRoles();
+              } else {
+                alert((delRes && delRes.message) || 'Erro ao excluir cargo.');
               }
             });
           }
@@ -627,65 +793,132 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
       return;
     }
 
+    const canAdmin = !!(currentGuildPermissions && (currentGuildPermissions.isAdmin || currentGuildPermissions.isOwner));
+    const canMod = !!(currentGuildPermissions && (currentGuildPermissions.isMod || canAdmin));
+    const isCustomGuild = activeGuildId && activeGuildId !== 'gamezeda';
+
     members.forEach(member => {
       const card = document.createElement('div');
       card.className = 'member-settings-card';
+      card.style.display = 'flex';
+      card.style.alignItems = 'center';
+      card.style.justifyContent = 'space-between';
+      card.style.padding = '10px 14px';
+      card.style.background = '#2b2d31';
+      card.style.borderRadius = '6px';
+      card.style.border = '1px solid #383a40';
 
       const avatarUrl = member.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(member.username)}`;
+      const isOwnerMember = member.baseRole === 'owner';
+      const currentUserData = (typeof window.getCurrentUser === 'function') ? window.getCurrentUser() : null;
+      const isSelf = member.username && currentUserData && member.username.toLowerCase() === currentUserData.name.toLowerCase();
 
       let rolesBadgesHtml = '';
       (member.roles || []).forEach(r => {
         rolesBadgesHtml += `
-          <span class="role-badge" style="color: ${r.color}; border-color: ${r.color};">
+          <span class="role-badge" style="color: ${r.color}; border: 1px solid ${r.color}; padding: 2px 6px; border-radius: 4px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
             ${escapeHtml(r.name)}
-            <span class="role-badge-remove" data-role-id="${r.id}" title="Remover cargo">&times;</span>
+            ${canAdmin ? `<span class="role-badge-remove" data-role-id="${r.id}" style="cursor: pointer; font-weight: bold; margin-left: 2px;" title="Remover cargo">&times;</span>` : ''}
           </span>
         `;
       });
 
       const unassignedRoles = availableRoles.filter(ar => !(member.roles || []).some(mr => mr.id === ar.id));
-      const roleSelectHtml = unassignedRoles.length > 0
+      const roleSelectHtml = (canAdmin && unassignedRoles.length > 0)
         ? `<select class="member-role-select" style="background: #1e1f22; color: #dbdee1; border: 1px solid #383a40; border-radius: 4px; padding: 4px 8px; font-size: 12px; outline: none; cursor: pointer;">
             <option value="">+ Atribuir Cargo</option>
             ${unassignedRoles.map(ar => `<option value="${ar.id}">${escapeHtml(ar.name)}</option>`).join('')}
           </select>`
-        : `<span style="color: #949ba4; font-size: 11px; font-style: italic;">Todos os cargos atribuídos</span>`;
+        : '';
+
+      let moderationButtonsHtml = '';
+      if (canMod && isCustomGuild && !isOwnerMember && !isSelf) {
+        moderationButtonsHtml = `
+          <div style="display: flex; gap: 6px; margin-left: 8px;">
+            <button type="button" class="btn-subtle btn-member-kick" style="color: #f23f43; background: transparent; border: 1px solid rgba(242, 63, 67, 0.3); border-radius: 4px; cursor: pointer; padding: 3px 8px; font-size: 11px; font-weight: 600;" title="Expulsar do Servidor">
+              Expulsar
+            </button>
+            <button type="button" class="btn-subtle btn-member-ban" style="color: #fff; background: #ed4245; border: none; border-radius: 4px; cursor: pointer; padding: 3px 8px; font-size: 11px; font-weight: 600;" title="Banir do Servidor">
+              Banir
+            </button>
+          </div>
+        `;
+      }
 
       card.innerHTML = `
         <div style="display: flex; align-items: center; gap: 10px;">
-          <img src="${avatarUrl}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+          <img src="${avatarUrl}" style="width: 34px; height: 34px; border-radius: 50%; object-fit: cover;">
           <div>
-            <div style="color: #f2f3f5; font-weight: 600; font-size: 14px;">${escapeHtml(member.username)}</div>
+            <div style="color: #f2f3f5; font-weight: 600; font-size: 14px;">
+              ${escapeHtml(member.username)}
+              ${isOwnerMember ? '<span style="color: #f0b232; font-size: 11px; font-weight: 700; margin-left: 4px;">👑 Dono</span>' : ''}
+            </div>
             <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">
               ${rolesBadgesHtml || '<span style="color: #949ba4; font-size: 11px;">Sem cargos</span>'}
             </div>
           </div>
         </div>
-        <div>
+        <div style="display: flex; align-items: center;">
           ${roleSelectHtml}
+          ${moderationButtonsHtml}
         </div>
       `;
 
       // Evento de remover cargo
-      card.querySelectorAll('.role-badge-remove').forEach(rmBtn => {
-        rmBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const rId = rmBtn.dataset.roleId;
-          activeSocket.emit('guild:member:role:remove', { guildId: activeGuildId, username: member.username, roleId: rId }, () => {
-            loadGuildMembers();
+      if (canAdmin) {
+        card.querySelectorAll('.role-badge-remove').forEach(rmBtn => {
+          rmBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const rId = rmBtn.dataset.roleId;
+            activeSocket.emit('guild:member:role:remove', { guildId: activeGuildId, username: member.username, roleId: rId }, () => {
+              loadGuildMembers();
+            });
           });
         });
-      });
 
-      // Evento de atribuir cargo
-      const selectRole = card.querySelector('.member-role-select');
-      if (selectRole) {
-        selectRole.addEventListener('change', (e) => {
-          const selectedRoleId = e.target.value;
-          if (!selectedRoleId) return;
-          activeSocket.emit('guild:member:role:assign', { guildId: activeGuildId, username: member.username, roleId: selectedRoleId }, () => {
-            loadGuildMembers();
+        // Evento de atribuir cargo
+        const selectRole = card.querySelector('.member-role-select');
+        if (selectRole) {
+          selectRole.addEventListener('change', (e) => {
+            const selectedRoleId = e.target.value;
+            if (!selectedRoleId) return;
+            activeSocket.emit('guild:member:role:assign', { guildId: activeGuildId, username: member.username, roleId: selectedRoleId }, () => {
+              loadGuildMembers();
+            });
           });
+        }
+      }
+
+      // Evento de expulsar
+      const btnKick = card.querySelector('.btn-member-kick');
+      if (btnKick) {
+        btnKick.addEventListener('click', () => {
+          if (confirm(`Tem certeza que deseja expulsar @${member.username} deste servidor?`)) {
+            activeSocket.emit('guild:member:kick', { guildId: activeGuildId, username: member.username }, (res) => {
+              if (res && res.success) {
+                loadGuildMembers();
+              } else {
+                alert((res && res.message) || 'Erro ao expulsar membro.');
+              }
+            });
+          }
+        });
+      }
+
+      // Evento de banir
+      const btnBan = card.querySelector('.btn-member-ban');
+      if (btnBan) {
+        btnBan.addEventListener('click', () => {
+          const reason = prompt(`Motivo do banimento de @${member.username}:`, 'Violação das regras do servidor');
+          if (reason !== null) {
+            activeSocket.emit('guild:member:ban', { guildId: activeGuildId, username: member.username, reason }, (res) => {
+              if (res && res.success) {
+                loadGuildMembers();
+              } else {
+                alert((res && res.message) || 'Erro ao banir membro.');
+              }
+            });
+          }
         });
       }
 
@@ -693,7 +926,7 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
     });
   }
 
-  // Socket listener de atualização de servidores
+  // Socket listeners de atualização
   if (activeSocket) {
     activeSocket.on('guild:updated-list', (guilds) => {
       renderGuildsList(guilds);
@@ -723,6 +956,30 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
     activeSocket.on('guild:members:roles-changed', ({ guildId }) => {
       if (guildId === activeGuildId) {
         loadGuildMembers();
+      }
+    });
+
+    activeSocket.on('guild:permissions:update', ({ guildId, permissions }) => {
+      if (guildId === activeGuildId) {
+        currentGuildPermissions = permissions;
+        updateGuildHeaderPermissionsUI();
+        if (typeof window.onGuildPermissionsUpdated === 'function') {
+          window.onGuildPermissionsUpdated(permissions);
+        }
+      }
+    });
+
+    activeSocket.on('guild:kicked', ({ guildId }) => {
+      if (activeGuildId === guildId) {
+        alert('Você foi expulso deste servidor.');
+        selectGuild('gamezeda');
+      }
+    });
+
+    activeSocket.on('guild:banned', ({ guildId, reason }) => {
+      if (activeGuildId === guildId) {
+        alert(`Você foi banido deste servidor. Motivo: ${reason || 'Não informado'}`);
+        selectGuild('gamezeda');
       }
     });
 
@@ -785,13 +1042,7 @@ export function selectGuild(guildId) {
   if (headerName) headerName.textContent = targetGuild.name;
   if (headerIcon) headerIcon.src = targetGuild.iconUrl || '/assets/logo.png';
 
-  const btnMenuDeleteServer = document.getElementById('btn-menu-delete-server');
-  const serverMenuDeleteSeparator = document.getElementById('server-menu-delete-separator');
-  const serverDangerZone = document.getElementById('server-danger-zone');
-  const isCustomGuild = guildId && guildId !== 'gamezeda';
-  if (btnMenuDeleteServer) btnMenuDeleteServer.style.display = isCustomGuild ? 'flex' : 'none';
-  if (serverMenuDeleteSeparator) serverMenuDeleteSeparator.style.display = isCustomGuild ? 'block' : 'none';
-  if (serverDangerZone) serverDangerZone.style.display = isCustomGuild ? 'flex' : 'none';
+  updateGuildHeaderPermissionsUI();
 
   if (!activeSocket) return;
 
@@ -800,6 +1051,11 @@ export function selectGuild(guildId) {
       if (res.guild) {
         if (headerName) headerName.textContent = res.guild.name;
         if (headerIcon) headerIcon.src = res.guild.iconUrl || '/assets/logo.png';
+      }
+      currentGuildPermissions = res.permissions || { isOwner: false, isAdmin: false, isMod: false, roles: [] };
+      updateGuildHeaderPermissionsUI();
+      if (typeof window.onGuildPermissionsUpdated === 'function') {
+        window.onGuildPermissionsUpdated(currentGuildPermissions);
       }
       if (typeof onGuildSelectedCallback === 'function') {
         onGuildSelectedCallback(res);

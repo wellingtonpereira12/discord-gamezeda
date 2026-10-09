@@ -64,8 +64,10 @@ import {
   renderGuildsList,
   selectGuild,
   setActiveGuild,
-  getActiveGuildId
-} from './js/modules/guilds.js?v=20261008_v1.3.5';
+  getActiveGuildId,
+  getCurrentGuildPermissions,
+  updateGuildHeaderPermissionsUI
+} from './js/modules/guilds.js?v=20261009_v1.4.1';
 import {
   initDirectMessages,
   loadConversations,
@@ -505,6 +507,46 @@ let allOnlineUsers = [];
 let allVoiceUsers = [];
 let allVoiceRoomsState = { 'gamezeda': [] };
 let availableSounds = [];
+
+let currentGuildRoles = [];
+let currentGuildMembersWithRoles = [];
+let currentUserGuildPermissions = { isOwner: false, isAdmin: false, isMod: false, roles: [] };
+
+function getMemberRoleColor(username) {
+  if (!username) return null;
+  const mem = currentGuildMembersWithRoles.find(m => m.username && m.username.toLowerCase() === username.toLowerCase());
+  if (mem && mem.roles && mem.roles.length > 0) {
+    const sorted = [...mem.roles].sort((a, b) => (a.position || 0) - (b.position || 0));
+    return sorted[0].color || null;
+  }
+  return null;
+}
+
+window.getCurrentUser = () => currentUser;
+
+window.onGuildPermissionsUpdated = (permissions) => {
+  currentUserGuildPermissions = permissions || { isOwner: false, isAdmin: false, isMod: false, roles: [] };
+  renderSidebarChannels();
+  renderMembersSidebar();
+};
+
+function reloadGuildMembersAndRoles(guildId) {
+  const gId = guildId || ((typeof getActiveGuildId === 'function') ? getActiveGuildId() : 'gamezeda');
+  if (!gId) return;
+  socket.emit('guild:members:list', { guildId: gId }, (res) => {
+    if (res && res.success && Array.isArray(res.members)) {
+      currentGuildMembersWithRoles = res.members;
+      renderMembersSidebar();
+    }
+  });
+  socket.emit('guild:roles:list', { guildId: gId }, (res) => {
+    if (res && res.success && Array.isArray(res.roles)) {
+      currentGuildRoles = res.roles;
+      renderMembersSidebar();
+    }
+  });
+}
+window.reloadGuildMembersAndRoles = reloadGuildMembersAndRoles;
 
 let allCategories = [
   { id: 'cat-text', name: 'Canais de Texto', position: 0 },
@@ -1172,6 +1214,16 @@ socket.on('init:state', (data) => {
       if (headerIcon) headerIcon.src = curGuild.iconUrl || '/assets/logo.png';
     }
   }
+  if (data.permissions) {
+    currentUserGuildPermissions = data.permissions;
+    if (typeof window.onGuildPermissionsUpdated === 'function') {
+      window.onGuildPermissionsUpdated(data.permissions);
+    }
+  }
+  if (data.roles) {
+    currentGuildRoles = data.roles;
+  }
+  reloadGuildMembersAndRoles(targetGuildId);
   syncCurrentUserFromList();
   renderSidebarChannels();
   renderMembersSidebar();
@@ -1411,6 +1463,25 @@ socket.on('voice:channel-deleted', ({ channelId }) => {
   }
 });
 
+socket.on('voice:force-disconnect', ({ reason }) => {
+  leaveVoice(true);
+  showSoundToast(reason || 'Você foi desconectado do canal de voz por um moderador.');
+});
+
+socket.on('guild:members:roles-changed', ({ guildId }) => {
+  const currentGId = (typeof getActiveGuildId === 'function') ? getActiveGuildId() : 'gamezeda';
+  if (guildId === currentGId) {
+    reloadGuildMembersAndRoles(guildId);
+  }
+});
+
+socket.on('guild:roles:updated', ({ guildId }) => {
+  const currentGId = (typeof getActiveGuildId === 'function') ? getActiveGuildId() : 'gamezeda';
+  if (guildId === currentGId) {
+    reloadGuildMembersAndRoles(guildId);
+  }
+});
+
 socket.on('chat:channel-history', ({ channelId, messages }) => {
   channelMessagesStore[channelId] = messages;
   if (channelId === currentTextChannel) {
@@ -1478,43 +1549,80 @@ function renderMembersSidebar() {
   if (!membersListContent) return;
   membersListContent.innerHTML = '';
 
+  const currentGId = (typeof getActiveGuildId === 'function') ? getActiveGuildId() : 'gamezeda';
+
+  // 1. Filtrar membros relevantes
   const seenMemberNames = new Set();
-  const voiceMembers = [];
-  const otherMembers = [];
+  const onlineUsersInGuild = [];
 
   allOnlineUsers.forEach(user => {
     const lower = (user.name || '').toLowerCase();
     if (seenMemberNames.has(lower)) return;
-    seenMemberNames.add(lower);
 
-    if (user.inVoice) voiceMembers.push(user);
-    else otherMembers.push(user);
+    // Se estiver em servidor personalizado, só exibe quem for membro desse servidor
+    if (currentGId && currentGId !== 'gamezeda') {
+      const isMember = currentGuildMembersWithRoles.some(m => m.username && m.username.toLowerCase() === lower);
+      if (!isMember) return;
+    }
+
+    seenMemberNames.add(lower);
+    onlineUsersInGuild.push(user);
   });
 
-  if (voiceMembers.length > 0) {
-    const catVoice = document.createElement('div');
-    catVoice.className = 'member-category';
-    catVoice.textContent = `EM VOZ — ${voiceMembers.length}`;
-    membersListContent.appendChild(catVoice);
+  // 2. Agrupar por cargo mais alto (menor position)
+  const sortedRoles = [...currentGuildRoles].sort((a, b) => (a.position || 0) - (b.position || 0));
+  const usersByRole = new Map();
+  const noRoleUsers = [];
 
-    voiceMembers.forEach(user => {
-      membersListContent.appendChild(createMemberItem(user, true));
+  onlineUsersInGuild.forEach(user => {
+    const memData = currentGuildMembersWithRoles.find(m => m.username && m.username.toLowerCase() === user.name.toLowerCase());
+    if (memData && memData.roles && memData.roles.length > 0) {
+      const memSortedRoles = [...memData.roles].sort((a, b) => (a.position || 0) - (b.position || 0));
+      const highestRole = memSortedRoles[0];
+      if (!usersByRole.has(highestRole.id)) {
+        usersByRole.set(highestRole.id, { role: highestRole, users: [] });
+      }
+      usersByRole.get(highestRole.id).users.push(user);
+    } else {
+      noRoleUsers.push(user);
+    }
+  });
+
+  // 3. Renderiza cada grupo de cargo
+  let renderedAnyRole = false;
+  sortedRoles.forEach(role => {
+    const group = usersByRole.get(role.id);
+    if (group && group.users.length > 0) {
+      renderedAnyRole = true;
+      const catHeader = document.createElement('div');
+      catHeader.className = 'member-category';
+      catHeader.style.color = role.color || '#949ba4';
+      catHeader.style.fontWeight = '700';
+      catHeader.textContent = `${role.name.toUpperCase()} — ${group.users.length}`;
+      membersListContent.appendChild(catHeader);
+
+      group.users.forEach(u => {
+        membersListContent.appendChild(createMemberItem(u, u.inVoice, role.color));
+      });
+    }
+  });
+
+  // 4. Membros sem cargo específico (ONLINE)
+  if (noRoleUsers.length > 0) {
+    const catOnline = document.createElement('div');
+    catOnline.className = 'member-category';
+    if (renderedAnyRole) catOnline.style.marginTop = '12px';
+    catOnline.textContent = `ONLINE — ${noRoleUsers.length}`;
+    membersListContent.appendChild(catOnline);
+
+    noRoleUsers.forEach(u => {
+      membersListContent.appendChild(createMemberItem(u, u.inVoice, null));
     });
   }
 
-  const catOnline = document.createElement('div');
-  catOnline.className = 'member-category';
-  catOnline.style.marginTop = '12px';
-  catOnline.textContent = `ONLINE — ${otherMembers.length}`;
-  membersListContent.appendChild(catOnline);
-
-  otherMembers.forEach(user => {
-    membersListContent.appendChild(createMemberItem(user, false));
-  });
-
   const onlineCountEl = document.getElementById('header-online-count');
   if (onlineCountEl) {
-    const totalOnline = seenMemberNames.size || (allOnlineUsers && allOnlineUsers.length) || 1;
+    const totalOnline = onlineUsersInGuild.length;
     onlineCountEl.textContent = `${totalOnline} online`;
   }
 }
@@ -1734,7 +1842,7 @@ function updateMyUserStatus() {
   }
 }
 
-function createMemberItem(user, isVoice) {
+function createMemberItem(user, isVoice, roleColor = null) {
   const div = document.createElement('div');
   div.className = 'member-item';
   div.setAttribute('data-member-id', user.id);
@@ -1744,6 +1852,7 @@ function createMemberItem(user, isVoice) {
   const userIsMuted = isLocal ? isMuted : !!user.isMuted;
   const userIsDeafened = isLocal ? isDeafened : !!user.isDeafened;
   const statusMode = (isLocal && currentUser?.statusMode) ? currentUser.statusMode : (user.statusMode || 'online');
+  const effectiveRoleColor = roleColor || getMemberRoleColor(user.name);
 
   // Atividade de Jogo (Rich Presence / Game Activity)
   const currentAct = (isLocal && myGameActivity) ? myGameActivity : user.activity;
@@ -1785,7 +1894,7 @@ function createMemberItem(user, isVoice) {
     </div>
     <div class="member-info">
       <div style="display: flex; align-items: center; gap: 4px;">
-        <span class="member-name">${escapeHtml(user.name)}${isLocal ? ' (Você)' : ''}</span>
+        <span class="member-name" style="${effectiveRoleColor ? `color: ${effectiveRoleColor}; font-weight: 600;` : ''}">${escapeHtml(user.name)}${isLocal ? ' (Você)' : ''}</span>
         ${isBot ? '<span class="bot-tag">BOT</span>' : ''}
         ${isVoice && (userIsMuted || userIsDeafened) ? `
           <div class="voice-user-status-icons">
@@ -1848,6 +1957,7 @@ function renderSidebarChannels() {
     catHeader.setAttribute('data-category-id', category.id);
 
     const isCoreCategory = category.id === 'cat-text' || category.id === 'cat-voice' || category.id.startsWith('cat-text-') || category.id.startsWith('cat-voice-');
+    const canMod = !!(currentUserGuildPermissions && (currentUserGuildPermissions.isMod || currentUserGuildPermissions.isAdmin || currentUserGuildPermissions.isOwner));
 
     catHeader.innerHTML = `
       <div class="category-header-left">
@@ -1855,10 +1965,12 @@ function renderSidebarChannels() {
         <span>${escapeHtml(category.name)}</span>
       </div>
       <div class="category-actions">
-        <button type="button" class="btn-cat-action btn-add-channel-cat" title="Criar Canal" data-cat-id="${category.id}">
-          <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
-        </button>
-        ${!isCoreCategory ? `
+        ${canMod ? `
+          <button type="button" class="btn-cat-action btn-add-channel-cat" title="Criar Canal" data-cat-id="${category.id}">
+            <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+          </button>
+        ` : ''}
+        ${(!isCoreCategory && canMod) ? `
           <button type="button" class="btn-cat-action btn-delete-cat" title="Excluir Categoria" data-cat-id="${category.id}" data-cat-name="${escapeHtml(category.name)}">
             <i data-lucide="trash-2" style="width: 13px; height: 13px;"></i>
           </button>
@@ -1925,7 +2037,7 @@ function renderSidebarChannels() {
           <div class="channel-item-right">
             ${effectiveCount > 0 ? `<span class="channel-unread-badge">${effectiveCount > 99 ? '99+' : effectiveCount}</span>` : ''}
             <div class="channel-item-actions">
-              ${(channel.id !== 'geral' && !channel.id.startsWith('geral-guild-')) ? `
+              ${(canMod && channel.id !== 'geral' && !channel.id.startsWith('geral-guild-')) ? `
                 <button type="button" class="btn-channel-delete" title="Excluir Canal" data-channel-id="${channel.id}" data-channel-name="${escapeHtml(channel.name)}">
                   <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
                 </button>
@@ -1940,7 +2052,7 @@ function renderSidebarChannels() {
         });
 
         item.addEventListener('contextmenu', (e) => {
-          if (channel.id !== 'geral' && !channel.id.startsWith('geral-guild-')) {
+          if (canMod && channel.id !== 'geral' && !channel.id.startsWith('geral-guild-')) {
             e.preventDefault();
             e.stopPropagation();
             openDeleteModal('channel', channel.id, channel.name);
@@ -1979,7 +2091,7 @@ function renderSidebarChannels() {
               ${isCurrentVoiceRoom ? 'Conectado' : (voiceUsers.length > 0 ? `${voiceUsers.length} online` : 'Conectar')}
             </span>
             <div class="channel-item-actions">
-              ${(channel.id !== 'gamezeda' && !channel.id.startsWith('voz-guild-')) ? `
+              ${(canMod && channel.id !== 'gamezeda' && !channel.id.startsWith('voz-guild-')) ? `
                 <button type="button" class="btn-channel-delete" title="Excluir Canal de Voz" data-channel-id="${channel.id}" data-channel-name="${escapeHtml(channel.name)}">
                   <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
                 </button>
@@ -1994,7 +2106,7 @@ function renderSidebarChannels() {
         });
 
         item.addEventListener('contextmenu', (e) => {
-          if (channel.id !== 'gamezeda' && !channel.id.startsWith('voz-guild-')) {
+          if (canMod && channel.id !== 'gamezeda' && !channel.id.startsWith('voz-guild-')) {
             e.preventDefault();
             e.stopPropagation();
             openDeleteModal('channel', channel.id, channel.name);
@@ -5360,6 +5472,14 @@ initGuilds({
     allChannels = Array.isArray(data.channels) ? data.channels : [];
     if (data.chatMessages) Object.assign(channelMessagesStore, data.chatMessages);
 
+    // Permissões e cargos do servidor selecionado
+    currentUserGuildPermissions = data.permissions || { isOwner: false, isAdmin: false, isMod: false, roles: [] };
+    currentGuildRoles = Array.isArray(data.roles) ? data.roles : [];
+    if (typeof window.onGuildPermissionsUpdated === 'function') {
+      window.onGuildPermissionsUpdated(currentUserGuildPermissions);
+    }
+    reloadGuildMembersAndRoles(data.guildId);
+
     // 1. Renderiza imediatamente a lista exclusiva de canais deste servidor
     renderSidebarChannels();
 
@@ -5379,6 +5499,11 @@ initGuilds({
     const channelsDmView = document.getElementById('channels-dm-view');
     if (channelsServerView) channelsServerView.style.display = 'none';
     if (channelsDmView) channelsDmView.style.display = 'flex';
+
+    currentUserGuildPermissions = { isOwner: true, isAdmin: true, isMod: true, roles: [] };
+    currentGuildRoles = [];
+    currentGuildMembersWithRoles = [];
+    renderMembersSidebar();
 
     loadConversations();
 
@@ -5622,9 +5747,71 @@ function openContextMenu(e, peerId, peerName) {
     };
   }
 
+  // Ações de Moderação
+  const canMod = !!(currentUserGuildPermissions && (currentUserGuildPermissions.isMod || currentUserGuildPermissions.isAdmin || currentUserGuildPermissions.isOwner));
+  const currentGId = (typeof getActiveGuildId === 'function') ? getActiveGuildId() : 'gamezeda';
+  const isCustomGuild = currentGId && currentGId !== 'gamezeda';
+
+  const ctxModSeparator = document.querySelector('.ctx-mod-separator');
+  const ctxVoiceKick = document.getElementById('ctx-item-voice-kick');
+  const ctxMemberKick = document.getElementById('ctx-item-member-kick');
+  const ctxMemberBan = document.getElementById('ctx-item-member-ban');
+
+  const targetUserInVoice = allVoiceUsers.some(u => (u.id === peerId) || (u.name && u.name.toLowerCase() === (peerName || '').toLowerCase()));
+
+  if (ctxModSeparator) {
+    ctxModSeparator.style.display = (canMod && (targetUserInVoice || isCustomGuild)) ? 'block' : 'none';
+  }
+  if (ctxVoiceKick) {
+    ctxVoiceKick.style.display = (canMod && targetUserInVoice) ? 'flex' : 'none';
+    ctxVoiceKick.onclick = (ev) => {
+      ev.stopPropagation();
+      closeContextMenu();
+      socket.emit('voice:disconnect-member', {
+        targetUsername: peerName,
+        targetSocketId: peerId,
+        guildId: currentGId
+      }, (res) => {
+        if (!res || !res.success) alert((res && res.message) || 'Erro ao desconectar usuário da voz.');
+      });
+    };
+  }
+  if (ctxMemberKick) {
+    ctxMemberKick.style.display = (canMod && isCustomGuild) ? 'flex' : 'none';
+    ctxMemberKick.onclick = (ev) => {
+      ev.stopPropagation();
+      closeContextMenu();
+      if (confirm(`Expulsar @${peerName} deste servidor?`)) {
+        socket.emit('guild:member:kick', {
+          guildId: currentGId,
+          username: peerName
+        }, (res) => {
+          if (!res || !res.success) alert((res && res.message) || 'Erro ao expulsar membro.');
+        });
+      }
+    };
+  }
+  if (ctxMemberBan) {
+    ctxMemberBan.style.display = (canMod && isCustomGuild) ? 'flex' : 'none';
+    ctxMemberBan.onclick = (ev) => {
+      ev.stopPropagation();
+      closeContextMenu();
+      const reason = prompt(`Motivo do banimento de @${peerName}:`, 'Violação das regras do servidor');
+      if (reason !== null) {
+        socket.emit('guild:member:ban', {
+          guildId: currentGId,
+          username: peerName,
+          reason
+        }, (res) => {
+          if (!res || !res.success) alert((res && res.message) || 'Erro ao banir membro.');
+        });
+      }
+    };
+  }
+
   userContextMenu.style.display = 'flex';
   const menuWidth = 240;
-  const menuHeight = 235;
+  const menuHeight = canMod ? 320 : 235;
   let posX = (e && e.clientX != null) ? e.clientX : Math.max(10, Math.floor(window.innerWidth / 2 - menuWidth / 2));
   let posY = (e && e.clientY != null) ? e.clientY : Math.max(10, Math.floor(window.innerHeight / 2 - menuHeight / 2));
 

@@ -9,10 +9,15 @@ import {
   getChannelMessages,
   getGuildRoles,
   createGuildRole,
+  updateGuildRole,
+  reorderGuildRoles,
   deleteGuildRole,
   assignMemberRole,
   removeMemberRole,
-  getGuildMembersWithRoles
+  getGuildMembersWithRoles,
+  getUserGuildPermissions,
+  kickGuildMember,
+  banGuildMember
 } from '../config/db.js';
 
 export function registerGuildHandlers(io, socket, users) {
@@ -23,6 +28,22 @@ export function registerGuildHandlers(io, socket, users) {
       const guilds = await getUserGuilds(user ? user.name : null);
       if (typeof callback === 'function') {
         callback({ success: true, guilds });
+      }
+    } catch (err) {
+      if (typeof callback === 'function') {
+        callback({ success: false, message: err.message });
+      }
+    }
+  });
+
+  // Obter permissões do usuário no servidor ativo
+  socket.on('guild:permissions:get', async ({ guildId }, callback) => {
+    try {
+      const user = users.get(socket.id);
+      const targetGuildId = guildId || (user && user.currentGuildId) || 'gamezeda';
+      const permissions = await getUserGuildPermissions(targetGuildId, user ? user.name : null);
+      if (typeof callback === 'function') {
+        callback({ success: true, guildId: targetGuildId, permissions });
       }
     } catch (err) {
       if (typeof callback === 'function') {
@@ -110,6 +131,7 @@ export function registerGuildHandlers(io, socket, users) {
       const roles = await getGuildRoles(targetGuildId);
       const userGuilds = await getUserGuilds(user ? user.name : null);
       const currentGuild = userGuilds.find(g => g.id === targetGuildId);
+      const permissions = await getUserGuildPermissions(targetGuildId, user ? user.name : null);
 
       const messagesMap = {};
       for (const ch of channels) {
@@ -117,6 +139,8 @@ export function registerGuildHandlers(io, socket, users) {
           messagesMap[ch.id] = await getChannelMessages(ch.id, 50);
         }
       }
+
+      socket.emit('guild:permissions:update', { guildId: targetGuildId, permissions });
 
       if (typeof callback === 'function') {
         callback({
@@ -126,7 +150,8 @@ export function registerGuildHandlers(io, socket, users) {
           categories,
           channels,
           roles,
-          chatMessages: messagesMap
+          chatMessages: messagesMap,
+          permissions
         });
       }
     } catch (err) {
@@ -137,12 +162,18 @@ export function registerGuildHandlers(io, socket, users) {
     }
   });
 
-  // Atualizar configurações do servidor (Nome, Ícone)
+  // Atualizar configurações do servidor (Nome, Ícone) - Requer isAdmin
   socket.on('guild:update', async ({ guildId, name, iconUrl }, callback) => {
     try {
       const user = users.get(socket.id);
       if (!user) {
         if (typeof callback === 'function') callback({ success: false, message: 'Não autenticado.' });
+        return;
+      }
+
+      const perms = await getUserGuildPermissions(guildId, user.name);
+      if (!perms.isAdmin) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Apenas administradores podem alterar as configurações do servidor.' });
         return;
       }
 
@@ -177,12 +208,18 @@ export function registerGuildHandlers(io, socket, users) {
     }
   });
 
-  // Criar Novo Cargo
+  // Criar Novo Cargo - Requer isAdmin
   socket.on('guild:role:create', async ({ guildId, name, color, permissions }, callback) => {
     try {
       const user = users.get(socket.id);
       if (!user) {
         if (typeof callback === 'function') callback({ success: false, message: 'Não autenticado.' });
+        return;
+      }
+
+      const perms = await getUserGuildPermissions(guildId, user.name);
+      if (!perms.isAdmin) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Apenas administradores podem criar cargos.' });
         return;
       }
 
@@ -203,7 +240,75 @@ export function registerGuildHandlers(io, socket, users) {
     }
   });
 
-  // Excluir Cargo
+  // Atualizar Cargo - Requer isAdmin
+  socket.on('guild:role:update', async ({ guildId, roleId, name, color, permissions }, callback) => {
+    try {
+      const user = users.get(socket.id);
+      if (!user) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Não autenticado.' });
+        return;
+      }
+
+      const perms = await getUserGuildPermissions(guildId, user.name);
+      if (!perms.isAdmin) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Apenas administradores podem editar cargos.' });
+        return;
+      }
+
+      const updatedRole = await updateGuildRole(guildId, roleId, { name, color, permissions });
+      console.log(`[*] Cargo [${updatedRole.name}] atualizado no servidor ${guildId} por ${user.name}`);
+
+      io.to(`guild:${guildId}`).emit('guild:roles:updated', { guildId });
+      io.emit('guild:roles:updated', { guildId });
+      io.to(`guild:${guildId}`).emit('guild:members:roles-changed', { guildId });
+      io.emit('guild:members:roles-changed', { guildId });
+
+      if (typeof callback === 'function') {
+        callback({ success: true, role: updatedRole });
+      }
+    } catch (err) {
+      console.warn('Erro ao atualizar cargo:', err.message);
+      if (typeof callback === 'function') {
+        callback({ success: false, message: err.message });
+      }
+    }
+  });
+
+  // Reordenar Cargos - Requer isAdmin
+  socket.on('guild:role:reorder', async ({ guildId, orderedRoleIds }, callback) => {
+    try {
+      const user = users.get(socket.id);
+      if (!user) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Não autenticado.' });
+        return;
+      }
+
+      const perms = await getUserGuildPermissions(guildId, user.name);
+      if (!perms.isAdmin) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Apenas administradores podem reordenar cargos.' });
+        return;
+      }
+
+      await reorderGuildRoles(guildId, orderedRoleIds);
+      console.log(`[*] Cargos reordenados no servidor ${guildId} por ${user.name}`);
+
+      io.to(`guild:${guildId}`).emit('guild:roles:updated', { guildId });
+      io.emit('guild:roles:updated', { guildId });
+      io.to(`guild:${guildId}`).emit('guild:members:roles-changed', { guildId });
+      io.emit('guild:members:roles-changed', { guildId });
+
+      if (typeof callback === 'function') {
+        callback({ success: true });
+      }
+    } catch (err) {
+      console.warn('Erro ao reordenar cargos:', err.message);
+      if (typeof callback === 'function') {
+        callback({ success: false, message: err.message });
+      }
+    }
+  });
+
+  // Excluir Cargo - Requer isAdmin
   socket.on('guild:role:delete', async ({ guildId, roleId }, callback) => {
     try {
       const user = users.get(socket.id);
@@ -212,11 +317,19 @@ export function registerGuildHandlers(io, socket, users) {
         return;
       }
 
+      const perms = await getUserGuildPermissions(guildId, user.name);
+      if (!perms.isAdmin) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Apenas administradores podem excluir cargos.' });
+        return;
+      }
+
       await deleteGuildRole(guildId, roleId);
       console.log(`[-] Cargo [${roleId}] excluído do servidor ${guildId} por ${user.name}`);
 
       io.to(`guild:${guildId}`).emit('guild:roles:updated', { guildId });
       io.emit('guild:roles:updated', { guildId });
+      io.to(`guild:${guildId}`).emit('guild:members:roles-changed', { guildId });
+      io.emit('guild:members:roles-changed', { guildId });
 
       if (typeof callback === 'function') {
         callback({ success: true });
@@ -243,9 +356,21 @@ export function registerGuildHandlers(io, socket, users) {
     }
   });
 
-  // Atribuir Cargo a Membro
+  // Atribuir Cargo a Membro - Requer isAdmin
   socket.on('guild:member:role:assign', async ({ guildId, username, roleId }, callback) => {
     try {
+      const user = users.get(socket.id);
+      if (!user) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Não autenticado.' });
+        return;
+      }
+
+      const perms = await getUserGuildPermissions(guildId, user.name);
+      if (!perms.isAdmin) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Apenas administradores podem gerenciar cargos de membros.' });
+        return;
+      }
+
       await assignMemberRole(guildId, username, roleId);
       io.to(`guild:${guildId}`).emit('guild:members:roles-changed', { guildId });
       io.emit('guild:members:roles-changed', { guildId });
@@ -260,9 +385,21 @@ export function registerGuildHandlers(io, socket, users) {
     }
   });
 
-  // Remover Cargo de Membro
+  // Remover Cargo de Membro - Requer isAdmin
   socket.on('guild:member:role:remove', async ({ guildId, username, roleId }, callback) => {
     try {
+      const user = users.get(socket.id);
+      if (!user) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Não autenticado.' });
+        return;
+      }
+
+      const perms = await getUserGuildPermissions(guildId, user.name);
+      if (!perms.isAdmin) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Apenas administradores podem gerenciar cargos de membros.' });
+        return;
+      }
+
       await removeMemberRole(guildId, username, roleId);
       io.to(`guild:${guildId}`).emit('guild:members:roles-changed', { guildId });
       io.emit('guild:members:roles-changed', { guildId });
@@ -277,7 +414,137 @@ export function registerGuildHandlers(io, socket, users) {
     }
   });
 
-  // Excluir Servidor
+  // Expulsar Membro do Servidor - Requer isMod
+  socket.on('guild:member:kick', async ({ guildId, username }, callback) => {
+    try {
+      const user = users.get(socket.id);
+      if (!user) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Não autenticado.' });
+        return;
+      }
+
+      const targetGuildId = (guildId || '').trim();
+      const targetUsername = (username || '').trim();
+      if (!targetGuildId || !targetUsername) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Servidor e usuário são obrigatórios.' });
+        return;
+      }
+
+      const myPerms = await getUserGuildPermissions(targetGuildId, user.name);
+      if (!myPerms.isMod) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Apenas moderadores e administradores podem expulsar membros.' });
+        return;
+      }
+
+      const targetPerms = await getUserGuildPermissions(targetGuildId, targetUsername);
+      if (targetPerms.isOwner) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Você não pode expulsar o dono do servidor.' });
+        return;
+      }
+      if (targetPerms.isAdmin && !myPerms.isOwner) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Apenas o dono do servidor pode expulsar administradores.' });
+        return;
+      }
+      if (targetPerms.isMod && !myPerms.isAdmin) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Moderadores não podem expulsar outros moderadores.' });
+        return;
+      }
+
+      await kickGuildMember(targetGuildId, targetUsername);
+      console.log(`[-] Membro ${targetUsername} expulso de ${targetGuildId} por ${user.name}`);
+
+      io.to(`guild:${targetGuildId}`).emit('guild:members:roles-changed', { guildId: targetGuildId });
+      io.emit('guild:members:roles-changed', { guildId: targetGuildId });
+
+      // Se o usuário expulso estiver conectado, avisa e força atualização da lista de servidores
+      for (const [sId, u] of users.entries()) {
+        if (u && u.name && u.name.toLowerCase() === targetUsername.toLowerCase()) {
+          const s = io.sockets.sockets.get(sId);
+          if (s) {
+            const uGuilds = await getUserGuilds(u.name);
+            s.emit('guild:updated-list', uGuilds);
+            s.emit('guild:kicked', { guildId: targetGuildId });
+          }
+        }
+      }
+
+      if (typeof callback === 'function') {
+        callback({ success: true });
+      }
+    } catch (err) {
+      console.warn('Erro ao expulsar membro:', err.message);
+      if (typeof callback === 'function') {
+        callback({ success: false, message: err.message });
+      }
+    }
+  });
+
+  // Banir Membro do Servidor - Requer isMod
+  socket.on('guild:member:ban', async ({ guildId, username, reason }, callback) => {
+    try {
+      const user = users.get(socket.id);
+      if (!user) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Não autenticado.' });
+        return;
+      }
+
+      const targetGuildId = (guildId || '').trim();
+      const targetUsername = (username || '').trim();
+      if (!targetGuildId || !targetUsername) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Servidor e usuário são obrigatórios.' });
+        return;
+      }
+
+      const myPerms = await getUserGuildPermissions(targetGuildId, user.name);
+      if (!myPerms.isMod) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Apenas moderadores e administradores podem banir membros.' });
+        return;
+      }
+
+      const targetPerms = await getUserGuildPermissions(targetGuildId, targetUsername);
+      if (targetPerms.isOwner) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Você não pode banir o dono do servidor.' });
+        return;
+      }
+      if (targetPerms.isAdmin && !myPerms.isOwner) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Apenas o dono do servidor pode banir administradores.' });
+        return;
+      }
+      if (targetPerms.isMod && !myPerms.isAdmin) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Moderadores não podem banir outros moderadores.' });
+        return;
+      }
+
+      await banGuildMember(targetGuildId, targetUsername, user.name, reason || 'Banido por um moderador');
+      console.log(`[🚫] Membro ${targetUsername} BANIDO de ${targetGuildId} por ${user.name}`);
+
+      io.to(`guild:${targetGuildId}`).emit('guild:members:roles-changed', { guildId: targetGuildId });
+      io.emit('guild:members:roles-changed', { guildId: targetGuildId });
+
+      // Se o usuário banido estiver conectado, avisa e força atualização da lista de servidores
+      for (const [sId, u] of users.entries()) {
+        if (u && u.name && u.name.toLowerCase() === targetUsername.toLowerCase()) {
+          const s = io.sockets.sockets.get(sId);
+          if (s) {
+            const uGuilds = await getUserGuilds(u.name);
+            s.emit('guild:updated-list', uGuilds);
+            s.emit('guild:banned', { guildId: targetGuildId, reason });
+          }
+        }
+      }
+
+      if (typeof callback === 'function') {
+        callback({ success: true });
+      }
+    } catch (err) {
+      console.warn('Erro ao banir membro:', err.message);
+      if (typeof callback === 'function') {
+        callback({ success: false, message: err.message });
+      }
+    }
+  });
+
+  // Excluir Servidor - Apenas Owner
   socket.on('guild:delete', async ({ guildId }, callback) => {
     try {
       const user = users.get(socket.id);
@@ -289,6 +556,12 @@ export function registerGuildHandlers(io, socket, users) {
       const targetGuildId = (guildId || '').trim();
       if (!targetGuildId || targetGuildId === 'gamezeda') {
         if (typeof callback === 'function') callback({ success: false, message: 'O servidor principal não pode ser excluído.' });
+        return;
+      }
+
+      const perms = await getUserGuildPermissions(targetGuildId, user.name);
+      if (!perms.isOwner) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Apenas o dono do servidor pode excluí-lo.' });
         return;
       }
 

@@ -1,5 +1,6 @@
 import { BOT_USER, musicBot } from '../services/musicBot.js';
 import { watchPartyService } from '../services/watchParty.js';
+import { getUserGuildPermissions } from '../config/db.js';
 
 export function registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers) {
   // Entrar na voz (sala dinâmica ou padrão)
@@ -164,6 +165,77 @@ export function registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVo
     user.isMuted = !!payload.isMuted;
     user.isDeafened = !!payload.isDeafened;
     broadcastVoiceState();
+  });
+
+  // Desconectar membro do canal de voz (Ação de Moderação) - Requer isMod
+  socket.on('voice:disconnect-member', async ({ targetUsername, targetSocketId, guildId }, callback) => {
+    try {
+      const user = users.get(socket.id);
+      if (!user) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Não autenticado.' });
+        return;
+      }
+
+      const targetGuild = guildId || (user && user.currentGuildId) || 'gamezeda';
+      const perms = await getUserGuildPermissions(targetGuild, user.name);
+      if (!perms.isMod) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Apenas moderadores e administradores podem desconectar membros da voz.' });
+        return;
+      }
+
+      let targetSocket = null;
+      let targetUser = null;
+      if (targetSocketId) {
+        targetSocket = io.sockets.sockets.get(targetSocketId);
+        targetUser = users.get(targetSocketId);
+      } else if (targetUsername) {
+        for (const [sId, u] of users.entries()) {
+          if (u && u.name && u.name.toLowerCase() === targetUsername.toLowerCase() && u.inVoice) {
+            targetSocket = io.sockets.sockets.get(sId);
+            targetUser = u;
+            break;
+          }
+        }
+      }
+
+      if (!targetUser || !targetUser.inVoice) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Usuário não está conectado na voz.' });
+        return;
+      }
+
+      const targetPerms = await getUserGuildPermissions(targetGuild, targetUser.name);
+      if (targetPerms.isOwner) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Você não pode desconectar o dono do servidor.' });
+        return;
+      }
+      if (targetPerms.isAdmin && !perms.isOwner) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Apenas o dono do servidor pode desconectar administradores.' });
+        return;
+      }
+      if (targetPerms.isMod && !perms.isAdmin) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Moderadores não podem desconectar outros moderadores.' });
+        return;
+      }
+
+      console.log(`[Voz 🔇] ${targetUser.name} foi desconectado da voz por ${user.name}`);
+
+      leaveVoiceRoom(io, targetSocket, targetUser, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
+
+      if (targetSocket) {
+        targetSocket.emit('voice:force-disconnect', {
+          reason: `Você foi desconectado do canal de voz por ${user.name}.`
+        });
+      }
+
+      if (typeof callback === 'function') {
+        callback({ success: true });
+      }
+    } catch (err) {
+      console.warn('Erro ao desconectar usuário da voz:', err.message);
+      if (typeof callback === 'function') {
+        callback({ success: false, message: err.message });
+      }
+    }
   });
 }
 

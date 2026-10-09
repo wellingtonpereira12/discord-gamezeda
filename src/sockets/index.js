@@ -16,7 +16,9 @@ import {
   getCategories,
   getChannelsFull,
   getUserGuilds,
-  updateUserProfile
+  updateUserProfile,
+  getGuildRoles,
+  getUserGuildPermissions
 } from '../config/db.js';
 
 export function setupSockets(io) {
@@ -190,6 +192,8 @@ export function setupSockets(io) {
       }
 
       const userGuilds = await getUserGuilds(cleanName);
+      const roles = await getGuildRoles('gamezeda');
+      const permissions = await getUserGuildPermissions('gamezeda', cleanName);
 
       socket.emit('init:state', {
         currentUser: user,
@@ -200,8 +204,12 @@ export function setupSockets(io) {
         activeGuildId: 'gamezeda',
         categories,
         channels,
+        roles,
+        permissions,
         chatMessages
       });
+
+      socket.emit('guild:permissions:update', { guildId: 'gamezeda', permissions });
 
       broadcastOnlineMembers();
       io.emit('chat:new-message', { channelId: 'geral', message: welcomeMsg });

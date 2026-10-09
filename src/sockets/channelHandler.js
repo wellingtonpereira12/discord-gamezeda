@@ -1,8 +1,8 @@
-import { createCategory, deleteCategory, createChannel, deleteChannel } from '../config/db.js';
+import { createCategory, deleteCategory, createChannel, deleteChannel, getUserGuildPermissions } from '../config/db.js';
 import { leaveVoiceRoom } from './voiceHandler.js';
 
 export function registerChannelHandlers(io, socket, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers) {
-  // Criar Categoria ("Abinha Separadora")
+  // Criar Categoria ("Abinha Separadora") - Requer isMod
   socket.on('category:create', async ({ name, guildId }, callback) => {
     try {
       const user = users.get(socket.id);
@@ -17,6 +17,14 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
       }
 
       const targetGuild = guildId || (user && user.currentGuildId) || 'gamezeda';
+      const perms = await getUserGuildPermissions(targetGuild, user ? user.name : null);
+      if (!perms.isMod) {
+        if (typeof callback === 'function') {
+          callback({ success: false, message: 'Apenas moderadores e administradores podem criar categorias.' });
+        }
+        return;
+      }
+
       const newCat = await createCategory({ name: cleanName, guildId: targetGuild });
       console.log(`[+] Categoria criada por ${userName} no servidor [${targetGuild}]: ${newCat.name} (${newCat.id})`);
       io.emit('category:created', newCat);
@@ -32,7 +40,7 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
     }
   });
 
-  // Excluir Categoria
+  // Excluir Categoria - Requer isMod
   socket.on('category:delete', async ({ categoryId }, callback) => {
     try {
       const user = users.get(socket.id);
@@ -53,6 +61,14 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
       }
 
       const targetGuild = (user && user.currentGuildId) || 'gamezeda';
+      const perms = await getUserGuildPermissions(targetGuild, user ? user.name : null);
+      if (!perms.isMod) {
+        if (typeof callback === 'function') {
+          callback({ success: false, message: 'Apenas moderadores e administradores podem excluir categorias.' });
+        }
+        return;
+      }
+
       await deleteCategory(categoryId);
       console.log(`[-] Categoria excluída por ${userName}: ${categoryId}`);
       io.emit('category:deleted', { categoryId, guildId: targetGuild });
@@ -68,7 +84,7 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
     }
   });
 
-  // Criar Canal (Texto ou Voz)
+  // Criar Canal (Texto ou Voz) - Requer isMod
   socket.on('channel:create', async ({ name, type, categoryId, guildId }, callback) => {
     try {
       const user = users.get(socket.id);
@@ -84,6 +100,13 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
 
       const channelType = (type === 'voice') ? 'voice' : 'text';
       const targetGuild = guildId || (user && user.currentGuildId) || 'gamezeda';
+      const perms = await getUserGuildPermissions(targetGuild, user ? user.name : null);
+      if (!perms.isMod) {
+        if (typeof callback === 'function') {
+          callback({ success: false, message: 'Apenas moderadores e administradores podem criar canais.' });
+        }
+        return;
+      }
 
       const newChannel = await createChannel({ name: cleanName, type: channelType, categoryId, guildId: targetGuild });
       console.log(`[+] Canal criado por ${userName} no servidor [${targetGuild}]: #${newChannel.name} [${newChannel.type}] (${newChannel.id})`);
@@ -100,7 +123,7 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
     }
   });
 
-  // Excluir Canal
+  // Excluir Canal - Requer isMod
   socket.on('channel:delete', async ({ channelId }, callback) => {
     try {
       const user = users.get(socket.id);
@@ -127,6 +150,15 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
         return;
       }
 
+      const targetGuild = (user && user.currentGuildId) || 'gamezeda';
+      const perms = await getUserGuildPermissions(targetGuild, user ? user.name : null);
+      if (!perms.isMod) {
+        if (typeof callback === 'function') {
+          callback({ success: false, message: 'Apenas moderadores e administradores podem excluir canais.' });
+        }
+        return;
+      }
+
       // Se for canal de voz ativo e houver participantes conectados nele
       if (voiceRooms[channelId] && voiceRooms[channelId].size > 0) {
         for (const sId of Array.from(voiceRooms[channelId])) {
@@ -139,7 +171,6 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
         }
       }
 
-      const targetGuild = (user && user.currentGuildId) || 'gamezeda';
       await deleteChannel(channelId);
       console.log(`[-] Canal excluído por ${userName}: ${channelId}`);
       io.emit('channel:deleted', { channelId, guildId: targetGuild });

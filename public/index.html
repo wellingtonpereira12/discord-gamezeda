@@ -727,6 +727,19 @@
       <i data-lucide="message-square" style="width: 14px; height: 14px; margin-right: 8px;"></i>
       <span>Conversar em Privado</span>
     </div>
+    <div class="context-menu-separator ctx-mod-separator" style="display: none;"></div>
+    <div class="context-menu-item ctx-mod-item" id="ctx-item-voice-kick" style="color: #f0b232; display: none;">
+      <i data-lucide="phone-off" style="width: 14px; height: 14px; margin-right: 8px;"></i>
+      <span>Desconectar da Voz</span>
+    </div>
+    <div class="context-menu-item ctx-mod-item" id="ctx-item-member-kick" style="color: #f23f43; display: none;">
+      <i data-lucide="user-x" style="width: 14px; height: 14px; margin-right: 8px;"></i>
+      <span>Expulsar do Servidor</span>
+    </div>
+    <div class="context-menu-item ctx-mod-item" id="ctx-item-member-ban" style="color: #f23f43; font-weight: 600; display: none;">
+      <i data-lucide="ban" style="width: 14px; height: 14px; margin-right: 8px;"></i>
+      <span>Banir do Servidor</span>
+    </div>
   </div>
 
   <!-- MODAL DE CONFIGURAÇÕES DE USUÁRIO (VOZ, ÁUDIO & CADASTRO) -->
@@ -1777,15 +1790,36 @@
               </button>
             </div>
 
-            <!-- Formulário Novo Cargo (Aberto por padrão para testes e agilidade) -->
+            <!-- Formulário Novo / Editar Cargo -->
             <div id="new-role-form-panel" style="display: block; background: #2b2d31; border-radius: 6px; padding: 14px; border: 1px solid #383a40;">
-              <div style="font-weight: 700; color: #f2f3f5; font-size: 13px; margin-bottom: 10px;">CRIAR NOVO CARGO</div>
+              <input type="hidden" id="editing-role-id" value="">
+              <div id="role-form-title" style="font-weight: 700; color: #f2f3f5; font-size: 13px; margin-bottom: 10px;">CRIAR NOVO CARGO</div>
               <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px;">
-                <input type="text" id="new-role-name-input" class="form-input" placeholder="Digite o nome do cargo (ex: VIP, Admin, Mod)..." style="flex: 1; min-width: 0; background: #1e1f22; color: #f2f3f5; border: 1px solid #383a40; padding: 10px 14px; border-radius: 4px; font-size: 14px;" maxlength="50" autocomplete="off">
+                <input type="text" id="new-role-name-input" class="form-input" placeholder="Digite o nome do cargo (ex: Administrador, Moderador, Membro VIP)..." style="flex: 1; min-width: 0; background: #1e1f22; color: #f2f3f5; border: 1px solid #383a40; padding: 10px 14px; border-radius: 4px; font-size: 14px;" maxlength="50" autocomplete="off">
                 <input type="color" id="new-role-color-input" value="#5865F2" style="width: 44px; height: 40px; border: none; border-radius: 4px; cursor: pointer; background: transparent;" title="Escolher cor do cargo">
               </div>
+
+              <!-- Flags de Permissão Base -->
+              <div style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="font-size: 11px; font-weight: 700; color: #b5bac1; text-transform: uppercase;">PERMISSÕES DO CARGO</div>
+                <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; background: #1e1f22; padding: 8px 10px; border-radius: 4px; border: 1px solid #383a40;">
+                  <input type="checkbox" id="role-perm-admin" style="margin-top: 3px; accent-color: #5865F2; width: 16px; height: 16px; cursor: pointer;">
+                  <div>
+                    <div style="color: #f2f3f5; font-size: 13px; font-weight: 600;">Administrador (Admin)</div>
+                    <div style="color: #949ba4; font-size: 11px;">Membros com este cargo podem tudo: alterar configurações do servidor, gerenciar cargos, criar/excluir canais, banir pessoas e desconectar da voz.</div>
+                  </div>
+                </label>
+                <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; background: #1e1f22; padding: 8px 10px; border-radius: 4px; border: 1px solid #383a40;">
+                  <input type="checkbox" id="role-perm-mod" style="margin-top: 3px; accent-color: #5865F2; width: 16px; height: 16px; cursor: pointer;">
+                  <div>
+                    <div style="color: #f2f3f5; font-size: 13px; font-weight: 600;">Moderador (Mod)</div>
+                    <div style="color: #949ba4; font-size: 11px;">Membros com este cargo podem criar/excluir canais e categorias, banir membros e desconectar usuários de canais de voz.</div>
+                  </div>
+                </label>
+              </div>
+
               <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                <button type="button" class="btn-subtle" id="btn-cancel-new-role" style="padding: 6px 12px; font-size: 12px;">Limpar</button>
+                <button type="button" class="btn-subtle" id="btn-cancel-new-role" style="padding: 6px 12px; font-size: 12px;">Cancelar</button>
                 <button type="button" class="btn-enter" id="btn-submit-new-role" style="padding: 6px 16px; font-size: 12px;">Salvar Cargo</button>
               </div>
             </div>
@@ -1813,7 +1847,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261008_v1.4.0_r2"></script>
+  <script type="module" src="app.js?v=20261009_v1.4.1"></script>
 
 </body>
 </html>
