@@ -77,14 +77,16 @@ export function setupSockets(io) {
     console.log(`[+] Socket conectado: ${socket.id}`);
 
     // Registro do usuário
-    socket.on('join:server', async ({ name, deviceId }) => {
+    socket.on('join:server', async ({ name, deviceId, activity }) => {
       const cleanName = (name || '').trim();
       if (!cleanName) return;
 
+      let existingActivity = null;
       // Garante consistência absoluta: nunca permite duas conexões ativas com o mesmo nome
       for (const [existingSocketId, existingUser] of users.entries()) {
         if (existingUser.name.toLowerCase() === cleanName.toLowerCase() && existingSocketId !== socket.id) {
           console.log(`[!] Removendo sessão duplicada de ${cleanName} (${existingSocketId})`);
+          if (existingUser.activity) existingActivity = existingUser.activity;
           const oldSocket = io.sockets.sockets.get(existingSocketId);
           leaveVoiceRoom(io, oldSocket, existingUser, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
           users.delete(existingSocketId);
@@ -109,6 +111,8 @@ export function setupSockets(io) {
       const customStatusText = userRecord && userRecord.custom_status_text ? userRecord.custom_status_text : '';
       const statusMode = userRecord && userRecord.status_mode ? userRecord.status_mode : 'online';
 
+      const initialActivity = (activity && activity.game) ? activity : (existingActivity || null);
+
       const user = {
         id: socket.id,
         name: cleanName,
@@ -123,7 +127,7 @@ export function setupSockets(io) {
         isScreenSharing: false,
         isMuted: false,
         isDeafened: false,
-        activity: null
+        activity: initialActivity
       };
 
       users.set(socket.id, user);
@@ -211,6 +215,21 @@ export function setupSockets(io) {
     registerChannelHandlers(io, socket, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
     registerWatchPartyHandlers(io, socket, users);
     registerGuildHandlers(io, socket, users);
+
+    // Atualização de Rich Presence / Atividade de Jogo (Discord Game Activity)
+    socket.on('user:activity-update', (activity) => {
+      const user = users.get(socket.id);
+      if (user) {
+        user.activity = (activity && activity.game) ? activity : null;
+        broadcastOnlineMembers();
+        broadcastVoiceState();
+        io.emit('user:activity-update', {
+          userId: socket.id,
+          userName: user.name,
+          activity: user.activity
+        });
+      }
+    });
 
     // Controles diretos da UI do Mini Player de Música
     socket.on('music:action', async ({ action, query }) => {

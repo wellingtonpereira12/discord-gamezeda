@@ -969,7 +969,7 @@ function enterServer(name) {
   if (popoutAvatar) popoutAvatar.src = avatar;
   if (popoutName) popoutName.textContent = name;
 
-  socket.emit('join:server', { name, deviceId: localDeviceId });
+  socket.emit('join:server', { name, deviceId: localDeviceId, activity: myGameActivity });
   loginModal.style.display = 'none';
   sounds.playJoin();
 }
@@ -995,7 +995,7 @@ function tryAutoLogin() {
 
 socket.on('connect', () => {
   if (currentUser) {
-    socket.emit('join:server', { name: currentUser.name, deviceId: localDeviceId });
+    socket.emit('join:server', { name: currentUser.name, deviceId: localDeviceId, activity: myGameActivity });
   } else {
     tryAutoLogin();
   }
@@ -1003,7 +1003,7 @@ socket.on('connect', () => {
 
 if (socket.connected) {
   if (currentUser) {
-    socket.emit('join:server', { name: currentUser.name, deviceId: localDeviceId });
+    socket.emit('join:server', { name: currentUser.name, deviceId: localDeviceId, activity: myGameActivity });
   } else {
     tryAutoLogin();
   }
@@ -1178,6 +1178,11 @@ socket.on('init:state', (data) => {
   renderVoiceStageCards();
   renderCurrentChannelMessages();
 
+  // Se o cliente desktop já detectou jogo em execução, sincroniza com o servidor
+  if (myGameActivity && socket && socket.connected) {
+    socket.emit('user:activity-update', myGameActivity);
+  }
+
   // Se já estava em canal de voz antes da reconexão ou atualização do servidor:
   // Re-sincroniza automaticamente a presença e peers WebRTC
   if (inVoice && currentVoiceChannelId) {
@@ -1204,6 +1209,64 @@ socket.on('members:update', (usersList) => {
   }
   syncCurrentUserFromList();
   renderMembersSidebar();
+  renderSidebarChannels();
+});
+
+socket.on('user:activity-update', ({ userId, userName, activity }) => {
+  if (Array.isArray(allOnlineUsers)) {
+    const target = allOnlineUsers.find(u =>
+      (userId && u.id === userId) ||
+      (userName && u.name && u.name.toLowerCase() === userName.toLowerCase())
+    );
+    if (target) {
+      target.activity = activity;
+    }
+  }
+
+  if (Array.isArray(allVoiceUsers)) {
+    const targetVoice = allVoiceUsers.find(u =>
+      (userId && u.id === userId) ||
+      (userName && u.name && u.name.toLowerCase() === userName.toLowerCase())
+    );
+    if (targetVoice) {
+      targetVoice.activity = activity;
+    }
+  }
+
+  if (allVoiceRoomsState) {
+    Object.values(allVoiceRoomsState).forEach(roomUsers => {
+      if (Array.isArray(roomUsers)) {
+        const vUser = roomUsers.find(u =>
+          (userId && u.id === userId) ||
+          (userName && u.name && u.name.toLowerCase() === userName.toLowerCase())
+        );
+        if (vUser) {
+          vUser.activity = activity;
+        }
+      }
+    });
+  }
+
+  if (activePopoutTargetUser) {
+    const isTarget = (userId && activePopoutTargetUser.id === userId) ||
+      (userName && activePopoutTargetUser.name && activePopoutTargetUser.name.toLowerCase() === userName.toLowerCase());
+    if (isTarget) {
+      activePopoutTargetUser.activity = activity;
+      if (popoutGameBox) {
+        if (activity && activity.game) {
+          popoutGameBox.style.display = 'flex';
+          if (popoutGameTitle) popoutGameTitle.textContent = activity.game;
+          if (popoutGameElapsed) popoutGameElapsed.textContent = formatGameDuration(activity.startedAt);
+        } else {
+          popoutGameBox.style.display = 'none';
+        }
+      }
+    }
+  }
+
+  renderMembersSidebar();
+  renderVoiceStageCards();
+  renderSidebarChannels();
 });
 
 socket.on('voice:update', (data = {}) => {
@@ -1676,7 +1739,7 @@ function createMemberItem(user, isVoice) {
   div.className = 'member-item';
   div.setAttribute('data-member-id', user.id);
 
-  const isLocal = user.id === socket.id;
+  const isLocal = (socket && user.id === socket.id) || (currentUser && user.name && user.name.toLowerCase() === currentUser.name.toLowerCase());
   const isBot = !!user.isBot || user.id === 'bot-alfredo' || user.id === 'bot-rythm';
   const userIsMuted = isLocal ? isMuted : !!user.isMuted;
   const userIsDeafened = isLocal ? isDeafened : !!user.isDeafened;
@@ -1746,6 +1809,17 @@ function createMemberItem(user, isVoice) {
   }
   return div;
 }
+
+// Atualiza periodicamente o tempo decorrido do jogo ativo para todos os membros (Web e Desktop)
+setInterval(() => {
+  document.querySelectorAll('[data-game-started]').forEach((el) => {
+    const started = Number(el.getAttribute('data-game-started'));
+    if (started) {
+      el.textContent = formatGameDuration(started);
+    }
+  });
+  updateMyUserStatus();
+}, 20000);
 
 // ==========================================
 // RENDERIZAÇÃO DINÂMICA DE CANAIS & CATEGORIAS (ESTILO DISCORD)
@@ -1944,12 +2018,13 @@ function renderSidebarChannels() {
           usersListEl.id = `voice-users-${channel.id}`;
 
           voiceUsers.forEach(user => {
-            const isLocal = user.id === socket.id;
+            const isLocal = (socket && user.id === socket.id) || (currentUser && user.name && user.name.toLowerCase() === currentUser.name.toLowerCase());
             const streamKey = isLocal ? 'local' : user.id;
             const isSharing = user.isScreenSharing || activeStreams.has(streamKey);
 
             const userIsMuted = isLocal ? isMuted : !!user.isMuted;
             const userIsDeafened = isLocal ? isDeafened : !!user.isDeafened;
+            const currentAct = (isLocal && myGameActivity) ? myGameActivity : user.activity;
 
             const pill = document.createElement('div');
             pill.className = 'voice-user-pill';
@@ -1957,6 +2032,11 @@ function renderSidebarChannels() {
             pill.innerHTML = `
               <img src="${user.avatar}" alt="${user.name}">
               <span class="pill-name" style="flex: 1;">${escapeHtml(user.name)}${isLocal ? ' (Você)' : ''}</span>
+              ${currentAct && currentAct.game ? `
+                <span title="Jogando ${escapeHtml(currentAct.game)}" style="display: inline-flex; align-items: center; margin-right: 4px; opacity: 0.9;">
+                  ${getGameIconSvg(12, '#23a55a')}
+                </span>
+              ` : ''}
               ${isSharing ? '<span class="live-indicator" style="font-size: 10px; margin-left: 6px; padding: 2px 5px; cursor: pointer;">🔴 AO VIVO</span>' : ''}
               ${(userIsMuted || userIsDeafened) ? `
                 <div class="voice-user-status-icons">
