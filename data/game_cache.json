@@ -1,0 +1,31 @@
+{
+  "straypath": {
+    "verified": true,
+    "rawgId": 997006,
+    "officialName": "Stray Path",
+    "coverUrl": "https://media.rawg.io/media/screenshots/1c1/1c167cf06f9d2444f5e2656cfab6f933.jpg",
+    "genres": [
+      "Casual",
+      "Indie",
+      "Strategy",
+      "Adventure"
+    ],
+    "released": null,
+    "rating": null,
+    "steamUrl": "https://store.steampowered.com/app/2531940/",
+    "cachedAt": 1791587673571
+  },
+  "counterstrike2": {
+    "verified": true,
+    "rawgId": 965470,
+    "officialName": "Counter-Strike 2",
+    "coverUrl": "https://media.rawg.io/media/games/ec4/ec4b02bdb3eb5c6212992c19bc05697e.jpg",
+    "genres": [
+      "Shooter"
+    ],
+    "released": "2023-09-27",
+    "rating": 3.6,
+    "steamUrl": "https://store.steampowered.com/app/730/CounterStrike_2/",
+    "cachedAt": 1791587674902
+  }
+}

@@ -655,14 +655,19 @@
         <div class="profile-card-status-text" id="popout-custom-status"></div>
       </div>
       
-      <!-- Cartão de Atividade de Jogo (Rich Presence) -->
+      <!-- Cartão de Atividade de Jogo (Rich Presence com Capa RAWG) -->
       <div class="profile-card-game-box" id="popout-game-box" style="display: none;">
-        <div class="profile-card-game-icon">🎮</div>
+        <img id="popout-game-cover" class="profile-card-game-cover" src="" alt="Capa" style="display: none;" />
+        <div class="profile-card-game-icon" id="popout-game-icon-fallback">🎮</div>
         <div class="profile-card-game-details">
           <div class="profile-card-game-label">JOGANDO</div>
           <div class="profile-card-game-name" id="popout-game-title">Counter-Strike 2</div>
           <div class="profile-card-game-elapsed" id="popout-game-elapsed">há 15 minutos</div>
+          <div class="profile-card-game-tags" id="popout-game-tags" style="display: none;"></div>
         </div>
+        <a id="popout-game-steam-btn" class="profile-card-steam-link" href="#" target="_blank" rel="noopener noreferrer" style="display: none;" title="Acesse no Steam">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-10 10c0 4.7 3.2 8.6 7.6 9.7l2.8-4.1a3.5 3.5 0 0 1-.4-.6 3.5 3.5 0 0 1 .4-4.8 3.5 3.5 0 0 1 4.9.3l4-2.8A10 10 0 0 0 12 2zm3.5 6a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zm-5 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/></svg>
+        </a>
       </div>
 
       <!-- Sobre Mim / Bio -->
@@ -683,6 +688,63 @@
           Sair da Conta
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- CARD FLUTUANTE DE ATIVIDADE DE JOGO (DISCORD ACTIVE NOW / ATIVO AGORA) -->
+  <div id="activity-hover-card" class="activity-hover-card" style="display: none;">
+    <div class="activity-card-header">
+      <div class="activity-card-user-info">
+        <img id="act-card-user-avatar" class="activity-card-avatar" src="" alt="Avatar" />
+        <span class="activity-card-user-text">
+          <strong id="act-card-user-name">Usuário</strong> <span id="act-card-verb" class="act-card-verb">jogando agora</span>
+        </span>
+      </div>
+      <button type="button" class="activity-card-more-btn" id="act-card-more-btn" title="Mais opções">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><circle cx="5" cy="12" r="2"/></svg>
+      </button>
+    </div>
+
+    <div class="activity-card-inner-box">
+      <div class="activity-card-game-row">
+        <div class="activity-card-poster-wrap">
+          <img id="act-card-poster" class="activity-card-poster" src="" alt="Capa" />
+          <div id="act-card-poster-fallback" class="activity-card-poster-fallback">🎮</div>
+        </div>
+        <div class="activity-card-game-info">
+          <div id="act-card-game-title" class="activity-card-title">Nome do Jogo</div>
+          <div class="activity-card-game-meta">
+            <span class="activity-card-elapsed">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><line x1="6" x2="10" y1="12" y2="12"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="15" x2="15.01" y1="13" y2="13"/><line x1="18" x2="18.01" y1="11" y2="11"/><rect width="20" height="12" x="2" y="6" rx="6"/></svg>
+              <span id="act-card-elapsed-text">há 10 min</span>
+            </span>
+            <span id="act-card-tags" class="activity-card-tag">Indie</span>
+          </div>
+        </div>
+      </div>
+
+      <a id="act-card-steam-btn" class="activity-card-steam-btn" href="#" target="_blank" rel="noopener noreferrer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink: 0;">
+          <path d="M12 2a10 10 0 0 0-10 10c0 4.7 3.2 8.6 7.6 9.7l2.8-4.1a3.5 3.5 0 0 1-.4-.6 3.5 3.5 0 0 1 .4-4.8 3.5 3.5 0 0 1 4.9.3l4-2.8A10 10 0 0 0 12 2zm3.5 6a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zm-5 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/>
+        </svg>
+        <span>Acesse no Steam</span>
+      </a>
+    </div>
+
+    <!-- Reações Rápidas Estilo Discord -->
+    <div class="activity-card-reactions">
+      <button type="button" class="act-reaction-btn" data-emoji="😱" title="Reagir com 😱">😱</button>
+      <button type="button" class="act-reaction-btn" data-emoji="🤣" title="Reagir com 🤣">🤣</button>
+      <button type="button" class="act-reaction-btn" data-emoji="✅" title="Reagir com ✅">✅</button>
+      <button type="button" class="act-reaction-btn" data-emoji="👍" title="Reagir com 👍">👍</button>
+      <button type="button" class="act-reaction-btn" data-emoji="📢" title="Reagir com 📢">📢</button>
+      <button type="button" class="act-reaction-btn" data-emoji="🙂" title="Reagir com 🙂">🙂</button>
+    </div>
+
+    <!-- Mensagem Direta Rápida -->
+    <div class="activity-card-dm-box">
+      <span class="activity-card-dm-at">@</span>
+      <input type="text" id="act-card-dm-input" class="activity-card-dm-input" placeholder="Conversar em @" />
     </div>
   </div>
 

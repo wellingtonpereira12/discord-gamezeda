@@ -1647,6 +1647,193 @@ let activePopoutTargetUser = null;
 let popoutGameInterval = null;
 let popoutOpenedAt = 0;
 
+// ==========================================
+// CARD FLUTUANTE DE ATIVIDADE DE JOGO (DISCORD ACTIVE NOW)
+// ==========================================
+const activityHoverCard = document.getElementById('activity-hover-card');
+const actCardUserAvatar = document.getElementById('act-card-user-avatar');
+const actCardUserName = document.getElementById('act-card-user-name');
+const actCardVerb = document.getElementById('act-card-verb');
+const actCardPoster = document.getElementById('act-card-poster');
+const actCardPosterFallback = document.getElementById('act-card-poster-fallback');
+const actCardGameTitle = document.getElementById('act-card-game-title');
+const actCardElapsedText = document.getElementById('act-card-elapsed-text');
+const actCardTags = document.getElementById('act-card-tags');
+const actCardSteamBtn = document.getElementById('act-card-steam-btn');
+const actCardDmInput = document.getElementById('act-card-dm-input');
+
+let hoverCardCloseTimeout = null;
+let currentHoverTargetUser = null;
+let currentHoverActivity = null;
+let isHoverCardPinned = false;
+
+function showActivityHoverCard(user, activity, triggerEl, pin = false) {
+  if (!activityHoverCard || !user || !activity || !activity.game) return;
+  if (hoverCardCloseTimeout) {
+    clearTimeout(hoverCardCloseTimeout);
+    hoverCardCloseTimeout = null;
+  }
+
+  currentHoverTargetUser = user;
+  currentHoverActivity = activity;
+  if (pin) isHoverCardPinned = true;
+
+  if (actCardUserAvatar) {
+    actCardUserAvatar.src = user.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(user.name || 'User')}`;
+  }
+  if (actCardUserName) {
+    actCardUserName.textContent = user.name || 'Usuário';
+  }
+  if (actCardVerb) {
+    actCardVerb.textContent = 'jogando agora';
+  }
+
+  if (activity.coverUrl && actCardPoster) {
+    actCardPoster.src = activity.coverUrl;
+    actCardPoster.style.display = 'block';
+    if (actCardPosterFallback) actCardPosterFallback.style.display = 'none';
+  } else {
+    if (actCardPoster) actCardPoster.style.display = 'none';
+    if (actCardPosterFallback) actCardPosterFallback.style.display = 'flex';
+  }
+
+  if (actCardGameTitle) {
+    actCardGameTitle.textContent = activity.game;
+  }
+  if (actCardElapsedText) {
+    actCardElapsedText.textContent = formatGameDuration(activity.startedAt);
+  }
+
+  if (actCardTags) {
+    if (activity.genres && activity.genres.length > 0) {
+      actCardTags.textContent = activity.genres.slice(0, 2).join(' • ');
+      actCardTags.style.display = 'inline-block';
+    } else {
+      actCardTags.textContent = '🎮 Jogo';
+      actCardTags.style.display = 'inline-block';
+    }
+  }
+
+  if (actCardSteamBtn) {
+    const steamUrl = activity.steamUrl || `https://store.steampowered.com/search/?term=${encodeURIComponent(activity.game)}`;
+    actCardSteamBtn.href = steamUrl;
+  }
+
+  if (actCardDmInput) {
+    actCardDmInput.placeholder = `Conversar em @${user.name}`;
+    actCardDmInput.value = '';
+  }
+
+  activityHoverCard.style.display = 'block';
+  const rect = triggerEl.getBoundingClientRect();
+  const cardRect = activityHoverCard.getBoundingClientRect();
+
+  // Posiciona à esquerda do item na barra lateral
+  let left = rect.left - cardRect.width - 12;
+  if (left < 10) {
+    left = rect.right + 12;
+  }
+  if (left + cardRect.width > window.innerWidth - 10) {
+    left = window.innerWidth - cardRect.width - 10;
+  }
+
+  let top = rect.top;
+  if (top + cardRect.height > window.innerHeight - 10) {
+    top = window.innerHeight - cardRect.height - 10;
+  }
+  if (top < 10) top = 10;
+
+  activityHoverCard.style.left = `${Math.round(left)}px`;
+  activityHoverCard.style.top = `${Math.round(top)}px`;
+}
+
+function scheduleHideActivityHoverCard(delay = 250) {
+  if (isHoverCardPinned) return;
+  if (hoverCardCloseTimeout) clearTimeout(hoverCardCloseTimeout);
+  hoverCardCloseTimeout = setTimeout(() => {
+    hideActivityHoverCard();
+  }, delay);
+}
+
+function hideActivityHoverCard(force = false) {
+  if (isHoverCardPinned && !force) return;
+  if (hoverCardCloseTimeout) {
+    clearTimeout(hoverCardCloseTimeout);
+    hoverCardCloseTimeout = null;
+  }
+  isHoverCardPinned = false;
+  if (activityHoverCard) {
+    activityHoverCard.style.display = 'none';
+  }
+  currentHoverTargetUser = null;
+  currentHoverActivity = null;
+}
+
+if (activityHoverCard) {
+  activityHoverCard.addEventListener('mouseenter', () => {
+    if (hoverCardCloseTimeout) {
+      clearTimeout(hoverCardCloseTimeout);
+      hoverCardCloseTimeout = null;
+    }
+  });
+
+  activityHoverCard.addEventListener('mouseleave', () => {
+    scheduleHideActivityHoverCard(200);
+  });
+}
+
+document.querySelectorAll('.act-reaction-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const emoji = btn.getAttribute('data-emoji');
+    if (!emoji || !currentHoverTargetUser) return;
+
+    btn.style.transform = 'scale(1.4)';
+    setTimeout(() => { btn.style.transform = ''; }, 200);
+
+    const gameName = currentHoverActivity ? currentHoverActivity.game : 'jogo';
+    showSoundToast(`Você reagiu com ${emoji} ao jogo ${gameName} de ${currentHoverTargetUser.name}!`);
+
+    const chatInput = document.getElementById('message-input');
+    if (chatInput) {
+      chatInput.value = `${emoji} @${currentHoverTargetUser.name} mandou bem no ${gameName}!`;
+      chatInput.focus();
+    }
+  });
+});
+
+if (actCardDmInput) {
+  actCardDmInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const text = actCardDmInput.value.trim();
+      if (text && currentHoverTargetUser) {
+        const chatInput = document.getElementById('message-input');
+        if (chatInput) {
+          chatInput.value = `@${currentHoverTargetUser.name} ${text}`;
+          const sendBtn = document.getElementById('btn-send');
+          if (sendBtn) sendBtn.click();
+        }
+        showSoundToast(`Mensagem enviada para @${currentHoverTargetUser.name}`);
+        hideActivityHoverCard(true);
+      }
+    }
+  });
+}
+
+document.addEventListener('click', (e) => {
+  if (activityHoverCard && activityHoverCard.style.display === 'block') {
+    if (!activityHoverCard.contains(e.target) && !e.target.closest('.member-game-thumb-wrap') && !e.target.closest('.member-game-status')) {
+      hideActivityHoverCard(true);
+    }
+  }
+});
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && activityHoverCard && activityHoverCard.style.display === 'block') {
+    hideActivityHoverCard(true);
+  }
+});
+
 function openUserProfileCard(user, triggerEl, clickEvent) {
   if (!userProfileCardPopout || !user) return;
   popoutOpenedAt = Date.now();
@@ -1675,11 +1862,41 @@ function openUserProfileCard(user, triggerEl, clickEvent) {
     popoutCustomStatus.style.display = customStatus ? 'block' : 'none';
   }
 
-  // Atividade de Jogo (Rich Presence)
+  // Atividade de Jogo (Rich Presence com Capa RAWG)
   const activity = (isSelf && myGameActivity) ? myGameActivity : user.activity;
   if (activity && activity.game) {
     if (popoutGameBox) popoutGameBox.style.display = 'flex';
     if (popoutGameTitle) popoutGameTitle.textContent = activity.game;
+
+    const popoutGameCover = document.getElementById('popout-game-cover');
+    const popoutGameIconFallback = document.getElementById('popout-game-icon-fallback');
+    const popoutGameTags = document.getElementById('popout-game-tags');
+    const popoutGameSteamBtn = document.getElementById('popout-game-steam-btn');
+
+    if (activity.coverUrl && popoutGameCover) {
+      popoutGameCover.src = activity.coverUrl;
+      popoutGameCover.style.display = 'block';
+      if (popoutGameIconFallback) popoutGameIconFallback.style.display = 'none';
+    } else {
+      if (popoutGameCover) popoutGameCover.style.display = 'none';
+      if (popoutGameIconFallback) popoutGameIconFallback.style.display = 'block';
+    }
+
+    if (popoutGameTags) {
+      if (activity.genres && activity.genres.length > 0) {
+        popoutGameTags.textContent = activity.genres.slice(0, 3).join(' • ');
+        popoutGameTags.style.display = 'block';
+      } else {
+        popoutGameTags.style.display = 'none';
+      }
+    }
+
+    if (popoutGameSteamBtn) {
+      const steamUrl = activity.steamUrl || `https://store.steampowered.com/search/?term=${encodeURIComponent(activity.game)}`;
+      popoutGameSteamBtn.href = steamUrl;
+      popoutGameSteamBtn.style.display = 'flex';
+    }
+
     const updateElapsed = () => {
       if (popoutGameElapsed) {
         popoutGameElapsed.textContent = formatGameDuration(activity.startedAt);
@@ -1887,6 +2104,15 @@ function createMemberItem(user, isVoice, roleColor = null) {
     `;
   }
 
+  let gameThumbHtml = '';
+  if (hasGame && currentAct.coverUrl) {
+    gameThumbHtml = `
+      <div class="member-game-thumb-wrap" title="Jogando ${escapeHtml(currentAct.game)}">
+        <img class="member-game-thumb" src="${currentAct.coverUrl}" alt="${escapeHtml(currentAct.game)}" loading="lazy" />
+      </div>
+    `;
+  }
+
   div.innerHTML = `
     <div class="member-avatar-wrap">
       <img class="member-avatar" src="${user.avatar}" alt="${user.name}">
@@ -1905,9 +2131,36 @@ function createMemberItem(user, isVoice, roleColor = null) {
       </div>
       ${activityHtml}
     </div>
+    ${gameThumbHtml}
   `;
 
-  // Clique abre o Card de Perfil estilo Discord
+  // Se o usuário estiver jogando, exibe o Card Flutuante de Atividade ao passar o mouse
+  if (hasGame) {
+    div.addEventListener('mouseenter', () => {
+      showActivityHoverCard(user, currentAct, div);
+    });
+    div.addEventListener('mouseleave', () => {
+      scheduleHideActivityHoverCard(250);
+    });
+
+    const thumbWrap = div.querySelector('.member-game-thumb-wrap');
+    if (thumbWrap) {
+      thumbWrap.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showActivityHoverCard(user, currentAct, div, true);
+      });
+    }
+
+    const gameStatusEl = div.querySelector('.member-game-status');
+    if (gameStatusEl) {
+      gameStatusEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showActivityHoverCard(user, currentAct, div, true);
+      });
+    }
+  }
+
+  // Clique no membro abre o Card de Perfil completo estilo Discord
   div.addEventListener('click', (e) => {
     e.stopPropagation();
     openUserProfileCard(user, div, e);
@@ -2215,7 +2468,7 @@ function renderVoiceStageCards() {
         ` : ''}
         ${myGameActivity && myGameActivity.game ? `
           <div class="voice-card-game-badge" title="Jogando ${escapeHtml(myGameActivity.game)} (${formatGameDuration(myGameActivity.startedAt)})">
-            ${getGameIconSvg(11, '#23a55a')}
+            ${myGameActivity.coverUrl ? `<img src="${myGameActivity.coverUrl}" style="width: 13px; height: 13px; border-radius: 2px; object-fit: cover; flex-shrink: 0;" />` : getGameIconSvg(11, '#23a55a')}
             <span>${escapeHtml(myGameActivity.game)}</span>
           </div>
         ` : ''}
@@ -2250,7 +2503,7 @@ function renderVoiceStageCards() {
         </div>
         ${user.activity && user.activity.game ? `
           <div class="voice-card-game-badge" title="Jogando ${escapeHtml(user.activity.game)} (${formatGameDuration(user.activity.startedAt)})">
-            ${getGameIconSvg(11, '#23a55a')}
+            ${user.activity.coverUrl ? `<img src="${user.activity.coverUrl}" style="width: 13px; height: 13px; border-radius: 2px; object-fit: cover; flex-shrink: 0;" />` : getGameIconSvg(11, '#23a55a')}
             <span>${escapeHtml(user.activity.game)}</span>
           </div>
         ` : ''}

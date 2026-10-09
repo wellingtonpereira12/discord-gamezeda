@@ -6,6 +6,7 @@ import { registerChannelHandlers } from './channelHandler.js';
 import { registerWatchPartyHandlers } from './watchPartyHandler.js';
 import { registerGuildHandlers } from './guildHandler.js';
 import { BOT_USER, musicBot } from '../services/musicBot.js';
+import { enrichGameActivity } from '../services/rawgService.js';
 import {
   getAllMessagesByChannel,
   saveMessage,
@@ -113,7 +114,14 @@ export function setupSockets(io) {
       const customStatusText = userRecord && userRecord.custom_status_text ? userRecord.custom_status_text : '';
       const statusMode = userRecord && userRecord.status_mode ? userRecord.status_mode : 'online';
 
-      const initialActivity = (activity && activity.game) ? activity : (existingActivity || null);
+      let initialActivity = (activity && activity.game) ? activity : (existingActivity || null);
+      if (initialActivity && initialActivity.game) {
+        try {
+          initialActivity = await enrichGameActivity(initialActivity);
+        } catch (err) {
+          console.warn('[RAWG ⚠️] Falha ao enriquecer atividade inicial:', err.message);
+        }
+      }
 
       const user = {
         id: socket.id,
@@ -224,19 +232,24 @@ export function setupSockets(io) {
     registerWatchPartyHandlers(io, socket, users);
     registerGuildHandlers(io, socket, users);
 
-    // Atualização de Rich Presence / Atividade de Jogo (Discord Game Activity)
-    socket.on('user:activity-update', (activity) => {
+    // Atualização de Rich Presence / Atividade de Jogo (Discord Game Activity com validação RAWG)
+    socket.on('user:activity-update', async (activity) => {
       const user = users.get(socket.id);
-      if (user) {
-        user.activity = (activity && activity.game) ? activity : null;
-        broadcastOnlineMembers();
-        broadcastVoiceState();
-        io.emit('user:activity-update', {
-          userId: socket.id,
-          userName: user.name,
-          activity: user.activity
-        });
+      if (!user) return;
+
+      if (activity && activity.game) {
+        user.activity = await enrichGameActivity(activity);
+      } else {
+        user.activity = null;
       }
+
+      broadcastOnlineMembers();
+      broadcastVoiceState();
+      io.emit('user:activity-update', {
+        userId: socket.id,
+        userName: user.name,
+        activity: user.activity
+      });
     });
 
     // Controles diretos da UI do Mini Player de Música
@@ -279,23 +292,6 @@ export function setupSockets(io) {
       }
     });
 
-    // Atualização de jogo / atividade em tempo real (Discord Game Activity)
-    socket.on('user:activity-update', (activityData) => {
-      const user = users.get(socket.id);
-      if (!user) return;
-
-      if (activityData && activityData.game) {
-        user.activity = {
-          game: String(activityData.game).slice(0, 60),
-          startedAt: Number(activityData.startedAt) || Date.now()
-        };
-      } else {
-        user.activity = null;
-      }
-
-      broadcastOnlineMembers();
-      broadcastVoiceState();
-    });
 
     // Atualização de perfil do usuário (avatar, banner, bio, status, frase)
     socket.on('user:update-profile', async (profileData) => {
