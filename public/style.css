@@ -2350,8 +2350,11 @@ body {
 }
 
 .discord-modal.settings-card {
+  width: 95%;
   max-width: 600px;
-  max-height: 88vh;
+  height: 750px;
+  max-height: 90vh;
+  min-height: 520px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -2389,6 +2392,7 @@ body {
   margin-bottom: 20px;
   padding-bottom: 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
 }
 
 .modal-header-with-close h3 {
@@ -3582,6 +3586,7 @@ body {
   margin-bottom: 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding-bottom: 6px;
+  flex-shrink: 0;
 }
 
 .settings-tab-btn {
@@ -4755,6 +4760,17 @@ body {
     overflow-y: auto !important;
   }
 
+  .discord-modal.settings-card {
+    width: 94vw !important;
+    max-width: 94vw !important;
+    height: 85vh !important;
+    max-height: 85vh !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
   .discord-modal.channel-create-modal {
     width: 94vw !important;
     max-width: 94vw !important;
@@ -5502,6 +5518,8 @@ body.is-electron #btn-download-desktop {
 .screen-picker-modal {
   width: 680px;
   max-width: 95vw;
+  height: 560px;
+  min-height: 440px;
   max-height: 85vh;
   padding: 22px 24px 16px;
   display: flex;
@@ -5517,6 +5535,7 @@ body.is-electron #btn-download-desktop {
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding-bottom: 8px;
   margin-bottom: 14px;
+  flex-shrink: 0;
 }
 
 .screen-picker-tab {
@@ -5648,6 +5667,7 @@ body.is-electron #btn-download-desktop {
   padding-top: 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   margin-top: 10px;
+  flex-shrink: 0;
 }
 
 .screen-picker-quality {

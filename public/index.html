@@ -1158,7 +1158,7 @@
       <div class="modal-footer">
         <div class="settings-version-info" style="display: flex; align-items: center; gap: 10px;">
           <span style="font-size: 12px; color: #949ba4; font-weight: 500;">
-            Versão <strong id="settings-app-version" style="color: #dbdee1;">v1.5.7</strong>
+            Versão <strong id="settings-app-version" style="color: #dbdee1;">v1.5.8</strong>
           </span>
           <button type="button" id="btn-force-update" class="btn-subtle" style="font-size: 11px; padding: 4px 10px; height: 28px; gap: 6px;" title="Verificar atualizações ou forçar limpeza de cache">
             <i data-lucide="refresh-cw" id="btn-force-update-icon" style="width: 12px; height: 12px;"></i>
@@ -1777,10 +1777,10 @@
 
   <!-- MODAL: CONFIGURAÇÕES DO SERVIDOR (GERAL, CARGOS & MEMBROS) -->
   <div id="server-settings-modal" class="modal-overlay" style="display: none; z-index: 10050;">
-    <div class="discord-modal" style="max-width: 720px; width: 90%; max-height: 85vh; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+    <div class="discord-modal" style="max-width: 720px; width: 90%; height: 620px; min-height: 480px; max-height: 85vh; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
       
       <!-- Cabeçalho do Modal -->
-      <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid #232428; background: #2b2d31;">
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid #232428; background: #2b2d31; flex-shrink: 0;">
         <div style="display: flex; align-items: center; gap: 10px;">
           <i data-lucide="settings" style="width: 20px; height: 20px; color: #5865F2;"></i>
           <h2 id="server-settings-title" style="font-size: 18px; font-weight: 800; color: #f2f3f5; margin: 0;">Configurações do Servidor</h2>
@@ -1789,7 +1789,7 @@
       </div>
 
       <!-- Corpo com Sidebar de Abas + Conteúdo -->
-      <div style="display: flex; flex: 1; overflow: hidden; min-height: 420px;">
+      <div style="display: flex; flex: 1; overflow: hidden; min-height: 0;">
         
         <!-- Sidebar de Abas -->
         <div style="width: 180px; background: #232428; padding: 16px 8px; display: flex; flex-direction: column; gap: 4px; border-right: 1px solid #1e1f22;">

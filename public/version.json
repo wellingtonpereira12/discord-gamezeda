@@ -1,6 +1,6 @@
 {
   "name": "FakeDC",
-  "version": "1.5.7",
+  "version": "1.5.8",
   "releaseDate": "2026-10-10",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe",
@@ -12,5 +12,5 @@
     "iosUrl": "/download/ios",
     "iosIpa": "FakeDC.ipa"
   },
-  "notes": "FakeDC v1.5.7: Minimizar para bandeja do Windows ao fechar, persistência do volume dos usuários e supressão de ruído RNNoise aprimorada."
+  "notes": "FakeDC v1.5.8: Manter tamanho fixo do modal de configurações ao alternar abas, supressão de ruído e melhorias de usabilidade."
 }
