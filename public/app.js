@@ -1,5 +1,5 @@
 import { sounds } from './sounds.js?v=20261008_v1.1.7';
-import { WebRTCManager } from './webrtc.js?v=20261010_v1.5.9';
+import { WebRTCManager } from './webrtc.js?v=20261010_v1.6.0';
 import {
   escapeHtml,
   formatBytes,
@@ -57,7 +57,7 @@ import {
   stopMusicTrack,
   loadOrUpdateWatchPartyPlayer,
   stopWatchPartyVideo
-} from './js/modules/watchParty.js?v=20261010_v1.5.9';
+} from './js/modules/watchParty.js?v=20261010_v1.6.0';
 import { setupDesktopClient } from './js/modules/desktopClient.js?v=20261008_v1.4.0';
 import {
   initGuilds,
