@@ -538,18 +538,21 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.on('electron:screen-source-selected', (event, sourceId) => {
+  ipcMain.on('electron:screen-source-selected', (event, data) => {
     if (screenPickerTimeout) {
       clearTimeout(screenPickerTimeout);
       screenPickerTimeout = null;
     }
     if (pendingDisplayMediaCallback) {
+      const sourceId = (typeof data === 'object' && data && data.sourceId) ? data.sourceId : data;
+      const includeAudio = (typeof data === 'object' && data && typeof data.includeAudio === 'boolean') ? data.includeAudio : currentAudioRequested;
+
       const selectedSource = cachedScreenSources.find(s => s.id === sourceId) || cachedScreenSources[0];
       if (selectedSource) {
         lastSelectedSource = selectedSource;
         lastSelectedTime = Date.now();
         const response = { video: selectedSource };
-        if (currentAudioRequested) {
+        if (includeAudio) {
           response.audio = 'loopback';
         }
         pendingDisplayMediaCallback(response);

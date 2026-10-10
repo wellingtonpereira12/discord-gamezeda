@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
   <title>FakeDC</title>
-  <link rel="stylesheet" href="style.css?v=20261010_v1.5.8">
+  <link rel="stylesheet" href="style.css?v=20261010_v1.5.9">
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/logo.png?v=20261008_v1.1.8">
   <link rel="shortcut icon" href="/favicon.ico?v=20261008_v1.1.8">
   <link rel="apple-touch-icon" href="/assets/logo.png?v=20261008_v1.1.8">
@@ -1006,6 +1006,33 @@
               </div>
             </div>
           </div>
+
+          <div class="context-menu-separator" style="margin: 18px 0;"></div>
+
+          <!-- Áudio da Transmissão & Isolamento Anti-Eco -->
+          <div class="settings-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 16px;">
+              <div style="flex: 1; min-width: 0;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                  <span style="font-weight: 700; color: #fff; font-size: 14px;">Anti-Eco na Transmissão de Tela</span>
+                  <span style="background: #23A55A; color: #fff; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">AEC Isolamento</span>
+                </div>
+                <div style="font-size: 12px; color: #949ba4; margin-top: 4px; line-height: 1.4;">
+                  Remove automaticamente o eco e a voz das pessoas da chamada do áudio capturado do computador, evitando retorno desagradável para seus amigos.
+                </div>
+              </div>
+              <label class="discord-toggle" style="flex-shrink: 0;">
+                <input type="checkbox" id="setting-stream-antiecho-toggle" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div style="background: rgba(35, 165, 90, 0.08); border: 1px solid rgba(35, 165, 90, 0.22); border-radius: 6px; padding: 10px 14px; margin-top: 10px;">
+              <div style="font-size: 12px; color: #dbdee1; line-height: 1.4;">
+                💡 <strong>Dica Profissional:</strong> Se você usa headset com canais duplos (como <em>Game</em> e <em>Chat</em>) ou softwares como <em>SteelSeries Sonar</em>, defina a saída do FakeDC para o canal de <em>Chat</em> nas Configurações de Voz. O som do jogo sairá no canal principal sem nenhum vazamento de voz!
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- ABA: PERFIL & CUSTOMIZAÇÃO (FASE 2) -->
@@ -1553,6 +1580,18 @@
         <div id="screen-picker-grid" class="screen-picker-grid"></div>
       </div>
 
+      <!-- Opções de Áudio e Anti-Eco da Transmissão -->
+      <div class="screen-picker-audio-bar" style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 8px; padding: 10px 14px; margin-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #dbdee1; font-size: 13px; font-weight: 500; user-select: none;">
+          <input type="checkbox" id="screen-picker-audio-toggle" checked style="accent-color: #5865F2; width: 16px; height: 16px; cursor: pointer;">
+          <span>Compartilhar áudio do computador</span>
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #dbdee1; font-size: 13px; font-weight: 500; user-select: none;" title="Atenua ou remove a voz dos amigos para não gerar eco de volta neles">
+          <input type="checkbox" id="screen-picker-antiecho-toggle" checked style="accent-color: #23A55A; width: 16px; height: 16px; cursor: pointer;">
+          <span>🛡️ Anti-Eco (Isolar amigos)</span>
+        </label>
+      </div>
+
       <!-- Rodapé com Qualidade e Botões de Ação -->
       <div class="screen-picker-footer">
         <div class="screen-picker-quality">
@@ -1939,7 +1978,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261010_v1.5.8"></script>
+  <script type="module" src="app.js?v=20261010_v1.5.9"></script>
 
 </body>
 </html>

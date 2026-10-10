@@ -1,5 +1,5 @@
 import { sounds } from './sounds.js?v=20261008_v1.1.7';
-import { WebRTCManager } from './webrtc.js?v=20261010_v1.5.8';
+import { WebRTCManager } from './webrtc.js?v=20261010_v1.5.9';
 import {
   escapeHtml,
   formatBytes,
@@ -57,7 +57,7 @@ import {
   stopMusicTrack,
   loadOrUpdateWatchPartyPlayer,
   stopWatchPartyVideo
-} from './js/modules/watchParty.js?v=20261010_v1.5.8';
+} from './js/modules/watchParty.js?v=20261010_v1.5.9';
 import { setupDesktopClient } from './js/modules/desktopClient.js?v=20261008_v1.4.0';
 import {
   initGuilds,
@@ -303,6 +303,7 @@ const settingStreamResolution = document.getElementById('setting-stream-resoluti
 const settingStreamFps = document.getElementById('setting-stream-fps');
 const settingStreamBitrate = document.getElementById('setting-stream-bitrate');
 const settingStreamDegradation = document.getElementById('setting-stream-degradation');
+const settingStreamAntiEchoToggle = document.getElementById('setting-stream-antiecho-toggle');
 const settingsAppVersion = document.getElementById('settings-app-version');
 const btnForceUpdate = document.getElementById('btn-force-update');
 const btnForceUpdateIcon = document.getElementById('btn-force-update-icon');
@@ -4572,13 +4573,6 @@ async function toggleScreenShare(forceVideoOnly = false) {
     return;
   }
 
-  // Se estiver no aplicativo Electron Desktop (FakeDC Desktop), abre o seletor personalizado estilo Discord
-  if (window.electronAPI && window.electronAPI.isElectron && typeof window.openElectronScreenPickerModal === 'function') {
-    window.openElectronScreenPickerModal();
-    return;
-  }
-
-  // Se estiver no navegador Web, usa o seletor nativo do navegador
   try {
     const stream = await webrtc.startScreenShare(forceVideoOnly);
     if (stream) {
@@ -4586,7 +4580,8 @@ async function toggleScreenShare(forceVideoOnly = false) {
       registerStream('local', stream, `${currentUser ? currentUser.name : 'Você'} (Sua Tela HD)`, currentUser ? currentUser.avatar : '', true);
       const hasAudio = stream.getAudioTracks && stream.getAudioTracks().length > 0;
       if (hasAudio) {
-        showSoundToast('🔊 Transmitindo tela com som do sistema!');
+        const aecNotice = webrtc.screenAntiEchoEnabled ? ' (Anti-Eco Ativo)' : '';
+        showSoundToast(`🔊 Transmitindo tela com som do computador${aecNotice}!`);
       } else {
         showSoundToast('📺 Transmitindo tela em HD (1080p60fps)!');
       }
@@ -4652,6 +4647,213 @@ btnFullscreenScreen.addEventListener('click', () => {
     sharedScreenVideo.webkitRequestFullscreen();
   }
 });
+
+// ==========================================
+// SELETOR DE TELAS E JANELAS (ELECTRON DESKTOP)
+// ==========================================
+function initElectronScreenPicker() {
+  if (!window.electronAPI || !window.electronAPI.isElectron || typeof window.electronAPI.onOpenScreenPicker !== 'function') {
+    return;
+  }
+
+  let activeSources = [];
+  let selectedSourceId = null;
+  let activeTab = 'screens'; // 'screens' | 'windows'
+
+  const modalScreenPicker = document.getElementById('modal-screen-picker');
+  const gridScreenPicker = document.getElementById('screen-picker-grid');
+  const btnCloseScreenPicker = document.getElementById('btn-close-screen-picker');
+  const btnCancelScreenPicker = document.getElementById('btn-cancel-screen-picker');
+  const btnConfirmScreenPicker = document.getElementById('btn-confirm-screen-picker');
+  const tabScreens = document.getElementById('tab-picker-screens');
+  const tabWindows = document.getElementById('tab-picker-windows');
+  const badgeScreens = document.getElementById('badge-picker-screens');
+  const badgeWindows = document.getElementById('badge-picker-windows');
+  const audioToggle = document.getElementById('screen-picker-audio-toggle');
+  const antiEchoToggle = document.getElementById('screen-picker-antiecho-toggle');
+
+  function renderScreenPickerGrid() {
+    if (!gridScreenPicker) return;
+    gridScreenPicker.innerHTML = '';
+
+    const filtered = activeSources.filter(s => activeTab === 'screens' ? s.isScreen : !s.isScreen);
+
+    if (filtered.length === 0) {
+      gridScreenPicker.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 48px 20px; color: #949ba4; font-size: 13.5px;">
+          Nenhuma ${activeTab === 'screens' ? 'tela' : 'janela de aplicativo'} detectada no sistema.
+        </div>
+      `;
+      return;
+    }
+
+    filtered.forEach(source => {
+      const card = document.createElement('div');
+      card.className = `screen-picker-card ${selectedSourceId === source.id ? 'selected' : ''}`;
+      card.dataset.id = source.id;
+
+      const thumbDiv = document.createElement('div');
+      thumbDiv.className = 'screen-picker-thumb';
+      const img = document.createElement('img');
+      img.src = source.thumbnail;
+      img.alt = source.name;
+      img.loading = 'lazy';
+      thumbDiv.appendChild(img);
+
+      const infoDiv = document.createElement('div');
+      infoDiv.className = 'screen-picker-info';
+
+      if (source.appIcon) {
+        const icon = document.createElement('img');
+        icon.className = 'screen-picker-icon';
+        icon.src = source.appIcon;
+        icon.alt = '';
+        infoDiv.appendChild(icon);
+      } else {
+        const iconSpan = document.createElement('span');
+        iconSpan.innerHTML = source.isScreen ? '🖥️' : '🪟';
+        iconSpan.style.fontSize = '14px';
+        infoDiv.appendChild(iconSpan);
+      }
+
+      const titleSpan = document.createElement('span');
+      titleSpan.className = 'screen-picker-title';
+      titleSpan.textContent = source.name;
+      titleSpan.title = source.name;
+      infoDiv.appendChild(titleSpan);
+
+      card.appendChild(thumbDiv);
+      card.appendChild(infoDiv);
+
+      card.addEventListener('click', () => {
+        selectedSourceId = source.id;
+        const allCards = gridScreenPicker.querySelectorAll('.screen-picker-card');
+        allCards.forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        if (btnConfirmScreenPicker) btnConfirmScreenPicker.disabled = false;
+      });
+
+      card.addEventListener('dblclick', () => {
+        selectedSourceId = source.id;
+        confirmScreenSelection();
+      });
+
+      gridScreenPicker.appendChild(card);
+    });
+
+    const isCurrentSelectedVisible = filtered.some(s => s.id === selectedSourceId);
+    if (!isCurrentSelectedVisible) {
+      if (filtered.length > 0) {
+        selectedSourceId = filtered[0].id;
+        const firstCard = gridScreenPicker.querySelector(`[data-id="${selectedSourceId}"]`);
+        if (firstCard) firstCard.classList.add('selected');
+        if (btnConfirmScreenPicker) btnConfirmScreenPicker.disabled = false;
+      } else {
+        selectedSourceId = null;
+        if (btnConfirmScreenPicker) btnConfirmScreenPicker.disabled = true;
+      }
+    } else {
+      if (btnConfirmScreenPicker) btnConfirmScreenPicker.disabled = false;
+    }
+  }
+
+  function confirmScreenSelection() {
+    if (!selectedSourceId) return;
+    if (modalScreenPicker) modalScreenPicker.style.display = 'none';
+    const includeAudio = audioToggle ? audioToggle.checked : true;
+    const antiEcho = antiEchoToggle ? antiEchoToggle.checked : true;
+    if (typeof webrtc !== 'undefined' && webrtc) {
+      webrtc.setScreenAntiEcho(antiEcho);
+    }
+    window.electronAPI.selectScreenSource({
+      sourceId: selectedSourceId,
+      includeAudio
+    });
+  }
+
+  function cancelScreenSelection() {
+    if (modalScreenPicker) modalScreenPicker.style.display = 'none';
+    window.electronAPI.cancelScreenPicker();
+  }
+
+  window.electronAPI.onOpenScreenPicker((sources) => {
+    activeSources = sources || [];
+    const screenCount = activeSources.filter(s => s.isScreen).length;
+    const windowCount = activeSources.filter(s => !s.isScreen).length;
+
+    if (badgeScreens) badgeScreens.textContent = screenCount;
+    if (badgeWindows) badgeWindows.textContent = windowCount;
+
+    activeTab = screenCount > 0 ? 'screens' : 'windows';
+    if (tabScreens && tabWindows) {
+      if (activeTab === 'screens') {
+        tabScreens.classList.add('active');
+        tabWindows.classList.remove('active');
+      } else {
+        tabScreens.classList.remove('active');
+        tabWindows.classList.add('active');
+      }
+    }
+
+    const initial = activeSources.find(s => activeTab === 'screens' ? s.isScreen : !s.isScreen) || activeSources[0];
+    selectedSourceId = initial ? initial.id : null;
+
+    if (antiEchoToggle && typeof webrtc !== 'undefined' && webrtc) {
+      antiEchoToggle.checked = webrtc.screenAntiEchoEnabled !== false;
+    }
+
+    renderScreenPickerGrid();
+
+    if (modalScreenPicker) {
+      modalScreenPicker.style.display = 'flex';
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+  });
+
+  if (tabScreens) {
+    tabScreens.addEventListener('click', () => {
+      activeTab = 'screens';
+      tabScreens.classList.add('active');
+      if (tabWindows) tabWindows.classList.remove('active');
+      renderScreenPickerGrid();
+    });
+  }
+
+  if (tabWindows) {
+    tabWindows.addEventListener('click', () => {
+      activeTab = 'windows';
+      tabWindows.classList.add('active');
+      if (tabScreens) tabScreens.classList.remove('active');
+      renderScreenPickerGrid();
+    });
+  }
+
+  if (btnConfirmScreenPicker) {
+    btnConfirmScreenPicker.addEventListener('click', confirmScreenSelection);
+  }
+  if (btnCloseScreenPicker) {
+    btnCloseScreenPicker.addEventListener('click', cancelScreenSelection);
+  }
+  if (btnCancelScreenPicker) {
+    btnCancelScreenPicker.addEventListener('click', cancelScreenSelection);
+  }
+
+  if (modalScreenPicker) {
+    modalScreenPicker.addEventListener('click', (e) => {
+      if (e.target === modalScreenPicker) {
+        cancelScreenSelection();
+      }
+    });
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modalScreenPicker && modalScreenPicker.style.display === 'flex') {
+      cancelScreenSelection();
+    }
+  });
+}
+
+initElectronScreenPicker();
 
 // ==========================================
 // TRANSMISSÃO DE CÂMERA / WEBCAM
@@ -5046,6 +5248,9 @@ function syncStreamQualityUI() {
   if (settingStreamDegradation) {
     settingStreamDegradation.value = webrtc.streamDegradation || 'maintain-framerate';
   }
+  if (settingStreamAntiEchoToggle) {
+    settingStreamAntiEchoToggle.checked = webrtc.screenAntiEchoEnabled !== false;
+  }
 }
 
 // Inicializa a interface com as preferências salvas
@@ -5110,6 +5315,13 @@ if (settingStreamBitrate) {
 }
 if (settingStreamDegradation) {
   settingStreamDegradation.addEventListener('change', onStreamQualitySettingChange);
+}
+if (settingStreamAntiEchoToggle) {
+  settingStreamAntiEchoToggle.addEventListener('change', (e) => {
+    const enabled = e.target.checked;
+    webrtc.setScreenAntiEcho(enabled);
+    showSoundToast(enabled ? '🛡️ Anti-Eco da tela ativado (AEC)!' : '⚠️ Anti-Eco desativado (Áudio direto)');
+  });
 }
 
 // Botão de Forçar Atualização / Limpeza de Cache

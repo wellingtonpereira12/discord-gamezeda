@@ -136,6 +136,10 @@ export class WebRTCManager {
     this.remoteSpeechIntervals = new Map();
     this.watchdogTimer = null;
 
+    // Configurações de Transmissão de Tela e Anti-Eco (Isolamento Acústico AEC)
+    this.screenAntiEchoEnabled = localStorage.getItem('discord_screenshare_aec') !== 'false';
+    this.screenAudioEnabled = true;
+
     this.audioContext = null;
     this.localSourceNode = null;
     this.noiseGateNode = null;
@@ -204,7 +208,7 @@ export class WebRTCManager {
       this.audioContext.resume();
     }
     if (this.audioContext.audioWorklet && !rnnoiseWorkletLoaded) {
-      this.audioContext.audioWorklet.addModule('/rnnoise/workletProcessor.js?v=20261010_v1.5.8')
+      this.audioContext.audioWorklet.addModule('/rnnoise/workletProcessor.js?v=20261010_v1.5.9')
         .then(() => {
           rnnoiseWorkletLoaded = true;
           console.log('[WebRTC 🤖 RNNoise] AudioWorkletProcessor registrado com sucesso.');
@@ -1183,7 +1187,7 @@ export class WebRTCManager {
       try {
         const wasm = await preloadRnnoise();
         if (this.audioContext.audioWorklet && !rnnoiseWorkletLoaded) {
-          await this.audioContext.audioWorklet.addModule('/rnnoise/workletProcessor.js?v=20261010_v1.5.8');
+          await this.audioContext.audioWorklet.addModule('/rnnoise/workletProcessor.js?v=20261010_v1.5.9');
           rnnoiseWorkletLoaded = true;
         }
 
@@ -1279,6 +1283,35 @@ export class WebRTCManager {
     }
 
     console.log(`[WebRTC 🤖 RNNoise] Supressão de ruído: ${this.noiseSuppressionEnabled ? 'ATIVADA' : 'DESATIVADA'}`);
+  }
+
+  setScreenAntiEcho(enabled) {
+    this.screenAntiEchoEnabled = !!enabled;
+    localStorage.setItem('discord_screenshare_aec', this.screenAntiEchoEnabled ? 'true' : 'false');
+    console.log(`[WebRTC 🛡️] Anti-Eco de Transmissão de Tela definido para: ${this.screenAntiEchoEnabled}`);
+    if (this.localScreenStream) {
+      const screenAudioTrack = this.localScreenStream.getAudioTracks()[0];
+      if (screenAudioTrack && screenAudioTrack.applyConstraints) {
+        screenAudioTrack.applyConstraints({
+          echoCancellation: this.screenAntiEchoEnabled,
+          googEchoCancellation: this.screenAntiEchoEnabled,
+          noiseSuppression: false,
+          autoGainControl: false
+        }).catch(err => {
+          console.warn('[WebRTC] Aviso ao aplicar constraint dinâmica de Anti-Eco:', err);
+        });
+      }
+    }
+  }
+
+  setLocalScreenAudioMuted(isMuted) {
+    if (this.localScreenStream) {
+      const screenAudioTrack = this.localScreenStream.getAudioTracks()[0];
+      if (screenAudioTrack) {
+        screenAudioTrack.enabled = !isMuted;
+        console.log(`[WebRTC 🔇] Áudio local da tela ${isMuted ? 'mutado' : 'desmutado'}`);
+      }
+    }
   }
 
   setMuted(muted) {
@@ -1452,15 +1485,16 @@ export class WebRTCManager {
           audio: false
         });
       } else {
-        console.log(`[WebRTC] Solicitando getDisplayMedia 60 FPS (${this.streamResolution}, ${this.streamFps}fps)...`);
+        const antiEcho = this.screenAntiEchoEnabled;
+        console.log(`[WebRTC] Solicitando getDisplayMedia 60 FPS (${this.streamResolution}, ${this.streamFps}fps) [Anti-Eco AEC: ${antiEcho}]...`);
         try {
           stream = await navigator.mediaDevices.getDisplayMedia({
             video: videoConstraints,
             audio: {
-              echoCancellation: false,
+              echoCancellation: antiEcho,
               noiseSuppression: false,
               autoGainControl: false,
-              googEchoCancellation: false,
+              googEchoCancellation: antiEcho,
               googAutoGainControl: false,
               googNoiseSuppression: false,
               googDucking: false,
@@ -1515,34 +1549,39 @@ export class WebRTCManager {
   }
 
   // Captura direta de tela/janela para aplicativo Electron Desktop
-  async startScreenShareWithDesktopSource(sourceId) {
+  async startScreenShareWithDesktopSource(sourceId, includeAudio = true) {
     try {
       let stream;
       const { res, targetFps } = this.getStreamConstraints();
-      console.log(`[WebRTC] Capturando fonte desktop no Electron (${res.width}x${res.height} @ ${targetFps}fps):`, sourceId);
+      console.log(`[WebRTC] Capturando fonte desktop no Electron (${res.width}x${res.height} @ ${targetFps}fps, audio: ${includeAudio}):`, sourceId);
 
-      // 1. Tenta capturar vídeo HD com áudio do sistema (loopback)
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            mandatory: {
-              chromeMediaSource: 'desktop'
+      // 1. Tenta capturar vídeo HD com áudio do sistema (loopback) se solicitado
+      if (includeAudio) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              mandatory: {
+                chromeMediaSource: 'desktop'
+              }
+            },
+            video: {
+              mandatory: {
+                chromeMediaSource: 'desktop',
+                chromeMediaSourceId: sourceId,
+                maxWidth: res.width,
+                maxHeight: res.height,
+                maxFrameRate: targetFps
+              }
             }
-          },
-          video: {
-            mandatory: {
-              chromeMediaSource: 'desktop',
-              chromeMediaSourceId: sourceId,
-              maxWidth: res.width,
-              maxHeight: res.height,
-              maxFrameRate: targetFps
-            }
-          }
-        });
-        console.log('[WebRTC 🔊] Captura de tela com áudio do sistema iniciada!');
-      } catch (audioErr) {
-        console.warn('[WebRTC] Captura com áudio falhou ou bloqueada, tentando fallback vídeo puro:', audioErr);
-        // 2. Fallback imediato apenas vídeo
+          });
+          console.log('[WebRTC 🔊] Captura de tela com áudio do sistema iniciada!');
+        } catch (audioErr) {
+          console.warn('[WebRTC] Captura com áudio falhou ou bloqueada, tentando fallback vídeo puro:', audioErr);
+        }
+      }
+
+      // 2. Fallback imediato apenas vídeo
+      if (!stream) {
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: {
@@ -1593,7 +1632,8 @@ export class WebRTCManager {
       try {
         if (screenAudioTrack.applyConstraints) {
           screenAudioTrack.applyConstraints({
-            echoCancellation: false,
+            echoCancellation: this.screenAntiEchoEnabled,
+            googEchoCancellation: this.screenAntiEchoEnabled,
             noiseSuppression: false,
             autoGainControl: false
           }).catch(() => {});

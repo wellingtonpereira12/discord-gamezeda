@@ -1,6 +1,6 @@
 {
   "name": "FakeDC",
-  "version": "1.5.8",
+  "version": "1.5.9",
   "releaseDate": "2026-10-10",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe",
@@ -12,5 +12,5 @@
     "iosUrl": "/download/ios",
     "iosIpa": "FakeDC.ipa"
   },
-  "notes": "FakeDC v1.5.8: Manter tamanho fixo do modal de configurações ao alternar abas, supressão de ruído e melhorias de usabilidade."
+  "notes": "FakeDC v1.5.9: Isolamento Anti-Eco na transmissão de tela (AEC), seletor aprimorado de janelas/telas com controle de áudio no Desktop e web."
 }
