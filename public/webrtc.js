@@ -125,6 +125,15 @@ export class WebRTCManager {
     this.userScreenAudioMutes = new Map();
     this.isDeafened = false;
 
+    // Resiliência de Malha e Auto-Recuperação WebRTC
+    this.isInVoice = false;
+    this.expectedPeers = new Set();
+    this.reconnectingPeers = new Set();
+    this.recoveryTimers = new Map();
+    this.iceCheckTimers = new Map();
+    this.remoteSpeechIntervals = new Map();
+    this.watchdogTimer = null;
+
     this.audioContext = null;
     this.localSourceNode = null;
     this.noiseGateNode = null;
@@ -196,22 +205,44 @@ export class WebRTCManager {
 
   setupSocketEvents() {
     this.socket.on('voice:peers-list', async ({ peers }) => {
-      console.log(`[WebRTC 📞] Conectando com ${peers.length} participantes...`);
-      const validPeerIds = new Set((peers || []).map(p => p.id));
+      console.log(`[WebRTC 📞] Conectando com ${peers ? peers.length : 0} participantes...`);
+      const validPeerIds = new Set((peers || []).map(p => p.id).filter(id => id && id !== this.socket.id && !id.startsWith('bot-')));
+      this.expectedPeers = validPeerIds;
+
       for (const peerId of Array.from(this.peers.keys())) {
         if (!validPeerIds.has(peerId)) {
           console.log(`[WebRTC 🧹] Removendo peer obsoleto após reconexão/atualização: ${peerId}`);
           this.closePeer(peerId);
         }
       }
-      for (const peer of peers) {
-        await this.initiateCallTo(peer.id);
+
+      for (const peer of (peers || [])) {
+        if (!peer || !peer.id || peer.id === this.socket.id || peer.id.startsWith('bot-')) continue;
+        try {
+          await this.initiateCallTo(peer.id);
+        } catch (callErr) {
+          console.error(`[WebRTC] Falha ao iniciar chamada para ${peer.id}:`, callErr);
+        }
       }
     });
 
     this.socket.on('voice:peer-joined', async ({ peerId, user }) => {
-      console.log(`[WebRTC 📞] Participante detectado: ${user.name} (${peerId})`);
+      console.log(`[WebRTC 📞] Participante detectado: ${user ? user.name : peerId} (${peerId})`);
+      if (!peerId || peerId === this.socket.id || peerId.startsWith('bot-')) return;
+
+      this.expectedPeers.add(peerId);
       this.getOrCreatePeer(peerId);
+
+      // Fallback proativo: se o novo participante não enviar oferta em até 3.5s, iniciamos ativamente a chamada
+      setTimeout(() => {
+        if (this.isInVoice && this.expectedPeers.has(peerId)) {
+          const pc = this.peers.get(peerId);
+          if (!pc || !pc.remoteDescription || pc.connectionState === 'new') {
+            console.log(`[WebRTC 📞 Fallback] Nenhuma oferta recebida de ${peerId} após 3.5s. Iniciando chamada ativamente...`);
+            this.initiateCallTo(peerId).catch(() => {});
+          }
+        }
+      }, 3500);
     });
 
     this.socket.on('webrtc:offer', async ({ senderId, offer, type, screenStreamId, screenAudioTrackId, isScreenStopped, isCameraStopped }) => {
@@ -237,13 +268,17 @@ export class WebRTCManager {
 
       try {
         if (pc.signalingState !== 'stable') {
-          // Glare handling (colisão de negociação no padrão W3C Perfect Negotiation)
-          const isPolite = this.socket.id > senderId;
-          if (!isPolite) {
-            console.warn(`[WebRTC 📞] Glare com ${senderId} (estado: ${pc.signalingState}) - rejeitando oferta concorrente.`);
+          // Glare handling resiliente com verificação de oferta obsoleta e ofertas de recuperação
+          const isPolite = (this.socket && this.socket.id) ? this.socket.id > senderId : false;
+          const offerAge = Date.now() - (pc.lastOfferTime || 0);
+          const isOfferStale = pc.lastOfferTime && offerAge > 4000;
+          const isRecovery = type === 'ice-restart' || pc.connectionState === 'failed';
+
+          if (!isPolite && !isOfferStale && !isRecovery) {
+            console.warn(`[WebRTC 📞] Glare com ${senderId} (estado: ${pc.signalingState}) - rejeitando oferta concorrente recente.`);
             return;
           }
-          console.log(`[WebRTC 📞] Glare com ${senderId} (estado: ${pc.signalingState}) - executando rollback como polite.`);
+          console.log(`[WebRTC 📞] Glare/Recuperação com ${senderId} (estado: ${pc.signalingState}, polite: ${isPolite}, stale: ${isOfferStale}) - executando rollback.`);
           try {
             await pc.setLocalDescription({ type: 'rollback' });
           } catch (rbErr) {
@@ -252,6 +287,8 @@ export class WebRTCManager {
         }
 
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        pc.lastOfferTime = null;
+        pc.isIceRestarting = false;
 
         if (pc.pendingCandidates && pc.pendingCandidates.length > 0) {
           for (const cand of pc.pendingCandidates) {
@@ -291,6 +328,8 @@ export class WebRTCManager {
         try {
           if (pc.signalingState === 'have-local-offer') {
             await pc.setRemoteDescription(new RTCSessionDescription(answer));
+            pc.lastOfferTime = null;
+            pc.isIceRestarting = false;
 
             if (pc.pendingCandidates && pc.pendingCandidates.length > 0) {
               for (const cand of pc.pendingCandidates) {
@@ -311,7 +350,7 @@ export class WebRTCManager {
 
     this.socket.on('webrtc:ice-candidate', async ({ senderId, candidate }) => {
       const pc = this.peers.get(senderId);
-      if (!pc || !candidate) return;
+      if (!pc || !candidate || pc.signalingState === 'closed') return;
 
       if (!pc.remoteDescription || !pc.remoteDescription.type) {
         if (!pc.pendingCandidates) pc.pendingCandidates = [];
@@ -349,6 +388,7 @@ export class WebRTCManager {
 
     this.socket.on('voice:peer-left', ({ peerId }) => {
       console.log(`[WebRTC 📞] Participante saiu: ${peerId}`);
+      this.expectedPeers.delete(peerId);
       this.closePeer(peerId);
     });
   }
@@ -439,14 +479,28 @@ export class WebRTCManager {
   }
 
   async initiateCallTo(peerId) {
+    if (!peerId || peerId === this.socket.id || peerId.startsWith('bot-')) return;
     const pc = this.getOrCreatePeer(peerId);
     try {
+      if (pc.signalingState !== 'stable') {
+        let retries = 5;
+        while (pc.signalingState !== 'stable' && retries > 0) {
+          await new Promise(r => setTimeout(r, 100));
+          retries--;
+        }
+        if (pc.signalingState !== 'stable') {
+          console.warn(`[WebRTC 📞] Conexão com ${peerId} ocupada em '${pc.signalingState}'. Adiada.`);
+          return;
+        }
+      }
+
       let offer = await pc.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true
       });
       offer.sdp = this.optimizeSdp(offer.sdp);
       await pc.setLocalDescription(offer);
+      pc.lastOfferTime = Date.now();
 
       this.socket.emit('webrtc:offer', {
         targetId: peerId,
@@ -462,13 +516,29 @@ export class WebRTCManager {
     }
   }
 
-  getOrCreatePeer(peerId) {
-    if (this.peers.has(peerId)) {
-      return this.peers.get(peerId);
+  getOrCreatePeer(peerId, forceNew = false) {
+    if (!forceNew && this.peers.has(peerId)) {
+      const existingPc = this.peers.get(peerId);
+      if (existingPc.connectionState !== 'closed' && existingPc.connectionState !== 'failed') {
+        return existingPc;
+      }
+      console.log(`[WebRTC ♻️] Reciclando RTCPeerConnection fechada/falha de ${peerId}`);
+      try {
+        existingPc.onicecandidate = null;
+        existingPc.ontrack = null;
+        existingPc.oniceconnectionstatechange = null;
+        existingPc.onconnectionstatechange = null;
+        existingPc.close();
+      } catch (e) {}
+      this.peers.delete(peerId);
+      this.peerSenders.delete(peerId);
     }
 
     const pc = new RTCPeerConnection(this.rtcConfig);
     pc.pendingCandidates = [];
+    pc.createdAt = Date.now();
+    pc.lastOfferTime = null;
+    pc.isIceRestarting = false;
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
@@ -526,19 +596,26 @@ export class WebRTCManager {
     pc.oniceconnectionstatechange = () => {
       console.log(`[WebRTC 📞 ICE] Peer ${peerId}: estado=${pc.iceConnectionState}`);
       if (pc.iceConnectionState === 'failed') {
-        try {
-          if (typeof pc.restartIce === 'function') {
-            console.log(`[WebRTC 📞 ICE] Tentando reiniciar ICE para ${peerId}...`);
-            pc.restartIce();
-          }
-        } catch (e) {}
+        console.warn(`[WebRTC ⚠️ ICE] ICE falhou para ${peerId}. Tentando ICE restart com oferta...`);
+        this.restartIce(peerId);
+      } else if (pc.iceConnectionState === 'disconnected') {
+        this.scheduleIceCheck(peerId);
+      } else if (pc.iceConnectionState === 'connected') {
+        this.clearPeerTimers(peerId);
       }
     };
 
     pc.onconnectionstatechange = () => {
       console.log(`[WebRTC 📞 Conexão] Peer ${peerId}: estado=${pc.connectionState}`);
-      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-        this.closePeer(peerId);
+      if (pc.connectionState === 'failed') {
+        console.warn(`[WebRTC ⚠️ Conexão] Conexão com ${peerId} falhou. Agendando auto-recuperação resiliente...`);
+        this.scheduleAutoRecovery(peerId);
+      } else if (pc.connectionState === 'connected') {
+        this.clearPeerTimers(peerId);
+        const audio = this.remoteVoiceAudios.get(peerId);
+        if (audio && audio.paused && !this.isDeafened) {
+          audio.play().catch(() => {});
+        }
       }
     };
 
@@ -673,6 +750,15 @@ export class WebRTCManager {
         } catch (e) {
           console.warn('[WebRTC] Falha ao criar GainNode para amplificação de voz > 100%:', e);
         }
+      } else if (nodeData.stream !== audio.srcObject) {
+        try {
+          nodeData.sourceNode.disconnect();
+          nodeData.sourceNode = this.audioContext.createMediaStreamSource(audio.srcObject);
+          nodeData.sourceNode.connect(nodeData.gainNode);
+          nodeData.stream = audio.srcObject;
+        } catch (e) {
+          console.warn('[WebRTC] Erro ao reconectar novo stream de voz ao GainNode:', e);
+        }
       }
       if (nodeData && nodeData.gainNode && this.audioContext) {
         try {
@@ -695,6 +781,9 @@ export class WebRTCManager {
       if (audio) {
         audio.muted = shouldMute;
         audio.volume = Math.max(0, Math.min(1.0, gainVal));
+        if (!shouldMute && audio.paused) {
+          audio.play().catch(() => {});
+        }
       }
     }
   }
@@ -797,6 +886,10 @@ export class WebRTCManager {
   attachRemoteSpeechDetection(peerId, stream) {
     try {
       this.ensureAudioContext();
+      if (this.remoteSpeechIntervals && this.remoteSpeechIntervals.has(peerId)) {
+        clearInterval(this.remoteSpeechIntervals.get(peerId));
+        this.remoteSpeechIntervals.delete(peerId);
+      }
       const source = this.audioContext.createMediaStreamSource(stream);
       const analyser = this.audioContext.createAnalyser();
       analyser.fftSize = 256;
@@ -808,6 +901,7 @@ export class WebRTCManager {
       const interval = setInterval(() => {
         if (!this.remoteVoiceAudios.has(peerId)) {
           clearInterval(interval);
+          if (this.remoteSpeechIntervals) this.remoteSpeechIntervals.delete(peerId);
           return;
         }
         analyser.getByteFrequencyData(data);
@@ -823,6 +917,8 @@ export class WebRTCManager {
           }
         }
       }, 100);
+      if (!this.remoteSpeechIntervals) this.remoteSpeechIntervals = new Map();
+      this.remoteSpeechIntervals.set(peerId, interval);
     } catch (e) {}
   }
 
@@ -889,6 +985,7 @@ export class WebRTCManager {
       }
 
       this.setupLocalSpeechMeter(this.localAudioStream);
+      this.startWatchdog();
       return this.localAudioStream;
     } catch (err) {
       console.error('[WebRTC] Erro ao capturar microfone:', err);
@@ -1612,19 +1709,249 @@ export class WebRTCManager {
     } catch (e) {}
   }
 
+  clearPeerTimers(peerId) {
+    if (this.recoveryTimers.has(peerId)) {
+      clearTimeout(this.recoveryTimers.get(peerId));
+      this.recoveryTimers.delete(peerId);
+    }
+    if (this.iceCheckTimers.has(peerId)) {
+      clearTimeout(this.iceCheckTimers.get(peerId));
+      this.iceCheckTimers.delete(peerId);
+    }
+  }
+
+  scheduleIceCheck(peerId) {
+    if (this.iceCheckTimers.has(peerId)) return;
+    const timer = setTimeout(() => {
+      this.iceCheckTimers.delete(peerId);
+      if (this.isInVoice && this.expectedPeers.has(peerId)) {
+        const pc = this.peers.get(peerId);
+        if (pc && (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed')) {
+          console.log(`[WebRTC 🔄 ICE Check] ICE persistiu '${pc.iceConnectionState}' para ${peerId} após 3s. Reiniciando ICE...`);
+          this.restartIce(peerId);
+        }
+      }
+    }, 3000);
+    this.iceCheckTimers.set(peerId, timer);
+  }
+
+  scheduleAutoRecovery(peerId) {
+    if (this.recoveryTimers.has(peerId)) return;
+    const timer = setTimeout(() => {
+      this.recoveryTimers.delete(peerId);
+      if (this.isInVoice && this.expectedPeers.has(peerId)) {
+        const pc = this.peers.get(peerId);
+        if (!pc || pc.connectionState === 'failed' || pc.iceConnectionState === 'failed') {
+          console.log(`[WebRTC 🔄 Auto-Recuperação] Executando reconexão resiliente para ${peerId}...`);
+          this.reconnectPeer(peerId);
+        }
+      }
+    }, 1500);
+    this.recoveryTimers.set(peerId, timer);
+  }
+
+  async restartIce(peerId) {
+    const pc = this.peers.get(peerId);
+    if (!pc || pc.connectionState === 'closed') {
+      return this.reconnectPeer(peerId);
+    }
+    if (pc.isIceRestarting) {
+      console.log(`[WebRTC 🔄 ICE Restart] ICE restart já em andamento para ${peerId}.`);
+      return;
+    }
+    pc.isIceRestarting = true;
+    try {
+      console.log(`[WebRTC 🔄 ICE Restart] Gerando nova oferta com iceRestart=true para ${peerId}...`);
+      if (typeof pc.restartIce === 'function') {
+        pc.restartIce();
+      }
+      let offer = await pc.createOffer({ iceRestart: true });
+      offer.sdp = this.optimizeSdp(offer.sdp);
+      await pc.setLocalDescription(offer);
+      pc.lastOfferTime = Date.now();
+
+      this.socket.emit('webrtc:offer', {
+        targetId: peerId,
+        offer,
+        type: 'ice-restart',
+        screenStreamId: this.localScreenStream ? this.localScreenStream.id : null,
+        screenAudioTrackId: this.localScreenAudioTrackId
+      });
+
+      // Se após 5s o ICE ainda não recuperou, reconecta por completo
+      setTimeout(() => {
+        pc.isIceRestarting = false;
+        if (this.isInVoice && this.expectedPeers.has(peerId)) {
+          if (pc.iceConnectionState === 'failed' || pc.connectionState === 'failed') {
+            console.warn(`[WebRTC ⚠️ ICE Restart] ICE restart não concluiu para ${peerId}. Recriando conexão completa...`);
+            this.reconnectPeer(peerId);
+          }
+        }
+      }, 5000);
+    } catch (err) {
+      pc.isIceRestarting = false;
+      console.warn(`[WebRTC 🔄 ICE Restart] Erro ao criar oferta de ICE restart para ${peerId}:`, err);
+      this.reconnectPeer(peerId);
+    }
+  }
+
+  async reconnectPeer(peerId) {
+    if (!this.isInVoice || !this.expectedPeers.has(peerId)) {
+      return;
+    }
+    if (this.reconnectingPeers.has(peerId)) {
+      return;
+    }
+    this.reconnectingPeers.add(peerId);
+
+    try {
+      console.log(`[WebRTC 🔄 Auto-Reconexão] Recriando conexão peer a peer com ${peerId}...`);
+      this.clearPeerTimers(peerId);
+
+      const oldPc = this.peers.get(peerId);
+      if (oldPc) {
+        try {
+          oldPc.onicecandidate = null;
+          oldPc.ontrack = null;
+          oldPc.oniceconnectionstatechange = null;
+          oldPc.onconnectionstatechange = null;
+          oldPc.close();
+        } catch (e) {}
+        this.peers.delete(peerId);
+      }
+      this.peerSenders.delete(peerId);
+
+      const newPc = this.getOrCreatePeer(peerId, true);
+
+      // Espera polite (350ms) se for polite peer para evitar colisão de ofertas simultâneas
+      const isPolite = (this.socket && this.socket.id) ? this.socket.id > peerId : false;
+      if (isPolite) {
+        await new Promise(r => setTimeout(r, 350));
+        if (newPc.remoteDescription) {
+          console.log(`[WebRTC 🔄 Auto-Reconexão] Oferta de ${peerId} já recebida durante espera polite.`);
+          this.reconnectingPeers.delete(peerId);
+          return;
+        }
+      }
+
+      await this.initiateCallTo(peerId);
+    } catch (err) {
+      console.error(`[WebRTC 🔄 Auto-Reconexão] Falha ao reconectar ${peerId}:`, err);
+    } finally {
+      setTimeout(() => {
+        this.reconnectingPeers.delete(peerId);
+      }, 2000);
+    }
+  }
+
+  healMeshConnections() {
+    if (!this.isInVoice) return;
+
+    for (const peerId of this.expectedPeers) {
+      if (peerId === this.socket.id || (peerId && peerId.startsWith('bot-'))) continue;
+
+      const pc = this.peers.get(peerId);
+      if (!pc || pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+        console.log(`[WebRTC 🩺 Watchdog] Conexão ausente ou falha para peer ${peerId}. Auto-reconectando...`);
+        this.reconnectPeer(peerId);
+        continue;
+      }
+
+      const age = Date.now() - (pc.createdAt || Date.now());
+      if ((pc.connectionState === 'new' || pc.connectionState === 'connecting') && age > 12000) {
+        console.log(`[WebRTC 🩺 Watchdog] Conexão congelada em '${pc.connectionState}' há ${Math.round(age/1000)}s para peer ${peerId}. Reiniciando...`);
+        this.reconnectPeer(peerId);
+        continue;
+      }
+
+      if (pc.iceConnectionState === 'failed') {
+        console.log(`[WebRTC 🩺 Watchdog] ICE em 'failed' para peer ${peerId}. Reiniciando ICE...`);
+        this.restartIce(peerId);
+        continue;
+      }
+
+      if (pc.connectionState === 'connected') {
+        const voiceAudio = this.remoteVoiceAudios.get(peerId);
+        if (voiceAudio && voiceAudio.paused && !this.isDeafened && !this.userMutes.get(peerId)) {
+          console.log(`[WebRTC 🩺 Watchdog] Áudio pausado detectado para peer ${peerId}. Resumindo play()...`);
+          voiceAudio.play().catch(() => {});
+        }
+      }
+    }
+
+    if (this.audioContext && this.audioContext.state === 'suspended') {
+      this.audioContext.resume().catch(() => {});
+    }
+  }
+
+  syncRoomPeers(peerIds) {
+    if (!this.isInVoice) return;
+    const newExpected = new Set(peerIds.filter(id => id && id !== this.socket.id && !id.startsWith('bot-')));
+    this.expectedPeers = newExpected;
+
+    // Remove peers que não estão mais na sala
+    for (const peerId of Array.from(this.peers.keys())) {
+      if (!this.expectedPeers.has(peerId)) {
+        console.log(`[WebRTC 🧹] Peer ${peerId} não está mais no canal de voz, limpando.`);
+        this.closePeer(peerId);
+      }
+    }
+
+    // Auto-reconecta qualquer participante sem conexão ativa
+    for (const peerId of this.expectedPeers) {
+      const pc = this.peers.get(peerId);
+      if (!pc || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+        console.log(`[WebRTC 🩺 Sync] Participante ${peerId} sem conexão ativa. Auto-reconectando...`);
+        this.reconnectPeer(peerId);
+      }
+    }
+  }
+
+  startWatchdog() {
+    this.isInVoice = true;
+    if (this.watchdogTimer) clearInterval(this.watchdogTimer);
+    this.watchdogTimer = setInterval(() => {
+      this.healMeshConnections();
+    }, 5000);
+  }
+
+  stopWatchdog() {
+    this.isInVoice = false;
+    if (this.watchdogTimer) {
+      clearInterval(this.watchdogTimer);
+      this.watchdogTimer = null;
+    }
+    for (const timer of this.recoveryTimers.values()) clearTimeout(timer);
+    this.recoveryTimers.clear();
+    for (const timer of this.iceCheckTimers.values()) clearTimeout(timer);
+    this.iceCheckTimers.clear();
+    for (const interval of this.remoteSpeechIntervals.values()) clearInterval(interval);
+    this.remoteSpeechIntervals.clear();
+    this.reconnectingPeers.clear();
+    this.expectedPeers.clear();
+  }
+
   closePeer(peerId) {
+    this.clearPeerTimers(peerId);
+    if (this.remoteSpeechIntervals.has(peerId)) {
+      clearInterval(this.remoteSpeechIntervals.get(peerId));
+      this.remoteSpeechIntervals.delete(peerId);
+    }
+
     const pc = this.peers.get(peerId);
     if (pc) {
-      pc.close();
+      try {
+        pc.onicecandidate = null;
+        pc.ontrack = null;
+        pc.oniceconnectionstatechange = null;
+        pc.onconnectionstatechange = null;
+        pc.close();
+      } catch (e) {}
       this.peers.delete(peerId);
     }
     this.peerSenders.delete(peerId);
     this.peerScreenStreamIds.delete(peerId);
     this.peerScreenAudioTrackIds.delete(peerId);
-    this.userVolumes.delete(peerId);
-    this.userScreenVolumes.delete(peerId);
-    this.userMutes.delete(peerId);
-    this.userScreenAudioMutes.delete(peerId);
 
     const voiceNodeData = this.voiceAudioNodes.get(peerId);
     if (voiceNodeData) {
@@ -1661,11 +1988,18 @@ export class WebRTCManager {
   }
 
   leaveVoice() {
+    this.stopWatchdog();
     this.stopScreenShare();
     this.stopCamera();
 
     for (const [peerId, pc] of this.peers.entries()) {
-      try { pc.close(); } catch (e) {}
+      try {
+        pc.onicecandidate = null;
+        pc.ontrack = null;
+        pc.oniceconnectionstatechange = null;
+        pc.onconnectionstatechange = null;
+        pc.close();
+      } catch (e) {}
     }
 
     this.voiceAudioNodes.forEach(nodeData => {
@@ -1708,10 +2042,6 @@ export class WebRTCManager {
     this.peerScreenAudioTrackIds.clear();
     this.remoteVoiceAudios.clear();
     this.remoteScreenAudios.clear();
-    this.userVolumes.clear();
-    this.userScreenVolumes.clear();
-    this.userMutes.clear();
-    this.userScreenAudioMutes.clear();
   }
 
   // Volume do Microfone/Voz do Usuário (100% independente da transmissão, até 200% via GainNode)

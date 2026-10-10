@@ -1398,6 +1398,17 @@ socket.on('voice:update', (data = {}) => {
     }
   }
 
+  // Sincroniza peers do canal de voz ativo com o WebRTC para recuperação automática de conexões caídas
+  if (inVoice && currentVoiceChannelId && allVoiceRoomsState[currentVoiceChannelId]) {
+    const currentRoomUsers = allVoiceRoomsState[currentVoiceChannelId];
+    const peerIds = currentRoomUsers
+      .map(u => u.id)
+      .filter(id => id && id !== (socket ? socket.id : null) && !id.startsWith('bot-'));
+    if (webrtc && typeof webrtc.syncRoomPeers === 'function') {
+      webrtc.syncRoomPeers(peerIds);
+    }
+  }
+
   renderSidebarChannels();
   renderVoiceStageCards();
   renderMembersSidebar();
@@ -4158,6 +4169,9 @@ async function connectToVoiceChannel(roomId = 'gamezeda', roomName = 'Gamezeda',
     webrtc.setDeafened(isDeafened);
   }
   sounds.playJoin();
+  if (webrtc && typeof webrtc.startWatchdog === 'function') {
+    webrtc.startWatchdog();
+  }
 
   // Garante que o microfone esteja capturado e pronto ANTES de conectar aos peers
   // para que os tracks de áudio já sejam incluídos na primeira oferta SDP sem conflito de corrida
