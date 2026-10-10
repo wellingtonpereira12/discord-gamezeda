@@ -2634,6 +2634,7 @@ body {
 .soundboard-popover-body {
   padding: 12px 14px;
   overflow-y: auto;
+  overflow-x: hidden;
   max-height: 400px;
   flex: 1;
 }
@@ -2648,8 +2649,9 @@ body {
 
 .soundboard-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
+  width: 100%;
 }
 
 .soundboard-tile {
@@ -2737,6 +2739,11 @@ body {
   background: rgba(88, 101, 242, 0.2);
 }
 
+.soundboard-tile-action-btn.soundboard-tile-delete:hover {
+  color: #ed4245;
+  background: rgba(237, 66, 69, 0.2);
+}
+
 .soundboard-tile-action-btn svg,
 .soundboard-tile-action-btn i {
   pointer-events: none;
@@ -2762,30 +2769,6 @@ body {
 }
 .btn-sound-mode:hover {
   filter: brightness(1.15);
-}
-.quick-sound-btn {
-  background: #2b2d31;
-  color: #dbdee1;
-  border: 1px solid #383a40;
-  border-radius: 6px;
-  padding: 5px 9px;
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  transition: all 0.15s ease;
-  user-select: none;
-}
-.quick-sound-btn:hover {
-  background: #35373c;
-  color: #fff;
-  border-color: #5865f2;
-  transform: translateY(-1px);
-}
-.quick-sound-btn:active {
-  transform: translateY(0);
 }
 
 /* SELETOR DE EMOJI COM LEQUE NO SOUNDBOARD */

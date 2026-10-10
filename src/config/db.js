@@ -242,10 +242,12 @@ export async function initDatabase() {
     try { await conn.query('ALTER TABLE messages ADD COLUMN reactions JSON NULL'); } catch (e) {}
     try { await conn.query('ALTER TABLE messages ADD COLUMN edited BOOLEAN DEFAULT FALSE'); } catch (e) {}
     try { await conn.query('ALTER TABLE messages ADD COLUMN pinned BOOLEAN DEFAULT FALSE'); } catch (e) {}
+    try { await conn.query("ALTER TABLE soundboard_sounds ADD COLUMN guild_id VARCHAR(64) DEFAULT 'gamezeda'"); } catch (e) {}
 
     await conn.query(`
       CREATE TABLE IF NOT EXISTS soundboard_sounds (
         id VARCHAR(64) PRIMARY KEY,
+        guild_id VARCHAR(64) DEFAULT 'gamezeda',
         name VARCHAR(64) NOT NULL,
         emoji VARCHAR(32) NOT NULL,
         file_url VARCHAR(255) NOT NULL,
@@ -318,8 +320,8 @@ export async function initDatabase() {
     if (soundRows[0].count === 0) {
       for (const s of memoryStore.soundboard) {
         await conn.query(
-          'INSERT IGNORE INTO soundboard_sounds (id, name, emoji, file_url, created_by) VALUES (?, ?, ?, ?, ?)',
-          [s.id, s.name, s.emoji, s.file_url, s.created_by]
+          'INSERT IGNORE INTO soundboard_sounds (id, guild_id, name, emoji, file_url, created_by) VALUES (?, ?, ?, ?, ?, ?)',
+          [s.id, s.guild_id || 'gamezeda', s.name, s.emoji, s.file_url, s.created_by]
         );
       }
     }
@@ -1686,27 +1688,29 @@ export async function getAllMessagesByChannel() {
   return result;
 }
 
-export async function getSoundboardSounds() {
+export async function getSoundboardSounds(guildId = 'gamezeda') {
+  const targetGuild = guildId || 'gamezeda';
   if (isConnected && pool) {
     try {
-      const [rows] = await pool.query('SELECT * FROM soundboard_sounds ORDER BY created_at ASC');
+      const [rows] = await pool.query('SELECT * FROM soundboard_sounds WHERE guild_id = ? ORDER BY created_at ASC', [targetGuild]);
       return rows;
     } catch (e) {
       console.warn('Erro ao carregar soundboard do MariaDB:', e.message);
     }
   }
-  return memoryStore.soundboard;
+  return memoryStore.soundboard.filter(s => (s.guild_id || 'gamezeda') === targetGuild);
 }
 
-export async function addSoundboardSound({ id, name, emoji, file_url, created_by }) {
-  const sound = { id, name, emoji, file_url, created_by };
+export async function addSoundboardSound({ id, guild_id, name, emoji, file_url, created_by }) {
+  const targetGuild = guild_id || 'gamezeda';
+  const sound = { id, guild_id: targetGuild, name, emoji, file_url, created_by };
   memoryStore.soundboard.push(sound);
 
   if (isConnected && pool) {
     try {
       await pool.query(
-        'INSERT INTO soundboard_sounds (id, name, emoji, file_url, created_by) VALUES (?, ?, ?, ?, ?)',
-        [id, name, emoji, file_url, created_by]
+        'INSERT INTO soundboard_sounds (id, guild_id, name, emoji, file_url, created_by) VALUES (?, ?, ?, ?, ?, ?)',
+        [id, targetGuild, name, emoji, file_url, created_by]
       );
     } catch (e) {
       console.warn('Erro ao salvar som no MariaDB:', e.message);
@@ -1752,6 +1756,28 @@ export async function updateSoundboardSound({ id, name, emoji, file_url }) {
   }
 
   return updatedSound;
+}
+
+export async function deleteSoundboardSound(id) {
+  let deleted = null;
+  const idx = memoryStore.soundboard.findIndex(s => s.id === id);
+  if (idx !== -1) {
+    deleted = memoryStore.soundboard.splice(idx, 1)[0];
+  }
+
+  if (isConnected && pool) {
+    try {
+      const [rows] = await pool.query('SELECT * FROM soundboard_sounds WHERE id = ?', [id]);
+      if (rows && rows.length > 0) {
+        deleted = rows[0];
+      }
+      await pool.query('DELETE FROM soundboard_sounds WHERE id = ?', [id]);
+    } catch (e) {
+      console.warn('Erro ao excluir som do MariaDB:', e.message);
+    }
+  }
+
+  return deleted;
 }
 
 // ==========================================
