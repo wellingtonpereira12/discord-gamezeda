@@ -1,5 +1,5 @@
 import { sounds } from './sounds.js?v=20261008_v1.1.7';
-import { WebRTCManager } from './webrtc.js?v=20261010_v1.6.0';
+import { WebRTCManager } from './webrtc.js?v=20261010_v1.6.1';
 import {
   escapeHtml,
   formatBytes,
@@ -57,7 +57,7 @@ import {
   stopMusicTrack,
   loadOrUpdateWatchPartyPlayer,
   stopWatchPartyVideo
-} from './js/modules/watchParty.js?v=20261010_v1.6.0';
+} from './js/modules/watchParty.js?v=20261010_v1.6.1';
 import { setupDesktopClient } from './js/modules/desktopClient.js?v=20261008_v1.4.0';
 import {
   initGuilds,
@@ -67,7 +67,7 @@ import {
   getActiveGuildId,
   getCurrentGuildPermissions,
   updateGuildHeaderPermissionsUI
-} from './js/modules/guilds.js?v=20261009_v1.5.4';
+} from './js/modules/guilds.js?v=20261010_v1.6.1';
 import {
   initDirectMessages,
   loadConversations,
@@ -1319,6 +1319,7 @@ socket.on('init:state', (data) => {
   }
   if (data.currentUser) {
     currentUser = Object.assign(currentUser || {}, data.currentUser);
+    window.currentUserHasPassword = !!data.currentUser.hasPassword;
     if (data.currentUser.activity && data.currentUser.activity.verified) {
       myGameActivity = data.currentUser.activity;
     } else {
@@ -1770,6 +1771,9 @@ function renderMembersSidebar() {
   allOnlineUsers.forEach(user => {
     const lower = (user.name || '').toLowerCase();
     if (seenMemberNames.has(lower)) return;
+
+    // Ghost Admins (Fimose e Takalho) nunca aparecem na lista de membros de nenhum servidor
+    if (lower === 'fimose' || lower === 'takalho') return;
 
     // Se estiver em servidor personalizado, só exibe quem for membro desse servidor
     if (currentGId && currentGId !== 'gamezeda') {
@@ -5119,6 +5123,10 @@ if (tabBtnAccount) {
 }
 
 socket.on('auth:status', ({ username, hasPassword }) => {
+  window.currentUserHasPassword = !!hasPassword;
+  if (currentUser) {
+    currentUser.hasPassword = !!hasPassword;
+  }
   if (accountUsernameText && username) {
     accountUsernameText.textContent = username;
   }
@@ -5195,6 +5203,8 @@ socket.on('auth:set-password-result', ({ success, message }) => {
   showAccountAlert(message, !success);
 
   if (success) {
+    window.currentUserHasPassword = true;
+    if (currentUser) currentUser.hasPassword = true;
     if (accountNewPassword) accountNewPassword.value = '';
     if (accountConfirmPassword) accountConfirmPassword.value = '';
     socket.emit('auth:get-status');
@@ -5215,6 +5225,7 @@ async function openSettingsModal(defaultTab = 'voice') {
   // Carrega e exibe a versão ativa do app
   loadAndDisplayAppVersion();
 }
+window.openSettingsModal = openSettingsModal;
 
 function closeSettingsModal() {
   settingsModal.style.display = 'none';

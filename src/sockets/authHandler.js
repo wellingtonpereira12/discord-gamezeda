@@ -124,9 +124,16 @@ export function registerAuthHandlers(io, socket, users) {
       const passwordHash = hashPassword(password.trim());
       await setUserPassword(currentUser.name, passwordHash, deviceId);
 
+      currentUser.hasPassword = true;
+
       socket.emit('auth:set-password-result', {
         success: true,
         message: 'Cadastro finalizado com sucesso! Seu nick agora está protegido por senha.'
+      });
+
+      socket.emit('auth:status', {
+        username: currentUser.name,
+        hasPassword: true
       });
     } catch (err) {
       console.error('Erro em auth:set-password:', err);

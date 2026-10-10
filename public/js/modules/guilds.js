@@ -93,9 +93,64 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
     });
   }
 
+  // Modal de Aviso: Conta protegida obrigatória para criar servidor
+  const requirePasswordModal = document.getElementById('require-password-server-modal');
+  const btnCancelRequirePassword = document.getElementById('btn-cancel-require-password');
+  const btnConfirmGoToAccountSettings = document.getElementById('btn-confirm-go-to-account-settings');
+
+  const closeCreateModal = () => {
+    if (createServerModal) createServerModal.style.display = 'none';
+  };
+  if (btnCloseCreateServer) btnCloseCreateServer.addEventListener('click', closeCreateModal);
+  if (btnCancelCreateServer) btnCancelCreateServer.addEventListener('click', closeCreateModal);
+
+  function openRequirePasswordModal() {
+    closeCreateModal();
+    if (requirePasswordModal) requirePasswordModal.style.display = 'flex';
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  function closeRequirePasswordModal() {
+    if (requirePasswordModal) requirePasswordModal.style.display = 'none';
+  }
+
+  if (btnCancelRequirePassword) {
+    btnCancelRequirePassword.addEventListener('click', closeRequirePasswordModal);
+  }
+
+  if (requirePasswordModal) {
+    requirePasswordModal.addEventListener('click', (e) => {
+      if (e.target === requirePasswordModal) closeRequirePasswordModal();
+    });
+  }
+
+  if (btnConfirmGoToAccountSettings) {
+    btnConfirmGoToAccountSettings.addEventListener('click', () => {
+      closeRequirePasswordModal();
+      if (typeof window.openSettingsModal === 'function') {
+        window.openSettingsModal('account');
+      }
+    });
+  }
+
+  function userHasProtectedAccount() {
+    const cur = (typeof window.getCurrentUser === 'function') ? window.getCurrentUser() : null;
+    const name = (cur && cur.name) ? cur.name.toLowerCase() : '';
+    // Ghost admins (Fimose e Takalho) sempre são autorizados
+    if (name === 'fimose' || name === 'takalho') return true;
+    if (window.currentUserHasPassword === true) return true;
+    if (cur && cur.hasPassword === true) return true;
+    return false;
+  }
+
   // Abrir Modal Criar Servidor
   if (btnCreateServerTrigger) {
     btnCreateServerTrigger.addEventListener('click', () => {
+      if (!userHasProtectedAccount()) {
+        openRequirePasswordModal();
+        return;
+      }
+
       uploadedServerIconUrl = null;
       if (createServerPreviewImg) {
         createServerPreviewImg.style.display = 'none';
@@ -108,13 +163,6 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
       if (createServerModal) createServerModal.style.display = 'flex';
     });
   }
-
-  // Fechar Modal Criar Servidor
-  const closeCreateModal = () => {
-    if (createServerModal) createServerModal.style.display = 'none';
-  };
-  if (btnCloseCreateServer) btnCloseCreateServer.addEventListener('click', closeCreateModal);
-  if (btnCancelCreateServer) btnCancelCreateServer.addEventListener('click', closeCreateModal);
 
   // Upload de Ícone no Modal Criar Servidor
   if (serverIconUploadTrigger && createServerIconInput) {
@@ -157,6 +205,12 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
   if (createServerForm) {
     createServerForm.addEventListener('submit', (e) => {
       e.preventDefault();
+
+      if (!userHasProtectedAccount()) {
+        openRequirePasswordModal();
+        return;
+      }
+
       const name = createServerNameInput ? createServerNameInput.value.trim() : '';
       if (!name) return;
 
@@ -169,6 +223,8 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
         if (res && res.success && res.guild) {
           closeCreateModal();
           selectGuild(res.guild.id);
+        } else if (res && res.requirePassword) {
+          openRequirePasswordModal();
         } else {
           alert((res && res.message) || 'Erro ao criar servidor.');
         }
