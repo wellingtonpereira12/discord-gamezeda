@@ -2361,6 +2361,7 @@ body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 6px;
 }
 
@@ -2488,6 +2489,7 @@ body {
   display: inline-block;
   width: 40px;
   height: 22px;
+  flex-shrink: 0;
 }
 
 .discord-toggle input {

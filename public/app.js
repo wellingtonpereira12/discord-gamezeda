@@ -1,5 +1,5 @@
 import { sounds } from './sounds.js?v=20261008_v1.1.7';
-import { WebRTCManager } from './webrtc.js?v=20261010_v1.5.7';
+import { WebRTCManager } from './webrtc.js?v=20261010_v1.5.8';
 import {
   escapeHtml,
   formatBytes,
@@ -57,7 +57,7 @@ import {
   stopMusicTrack,
   loadOrUpdateWatchPartyPlayer,
   stopWatchPartyVideo
-} from './js/modules/watchParty.js?v=20261010_v1.5.7';
+} from './js/modules/watchParty.js?v=20261010_v1.5.8';
 import { setupDesktopClient } from './js/modules/desktopClient.js?v=20261008_v1.4.0';
 import {
   initGuilds,
@@ -5221,9 +5221,9 @@ function updateMicLoopbackUI(active) {
     btnToggleMicLoopback.style.color = '#fff';
     if (btnToggleMicLoopbackText) btnToggleMicLoopbackText.textContent = 'Parar Teste (Ouvindo)';
   } else {
-    btnToggleMicLoopback.style.background = 'rgba(88, 101, 242, 0.15)';
-    btnToggleMicLoopback.style.borderColor = 'rgba(88, 101, 242, 0.35)';
-    btnToggleMicLoopback.style.color = '#dbdee1';
+    btnToggleMicLoopback.style.background = '';
+    btnToggleMicLoopback.style.borderColor = '';
+    btnToggleMicLoopback.style.color = '';
     if (btnToggleMicLoopbackText) btnToggleMicLoopbackText.textContent = 'Testar (Ouvir Minha Voz)';
   }
 }
