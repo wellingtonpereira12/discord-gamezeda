@@ -109,12 +109,13 @@ const IGNORED_EXES = new Set([
   'lightshot.exe', 'sharex.exe', 'greenshot.exe', 'lockapp.exe', 'searchhost.exe', 'startmenuexperiencehost.exe',
   'shellexperiencehost.exe', 'shellhost.exe', 'textinputhost.exe', 'applicationframehost.exe', 'xboxpcapp.exe',
   'm365copilot.exe', 'msedgewebview2.exe', 'jusched.exe', 'jucheck.exe', 'unsecapp.exe', 'crossdeviceservice.exe',
-  'crossdeviceresume.exe', 'widgetservice.exe', 'monotificationux.exe', 'taskhostw.exe', 'atieclxx.exe'
+  'crossdeviceresume.exe', 'widgetservice.exe', 'monotificationux.exe', 'taskhostw.exe', 'atieclxx.exe',
+  'rxdiag.exe', 'radeonsoftware.exe', 'amdrsserv.exe', 'amddvr.exe', 'amdow.exe', 'cnext.exe'
 ]);
 
-const IGNORED_PREFIXES = ['system', 'nv', 'svchost', 'dwm', 'dllhost', 'runtimebroker', 'csrss', 'wininit', 'winlogon', 'smss', 'services', 'lsass'];
+const IGNORED_PREFIXES = ['system', 'nv', 'amd', 'radeon', 'ati', 'rxdiag', 'svchost', 'dwm', 'dllhost', 'runtimebroker', 'csrss', 'wininit', 'winlogon', 'smss', 'services', 'lsass'];
 
-const IGNORED_TITLE_STARTS = ['{', '.net', 'dwm notification', 'windows push', 'broadcastlistener', 'wuicon', 'olemainthread', 'task host', 'rtc video'];
+const IGNORED_TITLE_STARTS = ['{', '.net', 'dwm notification', 'windows push', 'broadcastlistener', 'wuicon', 'olemainthread', 'task host', 'rtc video', 'rxdiag', 'radeon', 'amd '];
 const IGNORED_EXACT_TITLES = new Set([
   'n/a', 'olemainthreadwndname', 'task host window', 'quick settings', 'pesquisar', 'iniciar', 'search', 'start',
   'sem título', 'sem titulo', 'untitled', 'settings', 'configurações', 'configuracoes', 'xbox'

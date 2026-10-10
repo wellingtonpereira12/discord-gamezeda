@@ -374,25 +374,26 @@ export function setupDesktopClient(deps = {}) {
   // Detecção Automática de Jogos em Execução no Windows (Discord Game Activity)
   if (typeof window.electronAPI.onGameActivity === 'function') {
     window.electronAPI.onGameActivity((activity) => {
-      setMyGameActivity(activity);
-      if (socket && socket.connected) {
+      if (!activity) {
+        setMyGameActivity(null);
+        if (socket && socket.connected) {
+          socket.emit('user:activity-update', null);
+        }
+        updateMyUserStatus();
+        renderMembersSidebar();
+        renderVoiceStageCards();
+      } else if (socket && socket.connected) {
+        // Envia ao servidor para validação oficial na RAWG.io antes de exibir na interface
         socket.emit('user:activity-update', activity);
       }
-      updateMyUserStatus();
-      renderMembersSidebar();
-      renderVoiceStageCards();
     });
 
     if (typeof window.electronAPI.getGameActivity === 'function') {
       window.electronAPI.getGameActivity().then((activity) => {
-        if (activity) {
-          setMyGameActivity(activity);
-          if (socket && socket.connected) {
-            socket.emit('user:activity-update', activity);
-          }
-          updateMyUserStatus();
-          renderMembersSidebar();
-          renderVoiceStageCards();
+        if (!activity) {
+          setMyGameActivity(null);
+        } else if (socket && socket.connected) {
+          socket.emit('user:activity-update', activity);
         }
       }).catch(() => {});
     }

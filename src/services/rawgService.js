@@ -65,8 +65,13 @@ function isTitleMatch(query, candidate) {
   const c = normalizeTitle(candidate);
   if (!q || !c) return false;
   if (q === c) return true;
-  if (c.startsWith(q) && (c.length - q.length <= 6)) return true;
-  if (q.startsWith(c) && (q.length - c.length <= 6)) return true;
+
+  // Para termos curtos (menos de 6 letras), exige correspondência exata
+  if (q.length < 6 || c.length < 6) return false;
+
+  // Para títulos longos, permite apenas pequena variação de sequência ou sufixo (máx 3 caracteres, ex: '2', 'ii')
+  if (c.startsWith(q) && (c.length - q.length <= 3)) return true;
+  if (q.startsWith(c) && (q.length - c.length <= 3)) return true;
   return false;
 }
 
@@ -206,15 +211,8 @@ export async function enrichGameActivity(activity) {
 
   const meta = await getGameMetadata(activity.game);
   if (!meta || !meta.verified) {
-    // Retorna a atividade original mesmo se não encontrada no RAWG para não quebrar a presença
-    return {
-      game: String(activity.game).slice(0, 80),
-      startedAt: Number(activity.startedAt) || Date.now(),
-      verified: false,
-      coverUrl: null,
-      genres: [],
-      steamUrl: `https://store.steampowered.com/search/?term=${encodeURIComponent(activity.game)}`
-    };
+    console.log(`[RAWG 🚫] Jogo descartado (não existe ou não verificado na RAWG): "${activity.game}"`);
+    return null;
   }
 
   return {

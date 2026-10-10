@@ -1186,6 +1186,11 @@ socket.on('init:state', (data) => {
   }
   if (data.currentUser) {
     currentUser = Object.assign(currentUser || {}, data.currentUser);
+    if (data.currentUser.activity && data.currentUser.activity.verified) {
+      myGameActivity = data.currentUser.activity;
+    } else {
+      myGameActivity = null;
+    }
     if (myUsernameEl) myUsernameEl.textContent = currentUser.name;
     if (myAvatarImg) myAvatarImg.src = currentUser.avatar;
     if (cardMyAvatar) cardMyAvatar.src = currentUser.avatar;
@@ -1265,6 +1270,14 @@ socket.on('members:update', (usersList) => {
 });
 
 socket.on('user:activity-update', ({ userId, userName, activity }) => {
+  const isMe = (userId && socket && socket.id === userId) ||
+    (currentUser && userName && userName.toLowerCase() === currentUser.name.toLowerCase());
+
+  if (isMe) {
+    myGameActivity = (activity && activity.verified) ? activity : null;
+    updateMyUserStatus();
+  }
+
   if (Array.isArray(allOnlineUsers)) {
     const target = allOnlineUsers.find(u =>
       (userId && u.id === userId) ||
@@ -1864,7 +1877,7 @@ function openUserProfileCard(user, triggerEl, clickEvent) {
 
   // Atividade de Jogo (Rich Presence com Capa RAWG)
   const activity = (isSelf && myGameActivity) ? myGameActivity : user.activity;
-  if (activity && activity.game) {
+  if (activity && activity.game && activity.verified) {
     if (popoutGameBox) popoutGameBox.style.display = 'flex';
     if (popoutGameTitle) popoutGameTitle.textContent = activity.game;
 
@@ -2039,7 +2052,7 @@ function updateMyUserStatus() {
     myStatusDot.className = `status-dot status-${statusMode}`;
   }
 
-  if (myGameActivity && myGameActivity.game) {
+  if (myGameActivity && myGameActivity.game && myGameActivity.verified) {
     statusEl.innerHTML = `
       <span class="my-status-game" title="Jogando ${escapeHtml(myGameActivity.game)} (${formatGameDuration(myGameActivity.startedAt)})">
         ${getGameIconSvg(11, '#23a55a')}
@@ -2071,9 +2084,9 @@ function createMemberItem(user, isVoice, roleColor = null) {
   const statusMode = (isLocal && currentUser?.statusMode) ? currentUser.statusMode : (user.statusMode || 'online');
   const effectiveRoleColor = roleColor || getMemberRoleColor(user.name);
 
-  // Atividade de Jogo (Rich Presence / Game Activity)
+  // Atividade de Jogo (Rich Presence / Game Activity - Apenas jogos validados na RAWG)
   const currentAct = (isLocal && myGameActivity) ? myGameActivity : user.activity;
-  const hasGame = !!(currentAct && currentAct.game);
+  const hasGame = !!(currentAct && currentAct.game && currentAct.verified);
 
   let activityHtml = '';
   if (hasGame) {
@@ -2397,7 +2410,7 @@ function renderSidebarChannels() {
             pill.innerHTML = `
               <img src="${user.avatar}" alt="${user.name}">
               <span class="pill-name" style="flex: 1;">${escapeHtml(user.name)}${isLocal ? ' (Você)' : ''}</span>
-              ${currentAct && currentAct.game ? `
+              ${currentAct && currentAct.game && currentAct.verified ? `
                 <span title="Jogando ${escapeHtml(currentAct.game)}" style="display: inline-flex; align-items: center; margin-right: 4px; opacity: 0.9;">
                   ${getGameIconSvg(12, '#23a55a')}
                 </span>
@@ -2466,7 +2479,7 @@ function renderVoiceStageCards() {
             ${isDeafened ? getDeafenIconSvg(13) : ''}
           </div>
         ` : ''}
-        ${myGameActivity && myGameActivity.game ? `
+        ${myGameActivity && myGameActivity.game && myGameActivity.verified ? `
           <div class="voice-card-game-badge" title="Jogando ${escapeHtml(myGameActivity.game)} (${formatGameDuration(myGameActivity.startedAt)})">
             ${myGameActivity.coverUrl ? `<img src="${myGameActivity.coverUrl}" style="width: 13px; height: 13px; border-radius: 2px; object-fit: cover; flex-shrink: 0;" />` : getGameIconSvg(11, '#23a55a')}
             <span>${escapeHtml(myGameActivity.game)}</span>
@@ -2501,7 +2514,7 @@ function renderVoiceStageCards() {
             </div>
           ` : ''}
         </div>
-        ${user.activity && user.activity.game ? `
+        ${user.activity && user.activity.game && user.activity.verified ? `
           <div class="voice-card-game-badge" title="Jogando ${escapeHtml(user.activity.game)} (${formatGameDuration(user.activity.startedAt)})">
             ${user.activity.coverUrl ? `<img src="${user.activity.coverUrl}" style="width: 13px; height: 13px; border-radius: 2px; object-fit: cover; flex-shrink: 0;" />` : getGameIconSvg(11, '#23a55a')}
             <span>${escapeHtml(user.activity.game)}</span>
