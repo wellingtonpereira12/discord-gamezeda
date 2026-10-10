@@ -25,13 +25,59 @@ let isRemoteAction = false;
 let currentWatchPartyVideoId = null;
 let isWatchPartyMuted = false;
 let watchPartyVolume = 100;
+let musicAudioCtx = null;
+let musicSourceNode = null;
+let musicGainNode = null;
 
 export function applyMusicBotVolume() {
   const musicAudio = document.getElementById('music-bot-audio');
   const cfg = getUserConfigFn('bot-alfredo');
   if (musicAudio) {
-    musicAudio.muted = !!cfg.muted || isDeafenedFn();
-    musicAudio.volume = Math.max(0, Math.min(1, (cfg.volume !== undefined ? cfg.volume : 100) / 100));
+    const isMuted = !!cfg.muted || isDeafenedFn();
+    const vol = (cfg.volume !== undefined ? cfg.volume : 100);
+    const gainVal = isMuted ? 0 : (vol / 100);
+
+    if (vol > 100 && !isMuted) {
+      if (!musicAudioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          try {
+            musicAudioCtx = new AudioContextClass();
+            musicSourceNode = musicAudioCtx.createMediaElementSource(musicAudio);
+            musicGainNode = musicAudioCtx.createGain();
+            musicSourceNode.connect(musicGainNode);
+            musicGainNode.connect(musicAudioCtx.destination);
+          } catch (e) {
+            console.warn('[MusicBot] Web Audio GainNode falhou:', e);
+          }
+        }
+      }
+      if (musicAudioCtx && musicAudioCtx.state === 'suspended') {
+        musicAudioCtx.resume().catch(() => {});
+      }
+      if (musicGainNode && musicAudioCtx) {
+        try {
+          musicGainNode.gain.setValueAtTime(gainVal, musicAudioCtx.currentTime);
+        } catch (e) {
+          musicGainNode.gain.value = gainVal;
+        }
+        musicAudio.volume = 1.0;
+        musicAudio.muted = false;
+      } else {
+        musicAudio.muted = isMuted;
+        musicAudio.volume = Math.max(0, Math.min(1, gainVal));
+      }
+    } else {
+      if (musicGainNode && musicAudioCtx) {
+        try {
+          musicGainNode.gain.setValueAtTime(isMuted ? 0 : 1.0, musicAudioCtx.currentTime);
+        } catch (e) {
+          musicGainNode.gain.value = isMuted ? 0 : 1.0;
+        }
+      }
+      musicAudio.muted = isMuted;
+      musicAudio.volume = Math.max(0, Math.min(1, gainVal));
+    }
   }
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "fakedc",
-  "version": "1.4.1",
+  "version": "1.5.5",
   "description": "FakeDC - Discord Clone com Chat em Tempo Real, Compartilhamento de Tela WebRTC e Cliente Desktop Electron",
   "main": "electron/main.cjs",
   "type": "module",

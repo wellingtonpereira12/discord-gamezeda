@@ -1,5 +1,5 @@
 import { sounds } from './sounds.js?v=20261008_v1.1.7';
-import { WebRTCManager } from './webrtc.js?v=20261009_v1.5.4';
+import { WebRTCManager } from './webrtc.js?v=20261010_v1.5.5';
 import {
   escapeHtml,
   formatBytes,
@@ -57,7 +57,7 @@ import {
   stopMusicTrack,
   loadOrUpdateWatchPartyPlayer,
   stopWatchPartyVideo
-} from './js/modules/watchParty.js?v=20261008_v1.3.0';
+} from './js/modules/watchParty.js?v=20261010_v1.5.5';
 import { setupDesktopClient } from './js/modules/desktopClient.js?v=20261008_v1.4.0';
 import {
   initGuilds,
@@ -778,10 +778,11 @@ function updateScreenSoundControlsState() {
 
     if (screenTileVolumeSlider) {
       screenTileVolumeSlider.value = isMuted ? 0 : 100;
-      updateSliderBackground(screenTileVolumeSlider, isMuted ? 0 : 100, 200);
+      updateSliderBackground(screenTileVolumeSlider, isMuted ? 0 : 100, 500);
     }
     if (screenTileVolumeVal) {
       screenTileVolumeVal.textContent = isMuted ? '0%' : '100%';
+      screenTileVolumeVal.style.color = '#ffffff';
     }
   } else {
     const config = getUserConfig(currentViewedStreamId);
@@ -795,10 +796,11 @@ function updateScreenSoundControlsState() {
 
     if (screenTileVolumeSlider) {
       screenTileVolumeSlider.value = currentVol;
-      updateSliderBackground(screenTileVolumeSlider, currentVol, 200);
+      updateSliderBackground(screenTileVolumeSlider, currentVol, 500);
     }
     if (screenTileVolumeVal) {
       screenTileVolumeVal.textContent = `${currentVol}%`;
+      screenTileVolumeVal.style.color = currentVol > 100 ? '#f0b232' : '#ffffff';
     }
   }
 
@@ -839,8 +841,11 @@ if (screenTileVolumeSlider) {
     if (currentContextPeerId === currentViewedStreamId) {
       if (ctxScreenVolumeSlider) {
         ctxScreenVolumeSlider.value = val;
-        if (ctxScreenVolumeVal) ctxScreenVolumeVal.textContent = `${val}%`;
-        updateSliderBackground(ctxScreenVolumeSlider, val, 200);
+        if (ctxScreenVolumeVal) {
+          ctxScreenVolumeVal.textContent = `${val}%`;
+          ctxScreenVolumeVal.style.color = val > 100 ? '#f0b232' : '#949ba4';
+        }
+        updateSliderBackground(ctxScreenVolumeSlider, val, 500);
       }
       if (ctxCheckSfx) ctxCheckSfx.classList.toggle('checked', config.sfxMuted);
     }
@@ -6024,9 +6029,14 @@ socket.on('chat:user-typing', ({ channelId, username, isTyping }) => {
 // ==========================================
 // MENU DE CONTEXTO (DISCORD BOTÃO DIREITO)
 // ==========================================
-function updateSliderBackground(slider, val, max = 200) {
-  const pct = (val / max) * 100;
-  slider.style.background = `linear-gradient(to right, #5865F2 0%, #5865F2 ${pct}%, #4e5058 ${pct}%, #4e5058 100%)`;
+function updateSliderBackground(slider, val, max = 500) {
+  const pct = Math.min(100, Math.max(0, (val / max) * 100));
+  if (val > 100) {
+    const basePct = (100 / max) * 100;
+    slider.style.background = `linear-gradient(to right, #5865F2 0%, #5865F2 ${basePct}%, #f0b232 ${basePct}%, #f0b232 ${pct}%, #4e5058 ${pct}%, #4e5058 100%)`;
+  } else {
+    slider.style.background = `linear-gradient(to right, #5865F2 0%, #5865F2 ${pct}%, #4e5058 ${pct}%, #4e5058 100%)`;
+  }
 }
 
 function openContextMenu(e, peerId, peerName) {
@@ -6041,14 +6051,18 @@ function openContextMenu(e, peerId, peerName) {
   // 1. Volume do Usuário (Microfone / Voz)
   ctxVolumeSlider.value = config.volume;
   ctxVolumeVal.textContent = `${config.volume}%`;
-  updateSliderBackground(ctxVolumeSlider, config.volume, 200);
+  ctxVolumeVal.style.color = config.volume > 100 ? '#f0b232' : '#949ba4';
+  updateSliderBackground(ctxVolumeSlider, config.volume, 500);
 
   // 2. Volume da Transmissão (Tela / Áudio do Jogo)
   if (ctxScreenVolumeSlider) {
     const sVol = config.sfxMuted ? 0 : (config.screenVolume !== undefined ? config.screenVolume : 100);
     ctxScreenVolumeSlider.value = sVol;
-    if (ctxScreenVolumeVal) ctxScreenVolumeVal.textContent = `${sVol}%`;
-    updateSliderBackground(ctxScreenVolumeSlider, sVol, 200);
+    if (ctxScreenVolumeVal) {
+      ctxScreenVolumeVal.textContent = `${sVol}%`;
+      ctxScreenVolumeVal.style.color = sVol > 100 ? '#f0b232' : '#949ba4';
+    }
+    updateSliderBackground(ctxScreenVolumeSlider, sVol, 500);
   }
 
   ctxCheckMute.classList.toggle('checked', config.muted);
@@ -6365,7 +6379,8 @@ document.addEventListener('keydown', (e) => {
 ctxVolumeSlider.addEventListener('input', (e) => {
   const vol = parseInt(e.target.value, 10);
   ctxVolumeVal.textContent = `${vol}%`;
-  updateSliderBackground(ctxVolumeSlider, vol, 200);
+  ctxVolumeVal.style.color = vol > 100 ? '#f0b232' : '#949ba4';
+  updateSliderBackground(ctxVolumeSlider, vol, 500);
 
   if (currentContextPeerId) {
     const config = getUserConfig(currentContextPeerId);
@@ -6381,8 +6396,11 @@ ctxVolumeSlider.addEventListener('click', (e) => e.stopPropagation());
 if (ctxScreenVolumeSlider) {
   ctxScreenVolumeSlider.addEventListener('input', (e) => {
     const vol = parseInt(e.target.value, 10);
-    if (ctxScreenVolumeVal) ctxScreenVolumeVal.textContent = `${vol}%`;
-    updateSliderBackground(ctxScreenVolumeSlider, vol, 200);
+    if (ctxScreenVolumeVal) {
+      ctxScreenVolumeVal.textContent = `${vol}%`;
+      ctxScreenVolumeVal.style.color = vol > 100 ? '#f0b232' : '#949ba4';
+    }
+    updateSliderBackground(ctxScreenVolumeSlider, vol, 500);
 
     if (currentContextPeerId) {
       const config = getUserConfig(currentContextPeerId);
@@ -6439,8 +6457,11 @@ ctxItemSfx.addEventListener('click', (e) => {
   ctxCheckSfx.classList.toggle('checked', config.sfxMuted);
   if (ctxScreenVolumeSlider) {
     ctxScreenVolumeSlider.value = config.screenVolume;
-    if (ctxScreenVolumeVal) ctxScreenVolumeVal.textContent = `${config.screenVolume}%`;
-    updateSliderBackground(ctxScreenVolumeSlider, config.screenVolume, 200);
+    if (ctxScreenVolumeVal) {
+      ctxScreenVolumeVal.textContent = `${config.screenVolume}%`;
+      ctxScreenVolumeVal.style.color = config.screenVolume > 100 ? '#f0b232' : '#949ba4';
+    }
+    updateSliderBackground(ctxScreenVolumeSlider, config.screenVolume, 500);
   }
   if (currentViewedStreamId === currentContextPeerId) {
     updateScreenSoundControlsState();

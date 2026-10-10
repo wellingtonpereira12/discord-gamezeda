@@ -116,7 +116,7 @@ export class WebRTCManager {
     this.remoteVoiceAudios = new Map();  // peerId -> HTMLAudioElement (Microfone)
     this.remoteScreenAudios = new Map(); // peerId -> HTMLAudioElement (Som de tela/jogo)
     this.screenAudioNodes = new Map();   // peerId -> { sourceNode, gainNode, stream } (Web Audio API anti-ducking)
-    this.voiceAudioNodes = new Map();    // peerId -> { sourceNode, gainNode, destNode, stream } (Web Audio API amplificação até 200%)
+    this.voiceAudioNodes = new Map();    // peerId -> { sourceNode, gainNode, destNode, stream } (Web Audio API amplificação até 500%)
 
     // Configurações individuais de volume (Voz e Transmissão 100% Separadas)
     this.userVolumes = new Map();         // peerId -> volumePercent voz/microfone
@@ -808,11 +808,22 @@ export class WebRTCManager {
     const audio = this.remoteVoiceAudios.get(peerId);
     let nodeData = this.voiceAudioNodes.get(peerId);
 
-    // Se o usuário configurou amplificação acima de 100% (até 200%), roteia pelo GainNode da Web Audio API
+    // Se o usuário configurou amplificação acima de 100% (até 500%), roteia pelo GainNode da Web Audio API
     if (volPercent > 100 && !shouldMute && audio && audio.srcObject) {
+      if (nodeData && nodeData.stream !== audio.srcObject) {
+        try {
+          nodeData.sourceNode.disconnect();
+          nodeData.gainNode.disconnect();
+        } catch (e) {}
+        nodeData = null;
+        this.voiceAudioNodes.delete(peerId);
+      }
       if (!nodeData) {
         try {
           this.ensureAudioContext();
+          if (this.audioContext && this.audioContext.state === 'suspended') {
+            this.audioContext.resume().catch(() => {});
+          }
           const sourceNode = this.audioContext.createMediaStreamSource(audio.srcObject);
           const gainNode = this.audioContext.createGain();
           sourceNode.connect(gainNode);
@@ -2138,7 +2149,7 @@ export class WebRTCManager {
     this.remoteScreenAudios.clear();
   }
 
-  // Volume do Microfone/Voz do Usuário (100% independente da transmissão, até 200% via GainNode)
+  // Volume do Microfone/Voz do Usuário (100% independente da transmissão, até 500% via GainNode)
   setUserVolume(peerId, volumePercent) {
     this.userVolumes.set(peerId, volumePercent);
     this.updatePeerVoiceGain(peerId);
