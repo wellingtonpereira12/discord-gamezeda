@@ -101,6 +101,7 @@ export class WebRTCManager {
     this.rnnoiseGainNode = null;
     this.bypassGainNode = null;
     this.outputGainNode = null;
+    this.micLoopbackGain = null;
 
     // Mapa de conexões: peerId -> RTCPeerConnection
     this.peers = new Map();
@@ -203,7 +204,7 @@ export class WebRTCManager {
       this.audioContext.resume();
     }
     if (this.audioContext.audioWorklet && !rnnoiseWorkletLoaded) {
-      this.audioContext.audioWorklet.addModule('/rnnoise/workletProcessor.js?v=20261006_v1')
+      this.audioContext.audioWorklet.addModule('/rnnoise/workletProcessor.js?v=20261010_v1.5.7')
         .then(() => {
           rnnoiseWorkletLoaded = true;
           console.log('[WebRTC 🤖 RNNoise] AudioWorkletProcessor registrado com sucesso.');
@@ -733,14 +734,14 @@ export class WebRTCManager {
   }
 
   getOutgoingAudioTrack() {
-    if (this.noiseSuppressionEnabled && this.processedAudioStream && this.processedAudioStream.getAudioTracks().length > 0) {
+    // Sempre prioriza o fluxo do grafo Web Audio (AudioDestinationNode).
+    // O grafo chaveia Dry (Bypass limpo) e Wet (RNNoise IA) em tempo real via GainNodes,
+    // garantindo áudio sem corte, sem picote e sem necessitar renegociação WebRTC.
+    if (this.processedAudioStream && this.processedAudioStream.getAudioTracks().length > 0) {
       return this.processedAudioStream.getAudioTracks()[0];
     }
     if (this.localAudioStream && this.localAudioStream.getAudioTracks().length > 0) {
       return this.localAudioStream.getAudioTracks()[0];
-    }
-    if (this.processedAudioStream && this.processedAudioStream.getAudioTracks().length > 0) {
-      return this.processedAudioStream.getAudioTracks()[0];
     }
     return null;
   }
@@ -1050,12 +1051,12 @@ export class WebRTCManager {
     const audioConstraints = {
       channelCount: { ideal: 1 },
       echoCancellation: true,
-      noiseSuppression: true,
+      noiseSuppression: false,       // Desativa supressão nativa do Chromium para evitar deformação prévia da voz
       autoGainControl: false,
       googAutoGainControl: false,
       googAutoGainControl2: false,
-      googNoiseSuppression: true,
-      googHighpassFilter: true,
+      googNoiseSuppression: false,   // Desativa filtro legado do Chrome que come consoantes
+      googHighpassFilter: false,
       googDucking: false,
       sampleRate: 48000
     };
@@ -1182,7 +1183,7 @@ export class WebRTCManager {
       try {
         const wasm = await preloadRnnoise();
         if (this.audioContext.audioWorklet && !rnnoiseWorkletLoaded) {
-          await this.audioContext.audioWorklet.addModule('/rnnoise/workletProcessor.js?v=20261006_v1');
+          await this.audioContext.audioWorklet.addModule('/rnnoise/workletProcessor.js?v=20261010_v1.5.7');
           rnnoiseWorkletLoaded = true;
         }
 
@@ -1266,6 +1267,17 @@ export class WebRTCManager {
         this.bypassGainNode.gain.setTargetAtTime(1.0, now, 0.02);
       }
     }
+
+    const outgoingTrack = this.getOutgoingAudioTrack();
+    if (outgoingTrack) {
+      for (const [peerId, pc] of this.peers.entries()) {
+        const senders = this.getPeerSenders(peerId);
+        if (senders.micSender && senders.micSender.track !== outgoingTrack) {
+          senders.micSender.replaceTrack(outgoingTrack).catch(() => {});
+        }
+      }
+    }
+
     console.log(`[WebRTC 🤖 RNNoise] Supressão de ruído: ${this.noiseSuppressionEnabled ? 'ATIVADA' : 'DESATIVADA'}`);
   }
 
@@ -1289,6 +1301,42 @@ export class WebRTCManager {
 
   toggleMute() {
     return this.setMuted(!this.isMuted);
+  }
+
+  toggleMicLoopback() {
+    this.ensureAudioContext();
+    if (!this.localAudioStream) {
+      return this.startAudio().then(() => this.toggleMicLoopback());
+    }
+    if (this.micLoopbackGain) {
+      try {
+        this.micLoopbackGain.disconnect();
+      } catch (e) {}
+      this.micLoopbackGain = null;
+      console.log('[WebRTC 🎧 Loopback] Monitoramento de microfone desativado');
+      return false;
+    } else {
+      this.micLoopbackGain = this.audioContext.createGain();
+      this.micLoopbackGain.gain.value = 1.0;
+      if (this.outputGainNode) {
+        this.outputGainNode.connect(this.micLoopbackGain);
+      } else if (this.localSourceNode) {
+        this.localSourceNode.connect(this.micLoopbackGain);
+      }
+      this.micLoopbackGain.connect(this.audioContext.destination);
+      console.log('[WebRTC 🎧 Loopback] Monitoramento de microfone ativado');
+      return true;
+    }
+  }
+
+  stopMicLoopback() {
+    if (this.micLoopbackGain) {
+      try {
+        this.micLoopbackGain.disconnect();
+      } catch (e) {}
+      this.micLoopbackGain = null;
+      console.log('[WebRTC 🎧 Loopback] Monitoramento de microfone finalizado');
+    }
   }
 
   // Configuração dinâmica de qualidade de transmissão de tela

@@ -1,5 +1,5 @@
 import { sounds } from './sounds.js?v=20261008_v1.1.7';
-import { WebRTCManager } from './webrtc.js?v=20261010_v1.5.5';
+import { WebRTCManager } from './webrtc.js?v=20261010_v1.5.7';
 import {
   escapeHtml,
   formatBytes,
@@ -57,7 +57,7 @@ import {
   stopMusicTrack,
   loadOrUpdateWatchPartyPlayer,
   stopWatchPartyVideo
-} from './js/modules/watchParty.js?v=20261010_v1.5.5';
+} from './js/modules/watchParty.js?v=20261010_v1.5.7';
 import { setupDesktopClient } from './js/modules/desktopClient.js?v=20261008_v1.4.0';
 import {
   initGuilds,
@@ -293,6 +293,8 @@ const btnSaveSettings = document.getElementById('btn-save-settings');
 const settingAudioInput = document.getElementById('setting-audio-input');
 const settingAudioOutput = document.getElementById('setting-audio-output');
 const micTestMeter = document.getElementById('mic-test-meter');
+const btnToggleMicLoopback = document.getElementById('btn-toggle-mic-loopback');
+const btnToggleMicLoopbackText = document.getElementById('btn-toggle-mic-loopback-text');
 const btnTestOutputSound = document.getElementById('btn-test-output-sound');
 const settingNoiseSuppressionToggle = document.getElementById('setting-noise-suppression-toggle');
 
@@ -5014,6 +5016,10 @@ async function openSettingsModal(defaultTab = 'voice') {
 
 function closeSettingsModal() {
   settingsModal.style.display = 'none';
+  if (webrtc && typeof webrtc.stopMicLoopback === 'function') {
+    webrtc.stopMicLoopback();
+    updateMicLoopbackUI(false);
+  }
 }
 
 // Limpa chaves corrompidas do localStorage caso existam de sessões anteriores
@@ -5206,6 +5212,37 @@ settingAudioOutput.addEventListener('change', (e) => {
 btnTestOutputSound.addEventListener('click', () => {
   sounds.playJoin();
 });
+
+function updateMicLoopbackUI(active) {
+  if (!btnToggleMicLoopback) return;
+  if (active) {
+    btnToggleMicLoopback.style.background = 'rgba(235, 69, 158, 0.25)';
+    btnToggleMicLoopback.style.borderColor = 'rgba(235, 69, 158, 0.6)';
+    btnToggleMicLoopback.style.color = '#fff';
+    if (btnToggleMicLoopbackText) btnToggleMicLoopbackText.textContent = 'Parar Teste (Ouvindo)';
+  } else {
+    btnToggleMicLoopback.style.background = 'rgba(88, 101, 242, 0.15)';
+    btnToggleMicLoopback.style.borderColor = 'rgba(88, 101, 242, 0.35)';
+    btnToggleMicLoopback.style.color = '#dbdee1';
+    if (btnToggleMicLoopbackText) btnToggleMicLoopbackText.textContent = 'Testar (Ouvir Minha Voz)';
+  }
+}
+
+if (btnToggleMicLoopback) {
+  btnToggleMicLoopback.addEventListener('click', async () => {
+    try {
+      const active = await webrtc.toggleMicLoopback();
+      updateMicLoopbackUI(active);
+      if (active) {
+        showSoundToast('🎧 Teste de microfone ativado: fale e escute sua voz com o supressor!');
+      } else {
+        showSoundToast('🔇 Teste de microfone finalizado');
+      }
+    } catch (err) {
+      console.warn('Erro ao alternar loopback de microfone:', err);
+    }
+  });
+}
 
 if (settingNoiseSuppressionToggle) {
   settingNoiseSuppressionToggle.addEventListener('change', (e) => {

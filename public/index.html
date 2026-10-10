@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
   <title>FakeDC</title>
-  <link rel="stylesheet" href="style.css?v=20261010_v1.5.6">
+  <link rel="stylesheet" href="style.css?v=20261010_v1.5.7">
   <link rel="icon" type="image/png" sizes="32x32" href="/assets/logo.png?v=20261008_v1.1.8">
   <link rel="shortcut icon" href="/favicon.ico?v=20261008_v1.1.8">
   <link rel="apple-touch-icon" href="/assets/logo.png?v=20261008_v1.1.8">
@@ -845,7 +845,13 @@
             <select id="setting-audio-input" class="settings-select"></select>
             
             <div class="mic-test-container">
-              <span style="font-size: 12px; color: #949ba4; font-weight: 600;">TESTE DE MICROFONE</span>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 12px; color: #949ba4; font-weight: 600;">TESTE DE MICROFONE</span>
+                <button type="button" id="btn-toggle-mic-loopback" class="btn-voice-header-action" style="background: rgba(88, 101, 242, 0.15); border: 1px solid rgba(88, 101, 242, 0.35); color: #dbdee1; padding: 4px 10px; font-size: 11.5px; border-radius: 4px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.15s ease;">
+                  <i data-lucide="headphones" style="width: 13px; height: 13px;"></i>
+                  <span id="btn-toggle-mic-loopback-text">Testar (Ouvir Minha Voz)</span>
+                </button>
+              </div>
               <div class="mic-meter-bar">
                 <div id="mic-test-meter" class="mic-meter-fill"></div>
               </div>
@@ -913,10 +919,10 @@
               <div>
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <span style="font-weight: 700; color: #fff; font-size: 14px;">Supressão de Ruído (RNNoise)</span>
-                  <span style="background: #5865F2; color: #fff; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">IA Xiph.Org</span>
+                  <span style="background: #5865F2; color: #fff; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">IA Xiph.Org + VAD</span>
                 </div>
                 <div style="font-size: 12px; color: #949ba4; margin-top: 3px;">
-                  Rede neural recorrente (GRU) que elimina ruídos de fundo (ventilador, cliques, teclado) em tempo real.
+                  Rede neural recorrente (GRU) com Voice Activity Gate que elimina ruídos de fundo (ventilador, ar condicionado, chiado) mantendo sua voz límpida e natural.
                 </div>
               </div>
               <label class="discord-toggle">
@@ -927,7 +933,7 @@
 
             <div class="rnnoise-status-badge-box" style="background: rgba(35, 165, 90, 0.1); border: 1px solid rgba(35, 165, 90, 0.25); border-radius: 6px; padding: 10px 14px;">
               <div style="font-size: 12.5px; color: #dbdee1; line-height: 1.4;">
-                🤖 <strong>Processamento Neural Local:</strong> Modelo RNNoise compilado em WebAssembly executado diretamente no hardware do seu dispositivo, garantindo zero latência e total privacidade.
+                🤖 <strong>Processamento Neural Local (48kHz):</strong> Modelo RNNoise otimizado com buffer contínuo sem cortes, eliminação de duplicidade de filtros e Voice Activity Gate suave.
               </div>
             </div>
           </div>
@@ -1933,7 +1939,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261010_v1.5.6"></script>
+  <script type="module" src="app.js?v=20261010_v1.5.7"></script>
 
 </body>
 </html>
