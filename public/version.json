@@ -1,7 +1,7 @@
 {
   "name": "FakeDC",
-  "version": "1.4.0",
-  "releaseDate": "2026-10-08",
+  "version": "1.5.7",
+  "releaseDate": "2026-10-10",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe",
   "installerName": "FakeDC-Setup.exe",
@@ -12,5 +12,5 @@
     "iosUrl": "/download/ios",
     "iosIpa": "FakeDC.ipa"
   },
-  "notes": "FakeDC v1.4.0: Compartilhamento simultâneo de múltiplas telas em HD, remoção de borda amarela no Electron, modo grade otimizado para vídeos e correção no botão Parar Tela."
+  "notes": "FakeDC v1.5.7: Minimizar para bandeja do Windows ao fechar, persistência do volume dos usuários e supressão de ruído RNNoise aprimorada."
 }
