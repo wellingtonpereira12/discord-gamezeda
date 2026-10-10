@@ -143,6 +143,16 @@ export class WebRTCManager {
 
     this.rtcConfig = {
       iceServers: [
+        {
+          urls: [
+            'turn:jogosbolados.duckdns.org:3478?transport=udp',
+            'turn:jogosbolados.duckdns.org:3478?transport=tcp',
+            'turn:2.24.64.219:3478?transport=udp',
+            'turn:2.24.64.219:3478?transport=tcp'
+          ],
+          username: 'fakedc',
+          credential: 'GamezedaVoice2026!'
+        },
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
@@ -542,6 +552,7 @@ export class WebRTCManager {
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
+        console.log(`[WebRTC 📞 ICE Candidate] ${peerId}: type=${event.candidate.type} proto=${event.candidate.protocol} addr=${event.candidate.address || event.candidate.ip}`);
         this.socket.emit('webrtc:ice-candidate', {
           targetId: peerId,
           candidate: event.candidate
@@ -645,6 +656,27 @@ export class WebRTCManager {
         if (audio && audio.paused && !this.isDeafened) {
           audio.play().catch(() => {});
         }
+        try {
+          pc.getStats().then(stats => {
+            let selectedCandidatePair = null;
+            stats.forEach(report => {
+              if (report.type === 'transport' && report.selectedCandidatePairId) {
+                selectedCandidatePair = stats.get(report.selectedCandidatePairId);
+              }
+            });
+            if (selectedCandidatePair) {
+              const localCand = stats.get(selectedCandidatePair.localCandidateId);
+              const remoteCand = stats.get(selectedCandidatePair.remoteCandidateId);
+              console.log(`[WebRTC 📞 CONECTADO] ${peerId}: local=${localCand?.candidateType} remote=${remoteCand?.candidateType}`);
+              this.socket.emit('client:diag', {
+                event: 'pair-selected',
+                peerId,
+                localType: localCand?.candidateType,
+                remoteType: remoteCand?.candidateType
+              });
+            }
+          }).catch(() => {});
+        } catch (e) {}
       }
     };
 

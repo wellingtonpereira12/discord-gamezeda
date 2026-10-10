@@ -1,5 +1,5 @@
 import { sounds } from './sounds.js?v=20261008_v1.1.7';
-import { WebRTCManager } from './webrtc.js?v=20261009_v1.5.2';
+import { WebRTCManager } from './webrtc.js?v=20261009_v1.5.3';
 import {
   escapeHtml,
   formatBytes,
