@@ -22,7 +22,9 @@ import {
   getGuildBans,
   unbanGuildMember,
   getChannelGuildId,
-  isMemberBanned
+  isMemberBanned,
+  findUser,
+  isGhostAdmin
 } from '../config/db.js';
 
 export function registerGuildHandlers(io, socket, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers) {
@@ -69,6 +71,20 @@ export function registerGuildHandlers(io, socket, users, voiceRooms, broadcastVo
       const cleanName = (name || '').trim();
       if (!cleanName) {
         if (typeof callback === 'function') callback({ success: false, message: 'Nome do servidor é obrigatório.' });
+        return;
+      }
+
+      // Validação de segurança: apenas contas protegidas por senha podem criar servidores
+      const userRecord = await findUser(user.name);
+      const hasPassword = isGhostAdmin(user.name) || !!(userRecord && userRecord.password_hash);
+      if (!hasPassword) {
+        if (typeof callback === 'function') {
+          callback({
+            success: false,
+            requirePassword: true,
+            message: 'Para a segurança da comunidade, somente pessoas com contas protegidas por senha podem criar um servidor.'
+          });
+        }
         return;
       }
 
