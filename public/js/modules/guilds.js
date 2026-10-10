@@ -1281,6 +1281,10 @@ export function setActiveGuild(guildId) {
       b.classList.remove('active');
     }
   });
+
+  if (typeof window.loadSoundboardSounds === 'function') {
+    window.loadSoundboardSounds();
+  }
 }
 
 export function getActiveGuildId() {

@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { addSoundboardSound, getSoundboardSounds, updateSoundboardSound } from '../config/db.js';
+import { addSoundboardSound, getSoundboardSounds, updateSoundboardSound, deleteSoundboardSound } from '../config/db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -82,24 +82,90 @@ const uploadChat = multer({
 
 export const uploadRouter = express.Router();
 
-// Listar sons do Soundboard
+// Helper para resolver URL de áudio ou link de página do Myinstants
+async function resolveAudioUrl(inputUrl) {
+  let targetUrl = (inputUrl || '').trim();
+  let title = '';
+
+  if (targetUrl.includes('myinstants.com') && !targetUrl.includes('/media/sounds/')) {
+    try {
+      const parsed = new URL(targetUrl);
+      const match = parsed.pathname.match(/\/instant\/([^/?#]+)/);
+      if (match) {
+        const slug = match[1];
+        const cleanSlug = slug.replace(/-\d+$/, '');
+        title = cleanSlug.replace(/[-_]+/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+        const candidates = [
+          `https://www.myinstants.com/media/sounds/${cleanSlug}.mp3`,
+          `https://www.myinstants.com/media/sounds/${slug}.mp3`,
+          `https://www.myinstants.com/media/sounds/${cleanSlug.replace(/-/g, '_')}.mp3`,
+          `https://www.myinstants.com/media/sounds/${slug.replace(/-/g, '_')}.mp3`
+        ];
+
+        for (const cand of candidates) {
+          try {
+            const head = await fetch(cand, {
+              method: 'HEAD',
+              headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36' },
+              signal: AbortSignal.timeout(3500)
+            });
+            if (head.status === 200) {
+              targetUrl = cand;
+              break;
+            }
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
+  } else {
+    try {
+      const parsed = new URL(targetUrl);
+      const filename = path.basename(parsed.pathname);
+      const withoutExt = filename.replace(/\.[a-zA-Z0-9]+$/, '');
+      if (withoutExt) {
+        title = withoutExt.replace(/[-_]+/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      }
+    } catch (e) {}
+  }
+
+  return { audioUrl: targetUrl, title };
+}
+
+// Resolver URL de som (Myinstants ou áudio direto) para teste e prévia rápida
+uploadRouter.get('/soundboard/resolve-url', async (req, res) => {
+  try {
+    const rawUrl = req.query.url;
+    if (!rawUrl || typeof rawUrl !== 'string' || !rawUrl.startsWith('http')) {
+      return res.status(400).json({ error: 'URL inválida. Forneça um link válido iniciado por http:// ou https://.' });
+    }
+    const resolved = await resolveAudioUrl(rawUrl);
+    res.json({ success: true, audioUrl: resolved.audioUrl, title: resolved.title });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Listar sons do Soundboard (filtrado por servidor/guildId)
 uploadRouter.get('/soundboard', async (req, res) => {
   try {
-    const sounds = await getSoundboardSounds();
+    const guildId = req.query.guildId || req.query.guild_id || 'gamezeda';
+    const sounds = await getSoundboardSounds(guildId);
     res.json({ success: true, sounds });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Cadastrar novo som no Soundboard
+// Cadastrar novo som no Soundboard (upload de arquivo)
 uploadRouter.post('/soundboard', uploadSound.single('audio'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'Nenhum arquivo de áudio enviado.' });
     }
 
-    const { name, emoji, created_by } = req.body;
+    const { name, emoji, created_by, guild_id, guildId } = req.body;
+    const cleanGuildId = (guild_id || guildId || 'gamezeda').trim().substring(0, 64);
     const cleanName = (name || 'Efeito Sonoro').trim().substring(0, 40);
     const cleanEmoji = (emoji || '🔊').trim().substring(0, 8);
     const cleanCreator = (created_by || 'Usuário').trim().substring(0, 30);
@@ -107,6 +173,7 @@ uploadRouter.post('/soundboard', uploadSound.single('audio'), async (req, res) =
 
     const newSound = await addSoundboardSound({
       id: `sfx-${Date.now()}`,
+      guild_id: cleanGuildId,
       name: cleanName,
       emoji: cleanEmoji,
       file_url: fileUrl,
@@ -115,7 +182,7 @@ uploadRouter.post('/soundboard', uploadSound.single('audio'), async (req, res) =
 
     const io = req.app.get('io');
     if (io) {
-      io.emit('soundboard:added', newSound);
+      io.emit('soundboard:added', { sound: newSound, guildId: cleanGuildId });
     }
 
     res.json({ success: true, sound: newSound });
@@ -127,38 +194,14 @@ uploadRouter.post('/soundboard', uploadSound.single('audio'), async (req, res) =
 // Importar som por URL (Myinstants ou link direto de áudio)
 uploadRouter.post('/soundboard/import-url', async (req, res) => {
   try {
-    const { url, name, emoji, created_by } = req.body;
+    const { url, name, emoji, created_by, guild_id, guildId } = req.body;
     if (!url || typeof url !== 'string' || !url.startsWith('http')) {
       return res.status(400).json({ error: 'URL inválida. Forneça um link válido iniciado por http:// ou https://.' });
     }
 
-    let targetUrl = url.trim();
-
-    // Se for link de página do Myinstants, resolve para o MP3 correspondente
-    if (targetUrl.includes('myinstants.com') && !targetUrl.includes('/media/sounds/')) {
-      const match = targetUrl.match(/\/instant\/([^/?#]+)/);
-      if (match) {
-        const slug = match[1];
-        const cleanSlug = slug.replace(/-\d+$/, '');
-        const candidates = [
-          `https://www.myinstants.com/media/sounds/${cleanSlug}.mp3`,
-          `https://www.myinstants.com/media/sounds/${slug}.mp3`
-        ];
-        for (const cand of candidates) {
-          try {
-            const head = await fetch(cand, {
-              method: 'HEAD',
-              headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-              signal: AbortSignal.timeout(4000)
-            });
-            if (head.status === 200) {
-              targetUrl = cand;
-              break;
-            }
-          } catch (e) {}
-        }
-      }
-    }
+    const cleanGuildId = (guild_id || guildId || 'gamezeda').trim().substring(0, 64);
+    const resolved = await resolveAudioUrl(url);
+    const targetUrl = resolved.audioUrl;
 
     const response = await fetch(targetUrl, {
       headers: {
@@ -201,13 +244,14 @@ uploadRouter.post('/soundboard/import-url', async (req, res) => {
     const filePath = path.join(soundsUploadDir, filename);
     await fs.promises.writeFile(filePath, buffer);
 
-    const cleanName = (name || 'Efeito Sonoro').trim().substring(0, 40);
+    const cleanName = (name || resolved.title || 'Efeito Sonoro').trim().substring(0, 40);
     const cleanEmoji = (emoji || '🔊').trim().substring(0, 8);
     const cleanCreator = (created_by || 'Usuário').trim().substring(0, 30);
     const fileUrl = `/uploads/sounds/${filename}`;
 
     const newSound = await addSoundboardSound({
       id: `sfx-${Date.now()}`,
+      guild_id: cleanGuildId,
       name: cleanName,
       emoji: cleanEmoji,
       file_url: fileUrl,
@@ -216,13 +260,39 @@ uploadRouter.post('/soundboard/import-url', async (req, res) => {
 
     const io = req.app.get('io');
     if (io) {
-      io.emit('soundboard:added', newSound);
+      io.emit('soundboard:added', { sound: newSound, guildId: cleanGuildId });
     }
 
     res.json({ success: true, sound: newSound });
   } catch (err) {
     console.error('[Soundboard Import URL Error]:', err);
     res.status(500).json({ error: err.message || 'Erro ao importar som da URL.' });
+  }
+});
+
+// Excluir som do Soundboard
+uploadRouter.delete('/soundboard/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await deleteSoundboardSound(id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Som não encontrado.' });
+    }
+
+    if (deleted.file_url && deleted.file_url.startsWith('/uploads/sounds/')) {
+      const filename = path.basename(deleted.file_url);
+      const filePath = path.join(soundsUploadDir, filename);
+      fs.promises.unlink(filePath).catch(() => {});
+    }
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('soundboard:deleted', { soundId: id, guildId: deleted.guild_id || 'gamezeda' });
+    }
+
+    res.json({ success: true, message: 'Som excluído com sucesso.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -249,7 +319,7 @@ async function handleSoundEdit(req, res) {
 
     const io = req.app.get('io');
     if (io) {
-      io.emit('soundboard:updated', updatedSound);
+      io.emit('soundboard:updated', { sound: updatedSound, guildId: updatedSound.guild_id || 'gamezeda' });
     }
 
     res.json({ success: true, sound: updatedSound });

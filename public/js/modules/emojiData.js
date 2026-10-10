@@ -231,6 +231,7 @@ export const EMOJI_CATEGORIES = [
     icon: '🐱',
     emojis: [
       { char: '🐶', keywords: 'cachorro cao dog pet filhote auau' },
+      { char: '🐴', keywords: 'cavalo potro relincho fazenda pocoto' },
       { char: '🐱', keywords: 'gato felino miau pet gatinho' },
       { char: '🐭', keywords: 'rato camundongo' },
       { char: '🐹', keywords: 'hamster fofo roedor' },
@@ -259,6 +260,90 @@ export const EMOJI_CATEGORIES = [
       { char: '🌹', keywords: 'rosa vermelha flor romantico' },
       { char: '🌻', keywords: 'girassol flor amarelo sol' },
       { char: '🍀', keywords: 'trevo de quatro folhas sorte trevo' }
+    ]
+  },
+  {
+    id: 'audio_music',
+    name: 'Som & Música',
+    icon: '🔊',
+    emojis: [
+      { char: '🔊', keywords: 'som alto volume maximo audio speaker caixa de som' },
+      { char: '🔉', keywords: 'som medio volume audio' },
+      { char: '🔈', keywords: 'som baixo volume audio' },
+      { char: '🔇', keywords: 'mudo silencioso sem som' },
+      { char: '📢', keywords: 'megafone anuncio grito chamada aviso' },
+      { char: '📣', keywords: 'corneta aviso torcida megafone' },
+      { char: '🔔', keywords: 'sino notificacao alerta ding' },
+      { char: '🔕', keywords: 'sino mudo sem notificacao' },
+      { char: '🎵', keywords: 'nota musical musica som melodia' },
+      { char: '🎶', keywords: 'notas musicais musica cancao som' },
+      { char: '🎙️', keywords: 'microfone de estudio gravacao podcast falar cantoria' },
+      { char: '🎤', keywords: 'microfone cantando karaoke show' },
+      { char: '🎧', keywords: 'fone de ouvido headset fones musica gamer' },
+      { char: '📻', keywords: 'radio transmissao am fm nostalgia' },
+      { char: '🎷', keywords: 'saxofone sax jazz musica' },
+      { char: '🎸', keywords: 'guitarra violao rock som solo' },
+      { char: '🎹', keywords: 'teclado piano notas teclas musica' },
+      { char: '🎺', keywords: 'trompete corneta buzina airhorn' },
+      { char: '🎻', keywords: 'violino musica classica triste sad violin' },
+      { char: '🥁', keywords: 'bateria tambor percussao baqueta ritmo' }
+    ]
+  },
+  {
+    id: 'memes_gaming',
+    name: 'Games, Memes & Zoeira',
+    icon: '🎮',
+    emojis: [
+      { char: '🎮', keywords: 'controle videogame gamer jogo ps xbox playstation' },
+      { char: '🕹️', keywords: 'joystick fliperama arcade retro jogo' },
+      { char: '👾', keywords: 'alien monstro retro 8bit space invader pixel' },
+      { char: '🗿', keywords: 'moai pedra chad meme sigma estátua' },
+      { char: '🤡', keywords: 'palhaco circo palhacada coringa meme zoeira' },
+      { char: '💀', keywords: 'caveira crânio morto morri kkk bruh' },
+      { char: '☠️', keywords: 'caveira ossos perigo pirata veneno' },
+      { char: '🤖', keywords: 'robo bot android inteligencia' },
+      { char: '👽', keywords: 'alienigena et alien ovni extraterrestre' },
+      { char: '👻', keywords: 'fantasma boo susto halloween' },
+      { char: '💣', keywords: 'bomba explosao kabum perigo' },
+      { char: '💥', keywords: 'explosao pow bateu choque tomie' },
+      { char: '🧨', keywords: 'dinamite bombinha fogos estalo' },
+      { char: '🎲', keywords: 'dado sorte rpg cassino aposta' },
+      { char: '🎯', keywords: 'alvo certeiro na mosca dardos' },
+      { char: '🏆', keywords: 'trofeu campeao vencedor ouro primeiro' },
+      { char: '🥇', keywords: 'medalha ouro primeiro lugar campeao' },
+      { char: '🥈', keywords: 'medalha prata segundo' },
+      { char: '🥉', keywords: 'medalha bronze terceiro' },
+      { char: '🥊', keywords: 'luva de boxe luta murro briga soco' },
+      { char: '👑', keywords: 'coroa rei rainha soberano boss vip' },
+      { char: '🧢', keywords: 'bone cap no cap mentira boné' },
+      { char: '💎', keywords: 'diamante joia precioso brilhante raro' },
+      { char: '💻', keywords: 'computador notebook pc windows tela' }
+    ]
+  },
+  {
+    id: 'reactions_symbols',
+    name: 'Sinais & Reações',
+    icon: '⚡',
+    emojis: [
+      { char: '🔥', keywords: 'fogo chama quente brabo hype fire' },
+      { char: '⚡', keywords: 'raio trovao choque eletrico rapido' },
+      { char: '✨', keywords: 'brilho estrelas magico reluzente show' },
+      { char: '🌟', keywords: 'estrela brilhante glow sucesso' },
+      { char: '❌', keywords: 'x vermelho erro errado nao proibido errou' },
+      { char: '⭕', keywords: 'circulo vermelho ok certo bola' },
+      { char: '❗', keywords: 'exclamacao atencao perigo importante' },
+      { char: '❓', keywords: 'interrogacao duvida pergunta uai' },
+      { char: '‼️', keywords: 'dupla exclamacao alerta perigo choque' },
+      { char: '⁉️', keywords: 'exclamacao interrogacao como assim choque' },
+      { char: '⚠️', keywords: 'aviso atencao alerta perigo cuidado' },
+      { char: '⛔', keywords: 'proibido entrada proibida pare bloqueado' },
+      { char: '🛑', keywords: 'pare stop placa parar' },
+      { char: '💯', keywords: 'cem cem por cento perfeito top' },
+      { char: '💢', keywords: 'raiva irritado veia estressado puto' },
+      { char: '💨', keywords: 'fumaca correu rapido vento vazou' },
+      { char: '💦', keywords: 'gotas suor agua molhado' },
+      { char: '💤', keywords: 'sono dormindo roncando zzz' },
+      { char: '🇧🇷', keywords: 'brasil brasileira brasileiro bandeira br verde amarelo' }
     ]
   }
 ];

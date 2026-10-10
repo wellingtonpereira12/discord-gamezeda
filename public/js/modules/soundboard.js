@@ -85,6 +85,13 @@ export function playSoundLocally(url) {
   audio.play().catch(e => console.warn('Erro ao tocar som:', e));
 }
 
+export function getCurrentSoundboardGuildId() {
+  if (typeof window.getActiveGuildId === 'function') {
+    return window.getActiveGuildId() || 'gamezeda';
+  }
+  return 'gamezeda';
+}
+
 export async function loadSoundboardSounds() {
   const soundboardGrid = document.getElementById('soundboard-grid');
   const soundboardSearchInput = document.getElementById('soundboard-search-input');
@@ -92,7 +99,8 @@ export async function loadSoundboardSounds() {
 
   soundboardGrid.innerHTML = '<div style="color: #949ba4; padding: 20px; text-align: center; grid-column: 1 / -1;">Carregando sons...</div>';
   try {
-    const res = await fetch('/api/soundboard');
+    const guildId = getCurrentSoundboardGuildId();
+    const res = await fetch(`/api/soundboard?guildId=${encodeURIComponent(guildId)}`);
     const data = await res.json();
     if (data.success) {
       availableSounds = data.sounds || [];
@@ -127,6 +135,9 @@ export function renderSoundboardGrid(filterText = '') {
         <button type="button" class="soundboard-tile-action-btn soundboard-tile-edit" title="Editar som (nome, emoji ou áudio)">
           <i data-lucide="pencil" style="width: 13px; height: 13px;"></i>
         </button>
+        <button type="button" class="soundboard-tile-action-btn soundboard-tile-delete" title="Excluir som deste servidor">
+          <i data-lucide="trash-2" style="width: 13px; height: 13px;"></i>
+        </button>
         <button type="button" class="soundboard-tile-action-btn soundboard-tile-preview" title="Ouvir prévia (somente para você)">
           <i data-lucide="volume-2" style="width: 14px; height: 14px;"></i>
         </button>
@@ -156,6 +167,27 @@ export function renderSoundboardGrid(filterText = '') {
       btnEdit.addEventListener('click', (e) => {
         e.stopPropagation();
         openEditSoundModal(sound);
+      });
+    }
+
+    // Clicar no botão de excluir -> confirma e remove o som
+    const btnDelete = tile.querySelector('.soundboard-tile-delete');
+    if (btnDelete) {
+      btnDelete.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!confirm(`Deseja realmente excluir o som "${sound.name}" deste servidor?`)) return;
+        try {
+          const res = await fetch(`/api/soundboard/${sound.id}`, { method: 'DELETE' });
+          const data = await res.json();
+          if (data.success) {
+            showSoundToast(`Som "${sound.name}" excluído.`);
+            await loadSoundboardSounds();
+          } else {
+            alert(data.error || 'Erro ao excluir som.');
+          }
+        } catch (err) {
+          alert('Erro na comunicação com o servidor ao excluir som.');
+        }
       });
     }
 
@@ -190,6 +222,8 @@ export function renderSoundboardGrid(filterText = '') {
     window.lucide.createIcons();
   }
 }
+
+window.loadSoundboardSounds = loadSoundboardSounds;
 
 export async function openSoundboardModal(e) {
   if (e) e.stopPropagation();
@@ -420,40 +454,54 @@ export function initSoundboard({ socket, webrtc, getInVoice, getCurrentUser }) {
   if (btnModeFile) btnModeFile.addEventListener('click', () => setSoundImportMode('file'));
 
   if (btnPreviewUrl) {
-    btnPreviewUrl.addEventListener('click', () => {
+    btnPreviewUrl.addEventListener('click', async () => {
       const raw = soundUrlInput ? soundUrlInput.value.trim() : '';
       if (!raw) {
         showSoundToast('Cole um link de som primeiro para testar!');
         return;
       }
-      playSoundLocally(raw);
-      showSoundToast('▶️ Tocando prévia do áudio...');
-    });
-  }
 
-  if (soundUrlInput) {
-    soundUrlInput.addEventListener('input', () => {
-      if (!soundNameInput.value.trim()) {
-        const suggested = autoExtractSoundNameFromUrl(soundUrlInput.value);
-        if (suggested) soundNameInput.value = suggested;
+      btnPreviewUrl.disabled = true;
+      btnPreviewUrl.textContent = '⏳ Buscando...';
+
+      try {
+        const res = await fetch(`/api/soundboard/resolve-url?url=${encodeURIComponent(raw)}`);
+        const data = await res.json();
+        if (data.success && data.audioUrl) {
+          if (!soundNameInput.value.trim() && data.title) {
+            soundNameInput.value = data.title;
+          }
+          playSoundLocally(data.audioUrl);
+          showSoundToast(`▶️ Tocando: ${data.title || 'Prévia do áudio'}`);
+        } else {
+          showSoundToast('⚠️ Não foi possível localizar o áudio desse link.');
+        }
+      } catch (err) {
+        showSoundToast('Erro ao testar link de áudio.');
+      } finally {
+        btnPreviewUrl.disabled = false;
+        btnPreviewUrl.textContent = '▶️ Testar';
       }
     });
   }
 
-  // Sugestões Rápidas do Myinstants (1 clique)
-  const quickSoundBtns = document.querySelectorAll('.quick-sound-btn');
-  quickSoundBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const u = btn.dataset.url;
-      const n = btn.dataset.name;
-      const e = btn.dataset.emoji;
-      if (soundUrlInput) soundUrlInput.value = u;
-      if (soundNameInput) soundNameInput.value = n;
-      if (e) setSoundEmojiValue(e);
-      playSoundLocally(u);
-      showSoundToast(`Selecionado: ${e} ${n}`);
+  if (soundUrlInput) {
+    soundUrlInput.addEventListener('change', async () => {
+      const raw = soundUrlInput.value.trim();
+      if (raw && !soundNameInput.value.trim()) {
+        try {
+          const res = await fetch(`/api/soundboard/resolve-url?url=${encodeURIComponent(raw)}`);
+          const data = await res.json();
+          if (data.success && data.title && !soundNameInput.value.trim()) {
+            soundNameInput.value = data.title;
+          }
+        } catch (e) {
+          const suggested = autoExtractSoundNameFromUrl(raw);
+          if (suggested && !soundNameInput.value.trim()) soundNameInput.value = suggested;
+        }
+      }
     });
-  });
+  }
 
   if (addSoundForm) {
     addSoundForm.addEventListener('submit', async (e) => {
@@ -468,12 +516,13 @@ export function initSoundboard({ socket, webrtc, getInVoice, getCurrentUser }) {
       if (!isEditing && currentImportMode === 'url') {
         const urlVal = soundUrlInput ? soundUrlInput.value.trim() : '';
         if (!urlVal) {
-          alert('Cole o link do som ou selecione uma das sugestões rápidas do Myinstants.');
+          alert('Cole o link do som para importar.');
           return;
         }
       }
 
       const currentUser = getCurrentUserFn();
+      const currentGuildId = getCurrentSoundboardGuildId();
       const cleanName = (soundNameInput.value.trim() || 'Efeito Sonoro').substring(0, 40);
       const cleanEmoji = soundEmojiInput.value.trim() || '🔊';
       const creatorName = currentUser ? currentUser.name : 'Anônimo';
@@ -493,6 +542,7 @@ export function initSoundboard({ socket, webrtc, getInVoice, getCurrentUser }) {
           formData.append('name', cleanName);
           formData.append('emoji', cleanEmoji);
           formData.append('created_by', creatorName);
+          formData.append('guild_id', currentGuildId);
           res = await fetch(`/api/soundboard/${editingSoundId}/edit`, {
             method: 'POST',
             body: formData
@@ -506,7 +556,8 @@ export function initSoundboard({ socket, webrtc, getInVoice, getCurrentUser }) {
               url: soundUrlInput.value.trim(),
               name: cleanName,
               emoji: cleanEmoji,
-              created_by: creatorName
+              created_by: creatorName,
+              guild_id: currentGuildId
             })
           });
           data = await res.json();
@@ -518,6 +569,7 @@ export function initSoundboard({ socket, webrtc, getInVoice, getCurrentUser }) {
           formData.append('name', cleanName);
           formData.append('emoji', cleanEmoji);
           formData.append('created_by', creatorName);
+          formData.append('guild_id', currentGuildId);
           res = await fetch('/api/soundboard', {
             method: 'POST',
             body: formData
@@ -531,7 +583,7 @@ export function initSoundboard({ socket, webrtc, getInVoice, getCurrentUser }) {
           addSoundForm.reset();
           editingSoundId = null;
           await loadSoundboardSounds();
-          showSoundToast(isEditing ? `Som "${cleanName}" atualizado!` : `Som "${cleanEmoji} ${cleanName}" cadastrado com sucesso!`);
+          showSoundToast(isEditing ? `Som "${cleanName}" atualizado!` : `Som "${cleanEmoji} ${cleanName}" cadastrado no servidor!`);
         } else {
           alert(data.error || 'Erro ao processar som.');
         }
@@ -555,12 +607,25 @@ export function initSoundboard({ socket, webrtc, getInVoice, getCurrentUser }) {
       }
     });
 
-    activeSocket.on('soundboard:added', () => {
-      loadSoundboardSounds();
+    activeSocket.on('soundboard:added', (payload) => {
+      const gId = payload && payload.guildId ? payload.guildId : null;
+      if (!gId || gId === getCurrentSoundboardGuildId()) {
+        loadSoundboardSounds();
+      }
     });
 
-    activeSocket.on('soundboard:updated', () => {
-      loadSoundboardSounds();
+    activeSocket.on('soundboard:updated', (payload) => {
+      const gId = payload && payload.guildId ? payload.guildId : null;
+      if (!gId || gId === getCurrentSoundboardGuildId()) {
+        loadSoundboardSounds();
+      }
+    });
+
+    activeSocket.on('soundboard:deleted', (payload) => {
+      const gId = payload && payload.guildId ? payload.guildId : null;
+      if (!gId || gId === getCurrentSoundboardGuildId()) {
+        loadSoundboardSounds();
+      }
     });
   }
 }
