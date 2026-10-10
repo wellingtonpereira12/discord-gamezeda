@@ -12,6 +12,60 @@ let getCurrentUserFn = () => null;
 
 let availableSounds = [];
 let editingSoundId = null;
+let currentImportMode = 'url';
+
+export function setSoundImportMode(mode) {
+  currentImportMode = mode;
+  const btnModeUrl = document.getElementById('btn-mode-url');
+  const btnModeFile = document.getElementById('btn-mode-file');
+  const soundUrlGroup = document.getElementById('sound-url-group');
+  const soundFileGroup = document.getElementById('sound-file-group');
+  const soundFileInput = document.getElementById('sound-file-input');
+
+  if (mode === 'url') {
+    if (btnModeUrl) {
+      btnModeUrl.style.background = '#5865F2';
+      btnModeUrl.style.borderColor = '#5865F2';
+      btnModeUrl.style.color = '#fff';
+    }
+    if (btnModeFile) {
+      btnModeFile.style.background = '#2b2d31';
+      btnModeFile.style.borderColor = '#3f4147';
+      btnModeFile.style.color = '#b5bac1';
+    }
+    if (soundUrlGroup) soundUrlGroup.style.display = 'block';
+    if (soundFileGroup) soundFileGroup.style.display = 'none';
+    if (soundFileInput) soundFileInput.required = false;
+  } else {
+    if (btnModeFile) {
+      btnModeFile.style.background = '#5865F2';
+      btnModeFile.style.borderColor = '#5865F2';
+      btnModeFile.style.color = '#fff';
+    }
+    if (btnModeUrl) {
+      btnModeUrl.style.background = '#2b2d31';
+      btnModeUrl.style.borderColor = '#3f4147';
+      btnModeUrl.style.color = '#b5bac1';
+    }
+    if (soundFileGroup) soundFileGroup.style.display = 'block';
+    if (soundUrlGroup) soundUrlGroup.style.display = 'none';
+    if (soundFileInput) soundFileInput.required = !editingSoundId;
+  }
+}
+
+export function autoExtractSoundNameFromUrl(url) {
+  try {
+    const clean = url.trim().split('?')[0].split('#')[0];
+    const parts = clean.split('/').filter(Boolean);
+    const last = parts[parts.length - 1] || '';
+    const withoutExt = last.replace(/\.[a-zA-Z0-9]+$/, '');
+    const cleanSlug = withoutExt.replace(/-\d+$/, '').replace(/[-_]+/g, ' ');
+    if (cleanSlug && cleanSlug.length > 1) {
+      return cleanSlug.charAt(0).toUpperCase() + cleanSlug.slice(1);
+    }
+  } catch (e) {}
+  return '';
+}
 
 export function showSoundToast(msg) {
   const soundToast = document.getElementById('sound-toast');
@@ -179,6 +233,8 @@ export function openAddSoundModal() {
   const soundFileHelp = document.getElementById('sound-file-help');
   const soundFileInput = document.getElementById('sound-file-input');
   const soundNameInput = document.getElementById('sound-name-input');
+  const soundUrlInput = document.getElementById('sound-url-input');
+  const modeSwitch = document.getElementById('sound-import-mode-switch');
 
   if (soundEditIdInput) soundEditIdInput.value = '';
   if (addSoundModalTitle) addSoundModalTitle.textContent = 'Cadastrar Efeito Sonoro';
@@ -187,13 +243,16 @@ export function openAddSoundModal() {
   if (soundFileHelp) soundFileHelp.style.display = 'none';
   if (soundFileInput) {
     soundFileInput.value = '';
-    soundFileInput.required = true;
+    soundFileInput.required = false;
   }
+  if (soundUrlInput) soundUrlInput.value = '';
   if (soundNameInput) soundNameInput.value = '';
+  if (modeSwitch) modeSwitch.style.display = 'flex';
+  setSoundImportMode('url');
   setSoundEmojiValue('🔊');
   closeSoundEmojiPopover();
   if (addSoundModal) addSoundModal.style.display = 'flex';
-  if (soundNameInput) soundNameInput.focus();
+  if (soundUrlInput) soundUrlInput.focus();
 }
 
 export function openEditSoundModal(sound) {
@@ -207,12 +266,18 @@ export function openEditSoundModal(sound) {
   const soundFileHelp = document.getElementById('sound-file-help');
   const soundFileInput = document.getElementById('sound-file-input');
   const soundNameInput = document.getElementById('sound-name-input');
+  const modeSwitch = document.getElementById('sound-import-mode-switch');
+  const soundUrlGroup = document.getElementById('sound-url-group');
+  const soundFileGroup = document.getElementById('sound-file-group');
 
   if (soundEditIdInput) soundEditIdInput.value = sound.id;
   if (addSoundModalTitle) addSoundModalTitle.textContent = 'Editar Efeito Sonoro';
   if (btnSubmitSound) btnSubmitSound.textContent = 'Salvar Alterações';
   if (soundFileLabel) soundFileLabel.textContent = 'Substituir Áudio (Opcional)';
   if (soundFileHelp) soundFileHelp.style.display = 'block';
+  if (modeSwitch) modeSwitch.style.display = 'none';
+  if (soundUrlGroup) soundUrlGroup.style.display = 'none';
+  if (soundFileGroup) soundFileGroup.style.display = 'block';
   if (soundFileInput) {
     soundFileInput.value = '';
     soundFileInput.required = false;
@@ -345,37 +410,120 @@ export function initSoundboard({ socket, webrtc, getInVoice, getCurrentUser }) {
     });
   }
 
+  // Modo de importação: URL vs Arquivo
+  const btnModeUrl = document.getElementById('btn-mode-url');
+  const btnModeFile = document.getElementById('btn-mode-file');
+  const soundUrlInput = document.getElementById('sound-url-input');
+  const btnPreviewUrl = document.getElementById('btn-preview-url');
+
+  if (btnModeUrl) btnModeUrl.addEventListener('click', () => setSoundImportMode('url'));
+  if (btnModeFile) btnModeFile.addEventListener('click', () => setSoundImportMode('file'));
+
+  if (btnPreviewUrl) {
+    btnPreviewUrl.addEventListener('click', () => {
+      const raw = soundUrlInput ? soundUrlInput.value.trim() : '';
+      if (!raw) {
+        showSoundToast('Cole um link de som primeiro para testar!');
+        return;
+      }
+      playSoundLocally(raw);
+      showSoundToast('▶️ Tocando prévia do áudio...');
+    });
+  }
+
+  if (soundUrlInput) {
+    soundUrlInput.addEventListener('input', () => {
+      if (!soundNameInput.value.trim()) {
+        const suggested = autoExtractSoundNameFromUrl(soundUrlInput.value);
+        if (suggested) soundNameInput.value = suggested;
+      }
+    });
+  }
+
+  // Sugestões Rápidas do Myinstants (1 clique)
+  const quickSoundBtns = document.querySelectorAll('.quick-sound-btn');
+  quickSoundBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const u = btn.dataset.url;
+      const n = btn.dataset.name;
+      const e = btn.dataset.emoji;
+      if (soundUrlInput) soundUrlInput.value = u;
+      if (soundNameInput) soundNameInput.value = n;
+      if (e) setSoundEmojiValue(e);
+      playSoundLocally(u);
+      showSoundToast(`Selecionado: ${e} ${n}`);
+    });
+  });
+
   if (addSoundForm) {
     addSoundForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const isEditing = Boolean(editingSoundId);
 
-      if (!isEditing && (!soundFileInput.files || !soundFileInput.files[0])) {
+      if (!isEditing && currentImportMode === 'file' && (!soundFileInput.files || !soundFileInput.files[0])) {
         alert('Selecione um arquivo de áudio para cadastrar o som.');
         return;
       }
 
-      const currentUser = getCurrentUserFn();
-      const formData = new FormData();
-      if (soundFileInput.files && soundFileInput.files[0]) {
-        formData.append('audio', soundFileInput.files[0]);
+      if (!isEditing && currentImportMode === 'url') {
+        const urlVal = soundUrlInput ? soundUrlInput.value.trim() : '';
+        if (!urlVal) {
+          alert('Cole o link do som ou selecione uma das sugestões rápidas do Myinstants.');
+          return;
+        }
       }
-      formData.append('name', soundNameInput.value.trim());
-      formData.append('emoji', soundEmojiInput.value.trim() || '🔊');
-      formData.append('created_by', currentUser ? currentUser.name : 'Anônimo');
+
+      const currentUser = getCurrentUserFn();
+      const cleanName = (soundNameInput.value.trim() || 'Efeito Sonoro').substring(0, 40);
+      const cleanEmoji = soundEmojiInput.value.trim() || '🔊';
+      const creatorName = currentUser ? currentUser.name : 'Anônimo';
 
       try {
         if (btnSubmitSound) {
           btnSubmitSound.disabled = true;
-          btnSubmitSound.textContent = isEditing ? 'Salvando alterações...' : 'Enviando...';
+          btnSubmitSound.textContent = isEditing ? 'Salvando alterações...' : 'Baixando e salvando som...';
         }
 
-        const url = isEditing ? `/api/soundboard/${editingSoundId}/edit` : '/api/soundboard';
-        const res = await fetch(url, {
-          method: 'POST',
-          body: formData
-        });
-        const data = await res.json();
+        let res, data;
+        if (isEditing) {
+          const formData = new FormData();
+          if (soundFileInput.files && soundFileInput.files[0]) {
+            formData.append('audio', soundFileInput.files[0]);
+          }
+          formData.append('name', cleanName);
+          formData.append('emoji', cleanEmoji);
+          formData.append('created_by', creatorName);
+          res = await fetch(`/api/soundboard/${editingSoundId}/edit`, {
+            method: 'POST',
+            body: formData
+          });
+          data = await res.json();
+        } else if (currentImportMode === 'url') {
+          res = await fetch('/api/soundboard/import-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: soundUrlInput.value.trim(),
+              name: cleanName,
+              emoji: cleanEmoji,
+              created_by: creatorName
+            })
+          });
+          data = await res.json();
+        } else {
+          const formData = new FormData();
+          if (soundFileInput.files && soundFileInput.files[0]) {
+            formData.append('audio', soundFileInput.files[0]);
+          }
+          formData.append('name', cleanName);
+          formData.append('emoji', cleanEmoji);
+          formData.append('created_by', creatorName);
+          res = await fetch('/api/soundboard', {
+            method: 'POST',
+            body: formData
+          });
+          data = await res.json();
+        }
 
         if (data.success) {
           if (addSoundModal) addSoundModal.style.display = 'none';
@@ -383,7 +531,7 @@ export function initSoundboard({ socket, webrtc, getInVoice, getCurrentUser }) {
           addSoundForm.reset();
           editingSoundId = null;
           await loadSoundboardSounds();
-          showSoundToast(isEditing ? `Som "${soundNameInput.value.trim()}" atualizado com sucesso!` : 'Novo som cadastrado com sucesso!');
+          showSoundToast(isEditing ? `Som "${cleanName}" atualizado!` : `Som "${cleanEmoji} ${cleanName}" cadastrado com sucesso!`);
         } else {
           alert(data.error || 'Erro ao processar som.');
         }

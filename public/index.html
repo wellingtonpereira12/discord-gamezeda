@@ -1237,9 +1237,54 @@
       <form id="add-sound-form" style="display: flex; flex-direction: column; gap: 14px; margin-top: 14px;">
         <input type="hidden" id="sound-edit-id" value="">
 
-        <div class="form-group">
+        <!-- Seletor de Modo de Origem do Som -->
+        <div class="sound-import-mode-switch" id="sound-import-mode-switch" style="display: flex; gap: 8px; margin-bottom: 2px;">
+          <button type="button" class="btn-sound-mode active" id="btn-mode-url" style="flex: 1; padding: 7px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid #5865F2; background: #5865F2; color: #fff;">
+            🔗 Link Myinstants / Web
+          </button>
+          <button type="button" class="btn-sound-mode" id="btn-mode-file" style="flex: 1; padding: 7px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid #3f4147; background: #2b2d31; color: #b5bac1;">
+            📁 Arquivo do PC
+          </button>
+        </div>
+
+        <!-- Grupo: Importação por URL / Myinstants -->
+        <div class="form-group" id="sound-url-group">
+          <label>Link do Myinstants ou Áudio Direto</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="sound-url-input" placeholder="Cole o link do som ou do Myinstants..." class="form-input" style="flex: 1;">
+            <button type="button" id="btn-preview-url" class="btn-secondary" style="padding: 0 12px; background: #35373c; color: #fff; border: 1px solid #4e5058; border-radius: 6px; cursor: pointer; font-size: 12px; white-space: nowrap;" title="Ouvir prévia do som">▶️ Testar</button>
+          </div>
+          <small style="color: #949ba4; font-size: 11px; margin-top: 4px; display: block;">
+            💡 Cole o link da página do Myinstants ou clique com o botão direito no botão &rarr; <b>Copiar endereço do link</b>.
+          </small>
+
+          <!-- Sugestões Populares Rápidas do Myinstants -->
+          <div style="margin-top: 10px; padding: 10px; background: #1e1f22; border-radius: 8px; border: 1px solid #2b2d31;">
+            <div style="font-size: 11px; font-weight: 700; color: #dbdee1; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: space-between;">
+              <span>⚡ Sugestões Rápidas:</span>
+              <span style="font-weight: 400; font-size: 10px; color: #949ba4;">1 clique para preencher</span>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;" id="myinstants-quick-suggestions">
+              <button type="button" class="quick-sound-btn" data-url="https://www.myinstants.com/media/sounds/errou.mp3" data-name="Faustão Errou" data-emoji="❌">❌ Faustão Errou</button>
+              <button type="button" class="quick-sound-btn" data-url="https://www.myinstants.com/media/sounds/cavalo.mp3" data-name="Cavalo" data-emoji="🐴">🐴 Cavalo</button>
+              <button type="button" class="quick-sound-btn" data-url="https://www.myinstants.com/media/sounds/uepa.mp3" data-name="Uêpa!" data-emoji="🤠">🤠 Uêpa!</button>
+              <button type="button" class="quick-sound-btn" data-url="https://www.myinstants.com/media/sounds/rapaz.mp3" data-name="Rapaaaz" data-emoji="😲">😲 Rapaaaz</button>
+              <button type="button" class="quick-sound-btn" data-url="https://www.myinstants.com/media/sounds/ele-gosta.mp3" data-name="Ele Gosta" data-emoji="😏">😏 Ele Gosta</button>
+              <button type="button" class="quick-sound-btn" data-url="https://www.myinstants.com/media/sounds/tome.mp3" data-name="Tomi!" data-emoji="💥">💥 Tomi!</button>
+              <button type="button" class="quick-sound-btn" data-url="https://www.myinstants.com/media/sounds/demais.mp3" data-name="Que Demais" data-emoji="✨">✨ Demais</button>
+              <button type="button" class="quick-sound-btn" data-url="https://www.myinstants.com/media/sounds/chaves-ai-que-burro.mp3" data-name="Ai que Burro" data-emoji="🤦">🤦 Ai que Burro</button>
+              <button type="button" class="quick-sound-btn" data-url="https://www.myinstants.com/media/sounds/airhorn.mp3" data-name="Airhorn" data-emoji="🎺">🎺 Airhorn</button>
+              <button type="button" class="quick-sound-btn" data-url="https://www.myinstants.com/media/sounds/bruh-sound-effect-2.mp3" data-name="Bruh" data-emoji="💀">💀 Bruh</button>
+              <button type="button" class="quick-sound-btn" data-url="https://www.myinstants.com/media/sounds/discord-notification.mp3" data-name="Notificação Discord" data-emoji="🔔">🔔 Discord</button>
+              <button type="button" class="quick-sound-btn" data-url="https://www.myinstants.com/media/sounds/windows-xp-error.mp3" data-name="Erro Windows XP" data-emoji="💻">💻 Windows XP</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grupo: Arquivo do Computador -->
+        <div class="form-group" id="sound-file-group" style="display: none;">
           <label id="sound-file-label">Arquivo de Áudio (MP3, WAV, OGG máx 5MB)</label>
-          <input type="file" id="sound-file-input" accept="audio/*" required class="form-input" style="padding: 6px;">
+          <input type="file" id="sound-file-input" accept="audio/*" class="form-input" style="padding: 6px;">
           <small id="sound-file-help" style="color: #949ba4; font-size: 11px; margin-top: 4px; display: none;">Deixe vazio caso queira manter o áudio atual.</small>
         </div>
 

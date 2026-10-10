@@ -124,6 +124,108 @@ uploadRouter.post('/soundboard', uploadSound.single('audio'), async (req, res) =
   }
 });
 
+// Importar som por URL (Myinstants ou link direto de áudio)
+uploadRouter.post('/soundboard/import-url', async (req, res) => {
+  try {
+    const { url, name, emoji, created_by } = req.body;
+    if (!url || typeof url !== 'string' || !url.startsWith('http')) {
+      return res.status(400).json({ error: 'URL inválida. Forneça um link válido iniciado por http:// ou https://.' });
+    }
+
+    let targetUrl = url.trim();
+
+    // Se for link de página do Myinstants, resolve para o MP3 correspondente
+    if (targetUrl.includes('myinstants.com') && !targetUrl.includes('/media/sounds/')) {
+      const match = targetUrl.match(/\/instant\/([^/?#]+)/);
+      if (match) {
+        const slug = match[1];
+        const cleanSlug = slug.replace(/-\d+$/, '');
+        const candidates = [
+          `https://www.myinstants.com/media/sounds/${cleanSlug}.mp3`,
+          `https://www.myinstants.com/media/sounds/${slug}.mp3`
+        ];
+        for (const cand of candidates) {
+          try {
+            const head = await fetch(cand, {
+              method: 'HEAD',
+              headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+              signal: AbortSignal.timeout(4000)
+            });
+            if (head.status === 200) {
+              targetUrl = cand;
+              break;
+            }
+          } catch (e) {}
+        }
+      }
+    }
+
+    const response = await fetch(targetUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+      },
+      signal: AbortSignal.timeout(12000)
+    });
+
+    if (!response.ok) {
+      return res.status(400).json({ error: `Não foi possível baixar o áudio da URL informada (HTTP ${response.status}).` });
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    if (buffer.length > 5 * 1024 * 1024) {
+      return res.status(400).json({ error: 'O áudio excede o limite máximo permitido de 5 MB.' });
+    }
+
+    if (buffer.length < 500) {
+      return res.status(400).json({ error: 'O arquivo baixado é inválido ou está corrompido.' });
+    }
+
+    // Identifica extensão
+    let ext = '.mp3';
+    try {
+      const parsed = new URL(targetUrl);
+      const urlExt = path.extname(parsed.pathname).toLowerCase();
+      if (['.mp3', '.wav', '.ogg', '.m4a', '.webm'].includes(urlExt)) {
+        ext = urlExt;
+      } else if (contentType.includes('audio/wav')) {
+        ext = '.wav';
+      } else if (contentType.includes('audio/ogg')) {
+        ext = '.ogg';
+      }
+    } catch (e) {}
+
+    const filename = `sfx-${Date.now()}-${Math.random().toString(36).substring(2, 7)}${ext}`;
+    const filePath = path.join(soundsUploadDir, filename);
+    await fs.promises.writeFile(filePath, buffer);
+
+    const cleanName = (name || 'Efeito Sonoro').trim().substring(0, 40);
+    const cleanEmoji = (emoji || '🔊').trim().substring(0, 8);
+    const cleanCreator = (created_by || 'Usuário').trim().substring(0, 30);
+    const fileUrl = `/uploads/sounds/${filename}`;
+
+    const newSound = await addSoundboardSound({
+      id: `sfx-${Date.now()}`,
+      name: cleanName,
+      emoji: cleanEmoji,
+      file_url: fileUrl,
+      created_by: cleanCreator
+    });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('soundboard:added', newSound);
+    }
+
+    res.json({ success: true, sound: newSound });
+  } catch (err) {
+    console.error('[Soundboard Import URL Error]:', err);
+    res.status(500).json({ error: err.message || 'Erro ao importar som da URL.' });
+  }
+});
+
 // Editar som existente no Soundboard (nome, emoji e opcionalmente novo áudio)
 async function handleSoundEdit(req, res) {
   try {
