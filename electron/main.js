@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session, Menu, desktopCapturer, globalShortcut, Notification, clipboard, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, session, Menu, desktopCapturer, globalShortcut, Notification, clipboard, nativeImage, Tray } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -25,12 +25,27 @@ Menu.setApplicationMenu(null);
 
 let splashWindow = null;
 let mainWindow = null;
+let tray = null;
+let isQuitting = false;
+let hasShownTrayBalloon = false;
 let pendingDisplayMediaCallback = null;
 let cachedScreenSources = [];
 let screenPickerTimeout = null;
 let lastSelectedSource = null;
 let lastSelectedTime = 0;
 let currentAudioRequested = true;
+
+// Bloqueio de instância única: se o app já estiver rodando (inclusive na bandeja), restaura a janela
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  logDebug('[FakeDC] Outra instância já está em execução. Encerrando esta...');
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    logDebug('[FakeDC] Segunda instância detectada. Restaurando janela principal...');
+    showMainWindow();
+  });
+}
 
 // Carrega configurações
 let config = {
@@ -244,6 +259,27 @@ function createMainWindow(targetUrl) {
     gameDetector.start(10000);
   });
 
+  // Ao clicar no X ou tentar fechar a janela, oculta para a bandeja do sistema se não for app.quit()
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+      logDebug('[FakeDC] Janela principal minimizada para a bandeja do sistema.');
+
+      if (!hasShownTrayBalloon && tray && process.platform === 'win32') {
+        hasShownTrayBalloon = true;
+        try {
+          tray.displayBalloon({
+            iconType: 'info',
+            title: 'FakeDC',
+            content: 'O FakeDC continua rodando em segundo plano na bandeja do sistema.'
+          });
+        } catch (e) {}
+      }
+      return false;
+    }
+  });
+
   mainWindow.on('closed', () => {
     logDebug('mainWindow closed disparado!');
     clearTimeout(forceShowTimeout);
@@ -341,6 +377,62 @@ async function startApplication() {
   }, 800);
 }
 
+// Restaura e foca a janela principal
+function showMainWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  }
+}
+
+// Cria o ícone e menu de contexto na bandeja do sistema (Windows System Tray)
+function createTray() {
+  if (tray && !tray.isDestroyed()) return;
+
+  const trayIconPath = fs.existsSync(appIconPath) ? appIconPath : undefined;
+  if (!trayIconPath) {
+    logDebug('[Tray] Ícone não encontrado para a bandeja:', appIconPath);
+    return;
+  }
+
+  try {
+    tray = new Tray(trayIconPath);
+    tray.setToolTip('FakeDC');
+
+    const contextMenu = Menu.buildFromTemplate([
+      {
+        label: 'Abrir FakeDC',
+        click: () => {
+          showMainWindow();
+        }
+      },
+      { type: 'separator' },
+      {
+        label: 'Sair do FakeDC',
+        click: () => {
+          isQuitting = true;
+          app.quit();
+        }
+      }
+    ]);
+
+    tray.setContextMenu(contextMenu);
+
+    tray.on('click', () => {
+      showMainWindow();
+    });
+
+    tray.on('double-click', () => {
+      showMainWindow();
+    });
+
+    logDebug('[Tray] Bandeja do sistema configurada com sucesso.');
+  } catch (err) {
+    logDebug('[Tray] Erro ao criar ícone na bandeja:', err.message);
+  }
+}
+
 // Função auxiliar para obter a janela ativa ou principal
 function getActiveWindow() {
   const focused = BrowserWindow.getFocusedWindow();
@@ -352,6 +444,8 @@ function getActiveWindow() {
 
 // Configurações do ciclo de vida do Electron
 app.whenReady().then(() => {
+  createTray();
+
   // IPC Handlers de Controle de Janela Personalizada
   ipcMain.on('window:minimize', () => {
     const win = getActiveWindow();
@@ -371,7 +465,14 @@ app.whenReady().then(() => {
 
   ipcMain.on('window:close', () => {
     const win = getActiveWindow();
-    if (win) win.close();
+    if (win) {
+      if (win === splashWindow) {
+        isQuitting = true;
+        app.quit();
+      } else {
+        win.close();
+      }
+    }
   });
 
   ipcMain.handle('window:is-maximized', () => {
@@ -605,21 +706,31 @@ app.whenReady().then(() => {
   }
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      showMainWindow();
+    } else if (BrowserWindow.getAllWindows().length === 0) {
       startApplication();
     }
   });
 });
 
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
 app.on('will-quit', () => {
   logDebug('EVENT will-quit disparado!');
   globalShortcut.unregisterAll();
+  if (tray && !tray.isDestroyed()) {
+    try { tray.destroy(); } catch (e) {}
+    tray = null;
+  }
 });
 
 app.on('window-all-closed', () => {
   logDebug('EVENT window-all-closed disparado! mainWindow existe?', !!(mainWindow && !mainWindow.isDestroyed()));
   if (mainWindow && !mainWindow.isDestroyed()) return;
-  if (process.platform !== 'darwin') {
+  if (isQuitting || process.platform !== 'darwin') {
     logDebug('Executando app.quit() via window-all-closed');
     app.quit();
   }

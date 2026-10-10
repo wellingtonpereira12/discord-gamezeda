@@ -409,6 +409,109 @@ window.setLocalScreenSharingActive = setLocalScreenSharingState;
 
 const userConfigs = new Map();
 let currentContextPeerId = null;
+let currentContextPeerName = null;
+const peerIdToUsernameMap = new Map();
+const SAVED_USER_VOLUMES_STORAGE_KEY = 'fakedc_user_volumes';
+
+function getSavedUserVolumesMap() {
+  try {
+    const raw = localStorage.getItem(SAVED_USER_VOLUMES_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function getSavedUserSettings(username) {
+  if (!username) return null;
+  const map = getSavedUserVolumesMap();
+  return map[username.toLowerCase().trim()] || null;
+}
+
+function saveUserVolumeSettings(username, settings) {
+  if (!username) return;
+  try {
+    const map = getSavedUserVolumesMap();
+    const key = username.toLowerCase().trim();
+    map[key] = { ...(map[key] || {}), ...settings };
+    localStorage.setItem(SAVED_USER_VOLUMES_STORAGE_KEY, JSON.stringify(map));
+  } catch (e) {
+    console.warn('[Volume] Erro ao persistir volume no localStorage:', e);
+  }
+}
+
+function getUsernameForPeerId(peerId) {
+  if (!peerId) return null;
+  if (peerId === 'bot-alfredo' || peerId === 'bot-rythm') return peerId;
+  if (peerIdToUsernameMap.has(peerId)) {
+    return peerIdToUsernameMap.get(peerId);
+  }
+  if (Array.isArray(allVoiceUsers)) {
+    const u = allVoiceUsers.find(user => user.id === peerId);
+    if (u && u.name) {
+      peerIdToUsernameMap.set(peerId, u.name);
+      return u.name;
+    }
+  }
+  if (typeof allVoiceRoomsState === 'object' && allVoiceRoomsState !== null) {
+    for (const rId in allVoiceRoomsState) {
+      if (Array.isArray(allVoiceRoomsState[rId])) {
+        const u = allVoiceRoomsState[rId].find(user => user.id === peerId);
+        if (u && u.name) {
+          peerIdToUsernameMap.set(peerId, u.name);
+          return u.name;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function applySavedUserConfigToPeer(peerId, username) {
+  if (!peerId || !username) return;
+  const saved = getSavedUserSettings(username);
+  if (saved) {
+    const cfg = getUserConfig(peerId, username);
+    if (saved.volume !== undefined) {
+      cfg.volume = saved.volume;
+      if (webrtc && typeof webrtc.setUserVolume === 'function') {
+        webrtc.setUserVolume(peerId, saved.volume);
+      }
+    }
+    if (saved.muted !== undefined) {
+      cfg.muted = saved.muted;
+      if (webrtc && typeof webrtc.setUserMuted === 'function') {
+        webrtc.setUserMuted(peerId, saved.muted);
+      }
+    }
+    if (saved.screenVolume !== undefined) {
+      cfg.screenVolume = saved.screenVolume;
+      if (webrtc && typeof webrtc.setUserScreenVolume === 'function') {
+        webrtc.setUserScreenVolume(peerId, saved.screenVolume);
+      }
+    }
+    if (saved.sfxMuted !== undefined) {
+      cfg.sfxMuted = saved.sfxMuted;
+      if (webrtc && typeof webrtc.setUserScreenAudioMuted === 'function') {
+        webrtc.setUserScreenAudioMuted(peerId, saved.sfxMuted);
+      }
+    }
+  }
+}
+
+function registerPeerUsername(peerId, username) {
+  if (!peerId || !username) return;
+  peerIdToUsernameMap.set(peerId, username);
+  applySavedUserConfigToPeer(peerId, username);
+}
+window.registerPeerUsername = registerPeerUsername;
+
+function saveUserAudioConfig(peerId, peerName, updates) {
+  const username = peerName || getUsernameForPeerId(peerId);
+  if (username) {
+    saveUserVolumeSettings(username, updates);
+  }
+}
 
 // Fase 4: Contador de Mensagens Não Lidas & Indicadores de Barra de Tarefas
 const unreadChannelCounts = new Map();
@@ -481,17 +584,35 @@ function closeAllDrawers() {
 }
 
 
-function getUserConfig(peerId) {
+function getUserConfig(peerId, peerName) {
+  const username = peerName || getUsernameForPeerId(peerId);
+  if (username && peerId) {
+    peerIdToUsernameMap.set(peerId, username);
+  }
+
   if (!userConfigs.has(peerId)) {
+    const saved = username ? getSavedUserSettings(username) : null;
     userConfigs.set(peerId, {
-      volume: 100,
-      muted: false,
-      screenVolume: 100,
-      lastScreenVolume: 100,
-      sfxMuted: false,
+      volume: (saved && saved.volume !== undefined) ? saved.volume : 100,
+      muted: (saved && saved.muted !== undefined) ? saved.muted : false,
+      screenVolume: (saved && saved.screenVolume !== undefined) ? saved.screenVolume : 100,
+      lastScreenVolume: (saved && saved.lastScreenVolume !== undefined) ? saved.lastScreenVolume : 100,
+      sfxMuted: (saved && saved.sfxMuted !== undefined) ? saved.sfxMuted : false,
       videoDisabled: false
     });
+  } else if (username) {
+    const cfg = userConfigs.get(peerId);
+    if (!cfg._manuallyModified) {
+      const saved = getSavedUserSettings(username);
+      if (saved) {
+        if (saved.volume !== undefined) cfg.volume = saved.volume;
+        if (saved.muted !== undefined) cfg.muted = saved.muted;
+        if (saved.screenVolume !== undefined) cfg.screenVolume = saved.screenVolume;
+        if (saved.sfxMuted !== undefined) cfg.sfxMuted = saved.sfxMuted;
+      }
+    }
   }
+
   const cfg = userConfigs.get(peerId);
   if (cfg.screenVolume === undefined) cfg.screenVolume = 100;
   if (cfg.lastScreenVolume === undefined) cfg.lastScreenVolume = 100;
@@ -829,6 +950,7 @@ if (screenTileVolumeSlider) {
       config.screenVolume = 0;
       webrtc.setUserScreenAudioMuted(currentViewedStreamId, true);
       webrtc.setUserScreenVolume(currentViewedStreamId, 0);
+      saveUserAudioConfig(currentViewedStreamId, null, { screenVolume: 0, sfxMuted: true });
     } else {
       // Ajuste de volume e desmute automático ao aumentar
       config.sfxMuted = false;
@@ -836,6 +958,7 @@ if (screenTileVolumeSlider) {
       config.lastScreenVolume = val;
       webrtc.setUserScreenAudioMuted(currentViewedStreamId, false);
       webrtc.setUserScreenVolume(currentViewedStreamId, val);
+      saveUserAudioConfig(currentViewedStreamId, null, { screenVolume: val, sfxMuted: false, lastScreenVolume: val });
     }
 
     if (currentContextPeerId === currentViewedStreamId) {
@@ -882,6 +1005,7 @@ if (btnToggleScreenSound) {
       config.screenVolume = restoreVol;
       webrtc.setUserScreenAudioMuted(currentViewedStreamId, false);
       webrtc.setUserScreenVolume(currentViewedStreamId, restoreVol);
+      saveUserAudioConfig(currentViewedStreamId, null, { sfxMuted: false, screenVolume: restoreVol });
       showSoundToast(`🔊 Som da transmissão desmutado (${restoreVol}%)`);
     } else {
       // Clicou -> MUTA e salva o volume atual para restauração
@@ -890,6 +1014,7 @@ if (btnToggleScreenSound) {
       config.screenVolume = 0;
       webrtc.setUserScreenAudioMuted(currentViewedStreamId, true);
       webrtc.setUserScreenVolume(currentViewedStreamId, 0);
+      saveUserAudioConfig(currentViewedStreamId, null, { sfxMuted: true, screenVolume: 0, lastScreenVolume: config.lastScreenVolume });
       showSoundToast('🔇 Som da transmissão mutado');
     }
 
@@ -1419,6 +1544,19 @@ socket.on('voice:update', (data = {}) => {
     }
   }
 
+  // Registra mapeamento de ID -> Usuário e restaura volumes salvos para cada participante
+  if (allVoiceRoomsState && typeof allVoiceRoomsState === 'object') {
+    for (const rId in allVoiceRoomsState) {
+      if (Array.isArray(allVoiceRoomsState[rId])) {
+        allVoiceRoomsState[rId].forEach(u => {
+          if (u && u.id && u.name) {
+            registerPeerUsername(u.id, u.name);
+          }
+        });
+      }
+    }
+  }
+
   renderSidebarChannels();
   renderVoiceStageCards();
   renderMembersSidebar();
@@ -1582,6 +1720,9 @@ socket.on('voice:peer-camera-status', ({ peerId, isActive }) => {
 
 // Sons de Entrada e Saída de participantes na sala de voz (Discord Chimes)
 socket.on('voice:peer-joined', ({ peerId, user }) => {
+  if (peerId && user && user.name) {
+    registerPeerUsername(peerId, user.name);
+  }
   if (inVoice && peerId !== socket.id && !isDeafened) {
     if (sounds && typeof sounds.playUserJoin === 'function') {
       sounds.playUserJoin();
@@ -6046,7 +6187,13 @@ function openContextMenu(e, peerId, peerName) {
   e.stopPropagation();
 
   currentContextPeerId = peerId;
-  const config = getUserConfig(peerId);
+  const resolvedName = peerName || getUsernameForPeerId(peerId);
+  currentContextPeerName = resolvedName || null;
+  if (peerId && currentContextPeerName) {
+    peerIdToUsernameMap.set(peerId, currentContextPeerName);
+  }
+
+  const config = getUserConfig(peerId, currentContextPeerName);
 
   // 1. Volume do Usuário (Microfone / Voz)
   ctxVolumeSlider.value = config.volume;
@@ -6164,6 +6311,7 @@ function closeContextMenu() {
     userContextMenu.style.display = 'none';
   }
   currentContextPeerId = null;
+  currentContextPeerName = null;
 }
 
 if (btnCloseContextMenu) {
@@ -6383,9 +6531,11 @@ ctxVolumeSlider.addEventListener('input', (e) => {
   updateSliderBackground(ctxVolumeSlider, vol, 500);
 
   if (currentContextPeerId) {
-    const config = getUserConfig(currentContextPeerId);
+    const config = getUserConfig(currentContextPeerId, currentContextPeerName);
     config.volume = vol;
+    config._manuallyModified = true;
     webrtc.setUserVolume(currentContextPeerId, vol);
+    saveUserAudioConfig(currentContextPeerId, currentContextPeerName, { volume: vol });
     if ((currentContextPeerId === 'bot-alfredo' || currentContextPeerId === 'bot-rythm') && typeof applyMusicBotVolume === 'function') {
       applyMusicBotVolume();
     }
@@ -6403,18 +6553,21 @@ if (ctxScreenVolumeSlider) {
     updateSliderBackground(ctxScreenVolumeSlider, vol, 500);
 
     if (currentContextPeerId) {
-      const config = getUserConfig(currentContextPeerId);
+      const config = getUserConfig(currentContextPeerId, currentContextPeerName);
+      config._manuallyModified = true;
       if (vol === 0) {
         config.sfxMuted = true;
         config.screenVolume = 0;
         webrtc.setUserScreenAudioMuted(currentContextPeerId, true);
         webrtc.setUserScreenVolume(currentContextPeerId, 0);
+        saveUserAudioConfig(currentContextPeerId, currentContextPeerName, { screenVolume: 0, sfxMuted: true });
       } else {
         config.sfxMuted = false;
         config.screenVolume = vol;
         config.lastScreenVolume = vol;
         webrtc.setUserScreenAudioMuted(currentContextPeerId, false);
         webrtc.setUserScreenVolume(currentContextPeerId, vol);
+        saveUserAudioConfig(currentContextPeerId, currentContextPeerName, { screenVolume: vol, sfxMuted: false, lastScreenVolume: vol });
       }
       if (ctxCheckSfx) ctxCheckSfx.classList.toggle('checked', config.sfxMuted);
 
@@ -6429,10 +6582,12 @@ if (ctxScreenVolumeSlider) {
 ctxItemMute.addEventListener('click', (e) => {
   e.stopPropagation();
   if (!currentContextPeerId) return;
-  const config = getUserConfig(currentContextPeerId);
+  const config = getUserConfig(currentContextPeerId, currentContextPeerName);
   config.muted = !config.muted;
+  config._manuallyModified = true;
   ctxCheckMute.classList.toggle('checked', config.muted);
   webrtc.setUserMuted(currentContextPeerId, config.muted);
+  saveUserAudioConfig(currentContextPeerId, currentContextPeerName, { muted: config.muted });
   if ((currentContextPeerId === 'bot-alfredo' || currentContextPeerId === 'bot-rythm') && typeof applyMusicBotVolume === 'function') {
     applyMusicBotVolume();
   }
@@ -6441,18 +6596,21 @@ ctxItemMute.addEventListener('click', (e) => {
 ctxItemSfx.addEventListener('click', (e) => {
   e.stopPropagation();
   if (!currentContextPeerId) return;
-  const config = getUserConfig(currentContextPeerId);
+  const config = getUserConfig(currentContextPeerId, currentContextPeerName);
   config.sfxMuted = !config.sfxMuted;
+  config._manuallyModified = true;
   if (config.sfxMuted) {
     config.lastScreenVolume = config.screenVolume > 0 ? config.screenVolume : 100;
     config.screenVolume = 0;
     webrtc.setUserScreenAudioMuted(currentContextPeerId, true);
     webrtc.setUserScreenVolume(currentContextPeerId, 0);
+    saveUserAudioConfig(currentContextPeerId, currentContextPeerName, { sfxMuted: true, screenVolume: 0, lastScreenVolume: config.lastScreenVolume });
   } else {
     const restoreVol = (config.lastScreenVolume && config.lastScreenVolume > 0) ? config.lastScreenVolume : 100;
     config.screenVolume = restoreVol;
     webrtc.setUserScreenAudioMuted(currentContextPeerId, false);
     webrtc.setUserScreenVolume(currentContextPeerId, restoreVol);
+    saveUserAudioConfig(currentContextPeerId, currentContextPeerName, { sfxMuted: false, screenVolume: restoreVol });
   }
   ctxCheckSfx.classList.toggle('checked', config.sfxMuted);
   if (ctxScreenVolumeSlider) {
@@ -6471,7 +6629,7 @@ ctxItemSfx.addEventListener('click', (e) => {
 ctxItemVideo.addEventListener('click', (e) => {
   e.stopPropagation();
   if (!currentContextPeerId) return;
-  const config = getUserConfig(currentContextPeerId);
+  const config = getUserConfig(currentContextPeerId, currentContextPeerName);
   config.videoDisabled = !config.videoDisabled;
   ctxCheckVideo.classList.toggle('checked', config.videoDisabled);
 
@@ -6483,8 +6641,10 @@ ctxItemVideo.addEventListener('click', (e) => {
 if (mainScreenTile) {
   mainScreenTile.addEventListener('contextmenu', (e) => {
     if (currentViewedStreamId && currentViewedStreamId !== 'local' && currentViewedStreamId !== socket.id) {
-      const peer = allOnlineUsers.find(u => u.id === currentViewedStreamId);
-      openContextMenu(e, currentViewedStreamId, peer ? peer.name : 'Participante');
+      const peer = (Array.isArray(allOnlineUsers) ? allOnlineUsers.find(u => u.id === currentViewedStreamId) : null) ||
+                   (Array.isArray(allVoiceUsers) ? allVoiceUsers.find(u => u.id === currentViewedStreamId) : null);
+      const peerName = (peer && peer.name) ? peer.name : getUsernameForPeerId(currentViewedStreamId);
+      openContextMenu(e, currentViewedStreamId, peerName || 'Participante');
     }
   });
 }

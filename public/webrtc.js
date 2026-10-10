@@ -123,6 +123,7 @@ export class WebRTCManager {
     this.userScreenVolumes = new Map();   // peerId -> volumePercent transmissão de tela
     this.userMutes = new Map();
     this.userScreenAudioMutes = new Map();
+    this.peerUsernames = new Map();       // peerId -> username
     this.isDeafened = false;
 
     // Resiliência de Malha e Auto-Recuperação WebRTC
@@ -216,6 +217,16 @@ export class WebRTCManager {
   setupSocketEvents() {
     this.socket.on('voice:peers-list', async ({ peers }) => {
       console.log(`[WebRTC 📞] Conectando com ${peers ? peers.length : 0} participantes...`);
+      if (Array.isArray(peers)) {
+        peers.forEach(p => {
+          if (p && p.id && p.user && p.user.name) {
+            this.peerUsernames.set(p.id, p.user.name);
+            if (typeof window.registerPeerUsername === 'function') {
+              window.registerPeerUsername(p.id, p.user.name);
+            }
+          }
+        });
+      }
       const validPeerIds = new Set((peers || []).map(p => p.id).filter(id => id && id !== this.socket.id && !id.startsWith('bot-')));
       this.expectedPeers = validPeerIds;
 
@@ -239,6 +250,13 @@ export class WebRTCManager {
     this.socket.on('voice:peer-joined', async ({ peerId, user }) => {
       console.log(`[WebRTC 📞] Participante detectado: ${user ? user.name : peerId} (${peerId})`);
       if (!peerId || peerId === this.socket.id || peerId.startsWith('bot-')) return;
+
+      if (user && user.name) {
+        this.peerUsernames.set(peerId, user.name);
+        if (typeof window.registerPeerUsername === 'function') {
+          window.registerPeerUsername(peerId, user.name);
+        }
+      }
 
       this.expectedPeers.add(peerId);
       this.getOrCreatePeer(peerId);
@@ -786,19 +804,25 @@ export class WebRTCManager {
 
   updatePeerVoiceGain(peerId) {
     let volPercent = 100;
-    if (this.userVolumes.has(peerId)) {
-      volPercent = this.userVolumes.get(peerId);
-    } else if (typeof getUserConfig === 'function') {
+    if (typeof getUserConfig === 'function') {
       const cfg = getUserConfig(peerId);
-      if (cfg && cfg.volume !== undefined) volPercent = cfg.volume;
+      if (cfg && cfg.volume !== undefined) {
+        volPercent = cfg.volume;
+        this.userVolumes.set(peerId, volPercent);
+      }
+    } else if (this.userVolumes.has(peerId)) {
+      volPercent = this.userVolumes.get(peerId);
     }
 
     let isMuted = false;
-    if (this.userMutes.has(peerId)) {
-      isMuted = this.userMutes.get(peerId);
-    } else if (typeof getUserConfig === 'function') {
+    if (typeof getUserConfig === 'function') {
       const cfg = getUserConfig(peerId);
-      if (cfg && cfg.muted !== undefined) isMuted = cfg.muted;
+      if (cfg && cfg.muted !== undefined) {
+        isMuted = cfg.muted;
+        this.userMutes.set(peerId, isMuted);
+      }
+    } else if (this.userMutes.has(peerId)) {
+      isMuted = this.userMutes.get(peerId);
     }
 
     const isDeaf = this.isDeafened || false;
@@ -933,8 +957,22 @@ export class WebRTCManager {
   }
 
   updatePeerScreenAudioGain(peerId) {
-    const volPercent = this.userScreenVolumes.has(peerId) ? this.userScreenVolumes.get(peerId) : 100;
-    const isSfxMuted = this.userScreenAudioMutes.get(peerId) || false;
+    let volPercent = 100;
+    let isSfxMuted = false;
+    if (typeof getUserConfig === 'function') {
+      const cfg = getUserConfig(peerId);
+      if (cfg && cfg.screenVolume !== undefined) {
+        volPercent = cfg.screenVolume;
+        this.userScreenVolumes.set(peerId, volPercent);
+      }
+      if (cfg && cfg.sfxMuted !== undefined) {
+        isSfxMuted = cfg.sfxMuted;
+        this.userScreenAudioMutes.set(peerId, isSfxMuted);
+      }
+    } else {
+      volPercent = this.userScreenVolumes.has(peerId) ? this.userScreenVolumes.get(peerId) : 100;
+      isSfxMuted = this.userScreenAudioMutes.get(peerId) || false;
+    }
     const isDeaf = this.isDeafened || false;
     const shouldMute = isSfxMuted || isDeaf;
     const gainVal = shouldMute ? 0.0 : (volPercent / 100);
