@@ -1,14 +1,25 @@
 import { BOT_USER, musicBot } from '../services/musicBot.js';
 import { watchPartyService } from '../services/watchParty.js';
-import { getUserGuildPermissions } from '../config/db.js';
+import { getUserGuildPermissions, getChannelGuildId, isMemberBanned } from '../config/db.js';
 
 export function registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers) {
   // Entrar na voz (sala dinâmica ou padrão)
-  socket.on('voice:join', (payload = {}) => {
+  socket.on('voice:join', async (payload = {}) => {
     const user = users.get(socket.id);
     if (!user) return;
 
     const roomId = (payload && payload.roomId) || 'gamezeda';
+
+    // Se o canal pertencer a um servidor customizado, verifica se o usuário está expulso/banido
+    const chGuildId = await getChannelGuildId(roomId);
+    if (chGuildId && chGuildId !== 'gamezeda') {
+      const banned = await isMemberBanned(chGuildId, user.name);
+      if (banned) {
+        console.warn(`[Voz 🚫] ${user.name} tentou entrar no canal ${roomId} mas está expulso de ${chGuildId}`);
+        socket.emit('voice:force-disconnect', { guildId: chGuildId, reason: 'Você foi expulso deste servidor.' });
+        return;
+      }
+    }
 
     // Se já estava em outro canal de voz, sai dele antes de entrar no novo
     if (user.inVoice && user.currentVoiceRoom && user.currentVoiceRoom !== roomId) {

@@ -1,5 +1,5 @@
 import { sounds } from './sounds.js?v=20261008_v1.1.7';
-import { WebRTCManager } from './webrtc.js?v=20261009_v1.5.3';
+import { WebRTCManager } from './webrtc.js?v=20261009_v1.5.4';
 import {
   escapeHtml,
   formatBytes,
@@ -67,7 +67,7 @@ import {
   getActiveGuildId,
   getCurrentGuildPermissions,
   updateGuildHeaderPermissionsUI
-} from './js/modules/guilds.js?v=20261009_v1.4.1';
+} from './js/modules/guilds.js?v=20261009_v1.5.4';
 import {
   initDirectMessages,
   loadConversations,
@@ -1338,7 +1338,10 @@ socket.on('voice:update', (data = {}) => {
   if (data.rooms) {
     allVoiceRoomsState = data.rooms;
   }
-  allVoiceUsers = data.users || (currentVoiceChannelId && allVoiceRoomsState[currentVoiceChannelId]) || [];
+  // Determina os usuários da sala atual do usuário conectado
+  allVoiceUsers = (currentVoiceChannelId && allVoiceRoomsState[currentVoiceChannelId])
+    ? allVoiceRoomsState[currentVoiceChannelId]
+    : ((data.users && data.users.length > 0) ? data.users : []);
 
   if (!inVoice) {
     const myId = socket ? socket.id : null;
@@ -1383,12 +1386,14 @@ socket.on('voice:update', (data = {}) => {
     }
   }
 
-  // Remove automaticamente streams fantasmas de quem saiu da sala OU quem parou de compartilhar tela
-  if (inVoice && Array.isArray(allVoiceUsers)) {
-    const activeScreenSharers = new Set(allVoiceUsers.filter(u => u.isScreenSharing).map(u => u.id));
+  // Remove automaticamente transmissões APENAS se o participante realmente saiu do canal de voz
+  if (inVoice && currentVoiceChannelId && allVoiceRoomsState[currentVoiceChannelId]) {
+    const roomUsers = allVoiceRoomsState[currentVoiceChannelId];
+    const roomUserIds = new Set(roomUsers.map(u => u.id));
     for (const [streamId, sData] of activeStreams.entries()) {
       if (!sData.isLocal && !streamId.endsWith('-camera')) {
-        if (!activeScreenSharers.has(streamId)) {
+        // Encerra apenas se o usuário que transmitia saiu do canal de voz
+        if (!roomUserIds.has(streamId)) {
           if (webrtc && typeof webrtc.stopRemoteScreen === 'function') {
             webrtc.stopRemoteScreen(streamId);
           }
@@ -1412,6 +1417,40 @@ socket.on('voice:update', (data = {}) => {
   renderSidebarChannels();
   renderVoiceStageCards();
   renderMembersSidebar();
+});
+
+socket.on('voice:force-disconnect', (data = {}) => {
+  console.log('[WebRTC 🛑] Desconexão forçada da voz recebida do servidor:', data);
+  if (inVoice) {
+    leaveVoice(true);
+    showSoundToast(`👢 ${data.reason || 'Você foi desconectado da chamada de voz.'}`);
+  }
+});
+
+socket.on('guild:kicked', (data = {}) => {
+  console.log('[Servidor 🚫] Usuário expulso do servidor:', data);
+  const gId = data.guildId;
+  const currentGId = (window.getActiveGuildId && window.getActiveGuildId()) || 'gamezeda';
+  if (inVoice) {
+    leaveVoice(true);
+  }
+  if (currentGId === gId && window.selectGuild) {
+    window.selectGuild('gamezeda');
+  }
+  showSoundToast(`🚫 ${data.reason || 'Você foi expulso do servidor.'}`);
+});
+
+socket.on('guild:banned', (data = {}) => {
+  console.log('[Servidor 🚫] Usuário banido do servidor:', data);
+  const gId = data.guildId;
+  const currentGId = (window.getActiveGuildId && window.getActiveGuildId()) || 'gamezeda';
+  if (inVoice) {
+    leaveVoice(true);
+  }
+  if (currentGId === gId && window.selectGuild) {
+    window.selectGuild('gamezeda');
+  }
+  showSoundToast(`🚫 Você foi banido do servidor: ${data.reason || 'Sem motivo'}`);
 });
 
 socket.on('channel:created', (newChannel) => {

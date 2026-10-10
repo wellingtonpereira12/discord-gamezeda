@@ -1799,6 +1799,10 @@
             <i data-lucide="users" style="width: 15px; height: 15px;"></i>
             <span>Membros</span>
           </button>
+          <button type="button" class="server-tab-btn" id="tab-btn-server-bans" style="display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; background: transparent; color: #949ba4; border: none; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; text-align: left;">
+            <i data-lucide="user-x" style="width: 15px; height: 15px;"></i>
+            <span>Usuários Expulsos</span>
+          </button>
         </div>
 
         <!-- Área de Conteúdo das Abas -->
@@ -1903,13 +1907,33 @@
             </div>
           </div>
 
+          <!-- Aba 4: Usuários Expulsos -->
+          <div id="tab-content-server-bans" style="display: none; flex-direction: column; gap: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div>
+                <h4 style="color: #f23f43; font-size: 16px; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 8px;">
+                  <i data-lucide="shield-alert" style="width: 18px; height: 18px;"></i>
+                  Usuários Expulsos do Servidor
+                </h4>
+                <p style="color: #949ba4; font-size: 12px; margin-top: 4px;">Estes usuários foram expulsos e estão impedidos de retornar ao servidor. Administradores podem revogar a expulsão a qualquer momento.</p>
+              </div>
+              <button type="button" class="btn-subtle" id="btn-refresh-server-bans" style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12px; background: #2b2d31; color: #dbdee1; border: 1px solid #383a40; border-radius: 4px; cursor: pointer;">
+                <i data-lucide="rotate-cw" style="width: 13px; height: 13px;"></i>
+                Atualizar
+              </button>
+            </div>
+            <div id="guild-bans-settings-table-wrapper" style="margin-top: 6px; overflow-x: auto;">
+              <!-- Renderizado via JS -->
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="app.js?v=20261009_v1.5.3"></script>
+  <script type="module" src="app.js?v=20261009_v1.5.4"></script>
 
 </body>
 </html>

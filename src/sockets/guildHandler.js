@@ -1,3 +1,4 @@
+import { leaveVoiceRoom } from './voiceHandler.js';
 import {
   getUserGuilds,
   createGuild,
@@ -17,10 +18,14 @@ import {
   getGuildMembersWithRoles,
   getUserGuildPermissions,
   kickGuildMember,
-  banGuildMember
+  banGuildMember,
+  getGuildBans,
+  unbanGuildMember,
+  getChannelGuildId,
+  isMemberBanned
 } from '../config/db.js';
 
-export function registerGuildHandlers(io, socket, users) {
+export function registerGuildHandlers(io, socket, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers) {
   // Listar servidores do usuário
   socket.on('guild:list', async (callback) => {
     try {
@@ -121,6 +126,15 @@ export function registerGuildHandlers(io, socket, users) {
     try {
       const targetGuildId = guildId || 'gamezeda';
       const user = users.get(socket.id);
+      if (user && targetGuildId !== 'gamezeda') {
+        const banned = await isMemberBanned(targetGuildId, user.name);
+        if (banned) {
+          if (typeof callback === 'function') {
+            callback({ success: false, message: 'Você foi expulso deste servidor e não pode acessá-lo.' });
+          }
+          return;
+        }
+      }
       if (user) {
         user.currentGuildId = targetGuildId;
       }
@@ -450,20 +464,31 @@ export function registerGuildHandlers(io, socket, users) {
         return;
       }
 
-      await kickGuildMember(targetGuildId, targetUsername);
+      await kickGuildMember(targetGuildId, targetUsername, user.name, 'Expulso pelo moderador');
       console.log(`[-] Membro ${targetUsername} expulso de ${targetGuildId} por ${user.name}`);
 
       io.to(`guild:${targetGuildId}`).emit('guild:members:roles-changed', { guildId: targetGuildId });
+      io.to(`guild:${targetGuildId}`).emit('guild:bans:updated', { guildId: targetGuildId });
       io.emit('guild:members:roles-changed', { guildId: targetGuildId });
+      io.emit('guild:bans:updated', { guildId: targetGuildId });
 
-      // Se o usuário expulso estiver conectado, avisa e força atualização da lista de servidores
+      // Se o usuário expulso estiver conectado, remove de canais de voz deste servidor e notifica
       for (const [sId, u] of users.entries()) {
         if (u && u.name && u.name.toLowerCase() === targetUsername.toLowerCase()) {
           const s = io.sockets.sockets.get(sId);
+          if (u.inVoice) {
+            const chGId = await getChannelGuildId(u.currentVoiceRoom);
+            if (chGId === targetGuildId || (u.currentVoiceRoom && u.currentVoiceRoom.includes(targetGuildId))) {
+              console.log(`[👢] Removendo ${u.name} da call devido a expulsão de ${targetGuildId}`);
+              leaveVoiceRoom(io, s, u, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
+              if (s) s.emit('voice:force-disconnect', { guildId: targetGuildId, reason: 'Você foi expulso do servidor.' });
+            }
+          }
           if (s) {
+            s.leave(`guild:${targetGuildId}`);
             const uGuilds = await getUserGuilds(u.name);
             s.emit('guild:updated-list', uGuilds);
-            s.emit('guild:kicked', { guildId: targetGuildId });
+            s.emit('guild:kicked', { guildId: targetGuildId, reason: 'Você foi expulso do servidor.' });
           }
         }
       }
@@ -519,13 +544,24 @@ export function registerGuildHandlers(io, socket, users) {
       console.log(`[🚫] Membro ${targetUsername} BANIDO de ${targetGuildId} por ${user.name}`);
 
       io.to(`guild:${targetGuildId}`).emit('guild:members:roles-changed', { guildId: targetGuildId });
+      io.to(`guild:${targetGuildId}`).emit('guild:bans:updated', { guildId: targetGuildId });
       io.emit('guild:members:roles-changed', { guildId: targetGuildId });
+      io.emit('guild:bans:updated', { guildId: targetGuildId });
 
-      // Se o usuário banido estiver conectado, avisa e força atualização da lista de servidores
+      // Se o usuário banido estiver conectado, remove de canais de voz deste servidor e notifica
       for (const [sId, u] of users.entries()) {
         if (u && u.name && u.name.toLowerCase() === targetUsername.toLowerCase()) {
           const s = io.sockets.sockets.get(sId);
+          if (u.inVoice) {
+            const chGId = await getChannelGuildId(u.currentVoiceRoom);
+            if (chGId === targetGuildId || (u.currentVoiceRoom && u.currentVoiceRoom.includes(targetGuildId))) {
+              console.log(`[👢] Removendo ${u.name} da call devido ao banimento de ${targetGuildId}`);
+              leaveVoiceRoom(io, s, u, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
+              if (s) s.emit('voice:force-disconnect', { guildId: targetGuildId, reason: reason || 'Você foi banido do servidor.' });
+            }
+          }
           if (s) {
+            s.leave(`guild:${targetGuildId}`);
             const uGuilds = await getUserGuilds(u.name);
             s.emit('guild:updated-list', uGuilds);
             s.emit('guild:banned', { guildId: targetGuildId, reason });
@@ -538,6 +574,62 @@ export function registerGuildHandlers(io, socket, users) {
       }
     } catch (err) {
       console.warn('Erro ao banir membro:', err.message);
+      if (typeof callback === 'function') {
+        callback({ success: false, message: err.message });
+      }
+    }
+  });
+
+  // Listar usuários expulsos / banidos do servidor - Requer isMod
+  socket.on('guild:bans:list', async ({ guildId }, callback) => {
+    try {
+      const user = users.get(socket.id);
+      if (!user) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Não autenticado.' });
+        return;
+      }
+      const targetGuildId = (guildId || '').trim();
+      const perms = await getUserGuildPermissions(targetGuildId, user.name);
+      if (!perms.isMod && !perms.isAdmin && !perms.isOwner) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Apenas moderadores e administradores podem ver expulsões.' });
+        return;
+      }
+      const bans = await getGuildBans(targetGuildId);
+      if (typeof callback === 'function') {
+        callback({ success: true, bans });
+      }
+    } catch (err) {
+      console.warn('Erro ao listar expulsões:', err.message);
+      if (typeof callback === 'function') {
+        callback({ success: false, message: err.message });
+      }
+    }
+  });
+
+  // Revogar expulsão / desbanir usuário - Requer isMod
+  socket.on('guild:member:unban', async ({ guildId, username }, callback) => {
+    try {
+      const user = users.get(socket.id);
+      if (!user) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Não autenticado.' });
+        return;
+      }
+      const targetGuildId = (guildId || '').trim();
+      const targetUsername = (username || '').trim();
+      const perms = await getUserGuildPermissions(targetGuildId, user.name);
+      if (!perms.isMod && !perms.isAdmin && !perms.isOwner) {
+        if (typeof callback === 'function') callback({ success: false, message: 'Apenas moderadores e administradores podem revogar expulsões.' });
+        return;
+      }
+      await unbanGuildMember(targetGuildId, targetUsername);
+      console.log(`[♻️] Expulsão de @${targetUsername} revogada no servidor ${targetGuildId} por ${user.name}`);
+      io.to(`guild:${targetGuildId}`).emit('guild:bans:updated', { guildId: targetGuildId });
+      io.emit('guild:bans:updated', { guildId: targetGuildId });
+      if (typeof callback === 'function') {
+        callback({ success: true });
+      }
+    } catch (err) {
+      console.warn('Erro ao revogar expulsão:', err.message);
       if (typeof callback === 'function') {
         callback({ success: false, message: err.message });
       }

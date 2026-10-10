@@ -1061,7 +1061,7 @@ export async function getUserGuildPermissions(guildId, username) {
   };
 }
 
-export async function kickGuildMember(guildId, username) {
+export async function kickGuildMember(guildId, username, kickedBy = 'Sistema', reason = 'Expulso pelo moderador') {
   const gId = (guildId || '').trim();
   const u = (username || '').trim();
   if (!gId || !u) throw new Error('Servidor e usuário são obrigatórios.');
@@ -1082,23 +1082,13 @@ export async function kickGuildMember(guildId, username) {
       console.warn('Erro ao expulsar membro no MariaDB:', e.message);
     }
   }
-  return true;
-}
 
-export async function banGuildMember(guildId, username, bannedBy, reason = 'Banido por um moderador') {
-  const gId = (guildId || '').trim();
-  const u = (username || '').trim();
-  const by = (bannedBy || 'Sistema').trim();
-  if (!gId || !u) throw new Error('Servidor e usuário são obrigatórios.');
-  if (gId === 'gamezeda') throw new Error('Membros não podem ser banidos do servidor principal.');
-
-  await kickGuildMember(gId, u);
-
+  // Registra a expulsão em guild_bans para impedir retorno sem permissão do administrador
   const banObj = {
     guildId: gId,
     username: u,
-    bannedBy: by,
-    reason,
+    bannedBy: (kickedBy || 'Sistema').trim(),
+    reason: reason || 'Expulso pelo moderador',
     createdAt: new Date().toISOString()
   };
 
@@ -1111,13 +1101,32 @@ export async function banGuildMember(guildId, username, bannedBy, reason = 'Bani
     try {
       await pool.query(
         'INSERT INTO guild_bans (guild_id, username, banned_by, reason) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE banned_by = VALUES(banned_by), reason = VALUES(reason)',
-        [gId, u, by, reason]
+        [gId, u, banObj.bannedBy, banObj.reason]
       );
     } catch (e) {
-      console.warn('Erro ao registrar banimento no MariaDB:', e.message);
+      console.warn('Erro ao registrar expulsão no MariaDB:', e.message);
     }
   }
-  return banObj;
+
+  return true;
+}
+
+export async function banGuildMember(guildId, username, bannedBy, reason = 'Banido por um moderador') {
+  const gId = (guildId || '').trim();
+  const u = (username || '').trim();
+  const by = (bannedBy || 'Sistema').trim();
+  if (!gId || !u) throw new Error('Servidor e usuário são obrigatórios.');
+  if (gId === 'gamezeda') throw new Error('Membros não podem ser banidos do servidor principal.');
+
+  await kickGuildMember(gId, u, by, reason);
+
+  return {
+    guildId: gId,
+    username: u,
+    bannedBy: by,
+    reason,
+    createdAt: new Date().toISOString()
+  };
 }
 
 export async function isMemberBanned(guildId, username) {
@@ -1140,6 +1149,76 @@ export async function isMemberBanned(guildId, username) {
   return memoryStore.guildBans.some(
     b => b.guildId === gId && b.username.toLowerCase() === u.toLowerCase()
   );
+}
+
+export async function getGuildBans(guildId) {
+  const gId = (guildId || '').trim();
+  if (!gId) return [];
+
+  if (isConnected && pool) {
+    try {
+      const [rows] = await pool.query(
+        `SELECT gb.guild_id as guildId, gb.username, gb.banned_by as bannedBy, 
+                gb.reason, gb.created_at as createdAt,
+                COALESCE(u.avatar, '') as avatar
+         FROM guild_bans gb
+         LEFT JOIN users u ON LOWER(u.username) = LOWER(gb.username)
+         WHERE gb.guild_id = ?
+         ORDER BY gb.created_at DESC`,
+        [gId]
+      );
+      if (rows) return rows;
+    } catch (e) {
+      console.warn('Erro ao listar expulsos/banidos no MariaDB:', e.message);
+    }
+  }
+
+  return memoryStore.guildBans
+    .filter(b => b.guildId === gId)
+    .map(b => {
+      const u = memoryStore.users.find(u => u.username.toLowerCase() === b.username.toLowerCase());
+      return {
+        ...b,
+        avatar: (u && u.avatar) || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(b.username)}`
+      };
+    });
+}
+
+export async function unbanGuildMember(guildId, username) {
+  const gId = (guildId || '').trim();
+  const u = (username || '').trim();
+  if (!gId || !u) throw new Error('Servidor e usuário são obrigatórios.');
+
+  memoryStore.guildBans = memoryStore.guildBans.filter(
+    b => !(b.guildId === gId && b.username.toLowerCase() === u.toLowerCase())
+  );
+
+  if (isConnected && pool) {
+    try {
+      await pool.query('DELETE FROM guild_bans WHERE guild_id = ? AND LOWER(username) = ?', [gId, u.toLowerCase()]);
+    } catch (e) {
+      console.warn('Erro ao revogar expulsão no MariaDB:', e.message);
+    }
+  }
+  return true;
+}
+
+export async function getChannelGuildId(channelId) {
+  if (!channelId) return null;
+  if (channelId === 'gamezeda' || channelId === 'geral') return 'gamezeda';
+  if (isConnected && pool) {
+    try {
+      const [rows] = await pool.query('SELECT guild_id FROM channels WHERE id = ? LIMIT 1', [channelId]);
+      if (rows && rows.length > 0) return rows[0].guild_id || 'gamezeda';
+    } catch (e) {}
+  }
+  const ch = memoryStore.channels.find(c => c.id === channelId);
+  if (ch && ch.guildId) return ch.guildId;
+  if (channelId.includes('guild-')) {
+    const m = channelId.match(/guild-[a-z0-9\-]+/i);
+    if (m) return m[0];
+  }
+  return 'gamezeda';
 }
 
 // ==========================================

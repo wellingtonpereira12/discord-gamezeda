@@ -347,22 +347,28 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
 
   let updatedServerIconUrl = null;
 
+  const tabBtnBans = document.getElementById('tab-btn-server-bans');
+  const tabContentBans = document.getElementById('tab-content-server-bans');
+  const btnRefreshServerBans = document.getElementById('btn-refresh-server-bans');
+
   function switchSettingsTab(tab) {
     const tabBtnOverview = document.getElementById('tab-btn-server-overview');
     const tabBtnRoles = document.getElementById('tab-btn-server-roles');
     const tabBtnMembers = document.getElementById('tab-btn-server-members');
+    const tabBtnBans = document.getElementById('tab-btn-server-bans');
 
     const tabContentOverview = document.getElementById('tab-content-server-overview');
     const tabContentRoles = document.getElementById('tab-content-server-roles');
     const tabContentMembers = document.getElementById('tab-content-server-members');
+    const tabContentBans = document.getElementById('tab-content-server-bans');
 
-    [tabBtnOverview, tabBtnRoles, tabBtnMembers].forEach(b => {
+    [tabBtnOverview, tabBtnRoles, tabBtnMembers, tabBtnBans].forEach(b => {
       if (b) {
         b.style.background = 'transparent';
         b.style.color = '#949ba4';
       }
     });
-    [tabContentOverview, tabContentRoles, tabContentMembers].forEach(c => {
+    [tabContentOverview, tabContentRoles, tabContentMembers, tabContentBans].forEach(c => {
       if (c) c.style.display = 'none';
     });
 
@@ -390,12 +396,21 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
       }
       if (tabContentMembers) tabContentMembers.style.display = 'flex';
       loadGuildMembers();
+    } else if (tab === 'bans') {
+      if (tabBtnBans) {
+        tabBtnBans.style.background = '#35373c';
+        tabBtnBans.style.color = '#fff';
+      }
+      if (tabContentBans) tabContentBans.style.display = 'flex';
+      loadGuildBans();
     }
   }
 
   if (tabBtnOverview) tabBtnOverview.addEventListener('click', () => switchSettingsTab('overview'));
   if (tabBtnRoles) tabBtnRoles.addEventListener('click', () => switchSettingsTab('roles'));
   if (tabBtnMembers) tabBtnMembers.addEventListener('click', () => switchSettingsTab('members'));
+  if (tabBtnBans) tabBtnBans.addEventListener('click', () => switchSettingsTab('bans'));
+  if (btnRefreshServerBans) btnRefreshServerBans.addEventListener('click', () => loadGuildBans());
 
   function openServerSettingsModal(e) {
     if (e && typeof e.stopPropagation === 'function') {
@@ -926,8 +941,134 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
     });
   }
 
+  function loadGuildBans() {
+    const tableWrapper = document.getElementById('guild-bans-settings-table-wrapper');
+    if (!tableWrapper || !activeSocket) return;
+
+    tableWrapper.innerHTML = `
+      <div style="padding: 24px; text-align: center; color: #949ba4; font-size: 13px;">
+        <i data-lucide="loader" style="width: 20px; height: 20px; animation: spin 1s linear infinite;"></i>
+        <div style="margin-top: 8px;">Carregando usuários expulsos...</div>
+      </div>
+    `;
+    if (window.lucide) window.lucide.createIcons();
+
+    activeSocket.emit('guild:bans:list', { guildId: activeGuildId }, (res) => {
+      if (!res || !res.success) {
+        tableWrapper.innerHTML = `
+          <div style="padding: 20px; background: rgba(242, 63, 67, 0.1); border: 1px solid rgba(242, 63, 67, 0.3); border-radius: 6px; color: #f23f43; font-size: 13px;">
+            ${(res && res.message) || 'Erro ao carregar lista de usuários expulsos.'}
+          </div>
+        `;
+        return;
+      }
+
+      const bans = res.bans || [];
+      if (bans.length === 0) {
+        tableWrapper.innerHTML = `
+          <div style="padding: 40px 20px; text-align: center; color: #949ba4; background: #2b2d31; border-radius: 8px; border: 1px dashed #383a40;">
+            <i data-lucide="shield-check" style="width: 36px; height: 36px; color: #23a55a; margin-bottom: 10px;"></i>
+            <div style="color: #f2f3f5; font-weight: 700; font-size: 14px;">Nenhum usuário expulso</div>
+            <div style="font-size: 12px; margin-top: 4px;">Este servidor não possui nenhum usuário na lista de expulsões ou banimentos.</div>
+          </div>
+        `;
+        if (window.lucide) window.lucide.createIcons();
+        return;
+      }
+
+      let html = `
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; background: #2b2d31; border-radius: 6px; overflow: hidden; border: 1px solid #383a40;">
+          <thead>
+            <tr style="background: #1e1f22; border-bottom: 1px solid #383a40; color: #b5bac1; font-size: 11px; text-transform: uppercase; font-weight: 700;">
+              <th style="padding: 10px 14px;">Usuário</th>
+              <th style="padding: 10px 14px;">Expulso Por</th>
+              <th style="padding: 10px 14px;">Motivo</th>
+              <th style="padding: 10px 14px;">Data</th>
+              <th style="padding: 10px 14px; text-align: right;">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      bans.forEach(ban => {
+        const avatarUrl = ban.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(ban.username)}`;
+        let dateStr = 'Recentemente';
+        if (ban.createdAt) {
+          try {
+            const d = new Date(ban.createdAt);
+            dateStr = d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          } catch (e) {}
+        }
+
+        html += `
+          <tr style="border-bottom: 1px solid #313338; transition: background 0.15s;" onmouseover="this.style.background='#35373c'" onmouseout="this.style.background='transparent'">
+            <td style="padding: 10px 14px; display: flex; align-items: center; gap: 10px;">
+              <img src="${avatarUrl}" alt="${escapeHtml(ban.username)}" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #1e1f22;">
+              <span style="color: #f2f3f5; font-weight: 600;">@${escapeHtml(ban.username)}</span>
+            </td>
+            <td style="padding: 10px 14px; color: #dbdee1;">
+              @${escapeHtml(ban.bannedBy || 'Sistema')}
+            </td>
+            <td style="padding: 10px 14px; color: #949ba4; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(ban.reason || 'Sem motivo')}">
+              ${escapeHtml(ban.reason || 'Expulso pelo moderador')}
+            </td>
+            <td style="padding: 10px 14px; color: #949ba4; font-size: 12px; white-space: nowrap;">
+              ${dateStr}
+            </td>
+            <td style="padding: 10px 14px; text-align: right; white-space: nowrap;">
+              <button type="button" class="btn-subtle btn-revoke-ban" data-username="${escapeHtml(ban.username)}" style="background: rgba(35, 165, 90, 0.15); color: #23a55a; border: 1px solid rgba(35, 165, 90, 0.3); padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s;">
+                Revogar Expulsão
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+
+      html += `
+          </tbody>
+        </table>
+      `;
+
+      tableWrapper.innerHTML = html;
+
+      // Adiciona eventos aos botões de revogar expulsão
+      tableWrapper.querySelectorAll('.btn-revoke-ban').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const uName = btn.dataset.username;
+          if (!uName) return;
+          if (confirm(`Deseja revogar a expulsão de @${uName}? O usuário poderá voltar a entrar neste servidor.`)) {
+            btn.disabled = true;
+            btn.textContent = 'Revogando...';
+            activeSocket.emit('guild:member:unban', { guildId: activeGuildId, username: uName }, (unbanRes) => {
+              if (unbanRes && unbanRes.success) {
+                loadGuildBans();
+                if (typeof window.showSoundToast === 'function') {
+                  window.showSoundToast(`✅ Expulsão revogada para @${uName}.`);
+                }
+              } else {
+                btn.disabled = false;
+                btn.textContent = 'Revogar Expulsão';
+                alert((unbanRes && unbanRes.message) || 'Erro ao revogar expulsão.');
+              }
+            });
+          }
+        });
+      });
+
+      if (window.lucide) window.lucide.createIcons();
+    });
+  }
+
   // Socket listeners de atualização
   if (activeSocket) {
+    activeSocket.on('guild:bans:updated', ({ guildId }) => {
+      if (guildId === activeGuildId) {
+        const tabContentBans = document.getElementById('tab-content-server-bans');
+        if (tabContentBans && tabContentBans.style.display !== 'none') {
+          loadGuildBans();
+        }
+      }
+    });
     activeSocket.on('guild:updated-list', (guilds) => {
       renderGuildsList(guilds);
     });
@@ -1091,3 +1232,4 @@ export function getActiveGuildId() {
 }
 
 window.getActiveGuildId = getActiveGuildId;
+window.selectGuild = selectGuild;

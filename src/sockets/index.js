@@ -230,7 +230,7 @@ export function setupSockets(io) {
     registerSoundboardHandlers(io, socket, users, voiceRooms);
     registerChannelHandlers(io, socket, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
     registerWatchPartyHandlers(io, socket, users);
-    registerGuildHandlers(io, socket, users);
+    registerGuildHandlers(io, socket, users, voiceRooms, broadcastVoiceState, broadcastOnlineMembers);
 
     // Atualização de Rich Presence / Atividade de Jogo (Discord Game Activity com validação RAWG)
     socket.on('user:activity-update', async (activity) => {
