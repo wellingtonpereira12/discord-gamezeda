@@ -576,8 +576,19 @@ export class WebRTCManager {
       } else if (event.track.kind === 'audio') {
         const isScreenAudio = (knownScreenAudioTrackId && event.track.id === knownScreenAudioTrackId) ||
                               (knownScreenStreamId && incomingStream.id === knownScreenStreamId) ||
-                              (incomingStream.getVideoTracks && incomingStream.getVideoTracks().length > 0) ||
-                              (this.peerScreenStreamIds.has(peerId) && this.remoteVoiceAudios.has(peerId) && this.remoteVoiceAudios.get(peerId).srcObject);
+                              (incomingStream.getVideoTracks && incomingStream.getVideoTracks().length > 0);
+
+        try {
+          this.socket.emit('client:diag', {
+            event: 'ontrack-audio',
+            peerId,
+            trackId: event.track.id,
+            streamId: incomingStream.id,
+            isScreenAudio,
+            knownScreenAudioTrackId,
+            knownScreenStreamId
+          });
+        } catch (e) {}
 
         if (isScreenAudio) {
           console.log(`[WebRTC 🔊] Roteado para SOM DE TELA/JOGO de ${peerId}`);
@@ -595,6 +606,15 @@ export class WebRTCManager {
 
     pc.oniceconnectionstatechange = () => {
       console.log(`[WebRTC 📞 ICE] Peer ${peerId}: estado=${pc.iceConnectionState}`);
+      try {
+        this.socket.emit('client:diag', {
+          event: 'ice-change',
+          peerId,
+          iceState: pc.iceConnectionState,
+          connState: pc.connectionState
+        });
+      } catch (e) {}
+
       if (pc.iceConnectionState === 'failed') {
         console.warn(`[WebRTC ⚠️ ICE] ICE falhou para ${peerId}. Tentando ICE restart com oferta...`);
         this.restartIce(peerId);
@@ -607,6 +627,15 @@ export class WebRTCManager {
 
     pc.onconnectionstatechange = () => {
       console.log(`[WebRTC 📞 Conexão] Peer ${peerId}: estado=${pc.connectionState}`);
+      try {
+        this.socket.emit('client:diag', {
+          event: 'conn-change',
+          peerId,
+          connState: pc.connectionState,
+          iceState: pc.iceConnectionState
+        });
+      } catch (e) {}
+
       if (pc.connectionState === 'failed') {
         console.warn(`[WebRTC ⚠️ Conexão] Conexão com ${peerId} falhou. Agendando auto-recuperação resiliente...`);
         this.scheduleAutoRecovery(peerId);
@@ -688,6 +717,17 @@ export class WebRTCManager {
 
     this.applyOutputDeviceToElement(audio);
     this.updatePeerVoiceGain(peerId);
+
+    try {
+      this.socket.emit('client:diag', {
+        event: 'playRemoteVoice',
+        peerId,
+        paused: audio.paused,
+        muted: audio.muted,
+        volume: audio.volume,
+        tracks: stream ? stream.getTracks().map(t => `${t.kind}:${t.readyState}:${t.enabled}`) : []
+      });
+    } catch (e) {}
 
     const playPromise = audio.play();
     if (playPromise !== undefined) {
@@ -1882,6 +1922,28 @@ export class WebRTCManager {
     if (this.audioContext && this.audioContext.state === 'suspended') {
       this.audioContext.resume().catch(() => {});
     }
+
+    try {
+      const summary = {};
+      for (const pId of this.expectedPeers) {
+        if (pId === this.socket.id || (pId && pId.startsWith('bot-'))) continue;
+        const pConn = this.peers.get(pId);
+        const pAud = this.remoteVoiceAudios.get(pId);
+        summary[pId] = {
+          conn: pConn ? pConn.connectionState : 'none',
+          ice: pConn ? pConn.iceConnectionState : 'none',
+          sig: pConn ? pConn.signalingState : 'none',
+          aud: !!pAud,
+          paused: pAud ? pAud.paused : null,
+          muted: pAud ? pAud.muted : null,
+          vol: pAud ? pAud.volume : null
+        };
+      }
+      this.socket.emit('client:diag', {
+        event: 'watchdog-summary',
+        summary
+      });
+    } catch (e) {}
   }
 
   syncRoomPeers(peerIds) {

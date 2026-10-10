@@ -92,31 +92,49 @@ export function registerVoiceHandlers(io, socket, users, voiceRooms, broadcastVo
 
   // Sinalização WebRTC: Oferta
   socket.on('webrtc:offer', (payload) => {
-    io.to(payload.targetId).emit('webrtc:offer', {
-      ...payload,
-      senderId: socket.id
-    });
+    const sender = users.get(socket.id);
+    const target = users.get(payload ? payload.targetId : null);
+    console.log(`[WebRTC 📤 Oferta] ${sender ? sender.name : socket.id} -> ${target ? target.name : (payload && payload.targetId)} (tipo: ${(payload && payload.type) || 'call'})`);
+    if (payload && payload.targetId) {
+      io.to(payload.targetId).emit('webrtc:offer', {
+        ...payload,
+        senderId: socket.id
+      });
+    }
   });
 
   // Sinalização WebRTC: Resposta
   socket.on('webrtc:answer', (payload) => {
-    io.to(payload.targetId).emit('webrtc:answer', {
-      ...payload,
-      senderId: socket.id
-    });
+    const sender = users.get(socket.id);
+    const target = users.get(payload ? payload.targetId : null);
+    console.log(`[WebRTC 📥 Resposta] ${sender ? sender.name : socket.id} -> ${target ? target.name : (payload && payload.targetId)} (tipo: ${(payload && payload.type) || 'answer'})`);
+    if (payload && payload.targetId) {
+      io.to(payload.targetId).emit('webrtc:answer', {
+        ...payload,
+        senderId: socket.id
+      });
+    }
   });
 
   // Sinalização WebRTC: Candidatos ICE
   socket.on('webrtc:ice-candidate', ({ targetId, candidate }) => {
-    io.to(targetId).emit('webrtc:ice-candidate', {
-      senderId: socket.id,
-      candidate
-    });
+    if (targetId) {
+      io.to(targetId).emit('webrtc:ice-candidate', {
+        senderId: socket.id,
+        candidate
+      });
+    }
   });
 
-  // Log de erros do cliente no terminal do servidor
+  // Log de erros e diagnósticos do cliente no terminal do servidor
+  socket.on('client:diag', (data) => {
+    const user = users.get(socket.id);
+    console.log(`[DIAG ${user ? user.name : socket.id}]:`, JSON.stringify(data));
+  });
+
   socket.on('client:error', (data) => {
-    console.error(`[CLIENT ERROR ${socket.id}]:`, JSON.stringify(data));
+    const user = users.get(socket.id);
+    console.error(`[CLIENT ERROR ${user ? user.name : socket.id}]:`, JSON.stringify(data));
   });
 
   // Indicador de fala em tempo real
