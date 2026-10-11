@@ -11,7 +11,8 @@ import {
   saveDirectMessage,
   getDirectMessages,
   getUserConversations,
-  getUserHighestRoleColor
+  getUserHighestRoleColor,
+  markDirectMessagesAsRead
 } from '../config/db.js';
 import { musicBot, BOT_USER, RADIO_STATIONS } from '../services/musicBot.js';
 import { watchPartyService } from '../services/watchParty.js';
@@ -223,9 +224,22 @@ export function registerChatHandlers(io, socket, users, voiceRooms, broadcastVoi
   socket.on('dm:history', async ({ targetUser }, callback) => {
     const user = users.get(socket.id);
     if (!user) return;
+    if (targetUser) {
+      await markDirectMessagesAsRead(user.name, targetUser);
+    }
     const history = await getDirectMessages(user.name, targetUser, 50);
     if (typeof callback === 'function') {
       callback({ success: true, messages: history });
+    }
+  });
+
+  // Marcar conversa DM como lida
+  socket.on('dm:read', async ({ targetUser }, callback) => {
+    const user = users.get(socket.id);
+    if (!user || !targetUser) return;
+    await markDirectMessagesAsRead(user.name, targetUser);
+    if (typeof callback === 'function') {
+      callback({ success: true });
     }
   });
 

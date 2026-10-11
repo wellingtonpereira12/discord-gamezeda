@@ -2130,7 +2130,7 @@ export async function getUserConversations(username) {
   if (isConnected && pool) {
     try {
       const [rows] = await pool.query(
-        `SELECT dm.id, dm.sender_name as sender, dm.receiver_name as receiver, dm.text, dm.timestamp, dm.created_at as createdAt,
+        `SELECT dm.id, dm.sender_name as sender, dm.receiver_name as receiver, dm.text, dm.timestamp, dm.read_status as readStatus, dm.created_at as createdAt,
                 u_sender.avatar as senderAvatar, u_receiver.avatar as receiverAvatar
          FROM direct_messages dm
          LEFT JOIN users u_sender ON LOWER(u_sender.username) = LOWER(dm.sender_name)
@@ -2142,15 +2142,21 @@ export async function getUserConversations(username) {
       for (const row of rows) {
         const isSender = row.sender.toLowerCase() === u;
         const contact = isSender ? row.receiver : row.sender;
+        const contactKey = contact.toLowerCase();
         const contactAvatar = isSender ? row.receiverAvatar : row.senderAvatar;
-        if (!contactsMap.has(contact.toLowerCase())) {
-          contactsMap.set(contact.toLowerCase(), {
+        const isUnread = !isSender && !row.readStatus;
+
+        if (!contactsMap.has(contactKey)) {
+          contactsMap.set(contactKey, {
             username: contact,
             avatar: contactAvatar || null,
             lastMessage: row.text,
             timestamp: row.timestamp,
-            createdAt: row.createdAt
+            createdAt: row.createdAt,
+            unreadCount: isUnread ? 1 : 0
           });
+        } else if (isUnread) {
+          contactsMap.get(contactKey).unreadCount += 1;
         }
       }
       return Array.from(contactsMap.values());
@@ -2164,17 +2170,47 @@ export async function getUserConversations(username) {
     if (row.sender.toLowerCase() === u || row.receiver.toLowerCase() === u) {
       const isSender = row.sender.toLowerCase() === u;
       const contact = isSender ? row.receiver : row.sender;
-      if (!contactsMap.has(contact.toLowerCase())) {
-        const contactUser = memoryStore.users[contact.toLowerCase()];
-        contactsMap.set(contact.toLowerCase(), {
+      const contactKey = contact.toLowerCase();
+      const isUnread = !isSender && !row.read;
+
+      if (!contactsMap.has(contactKey)) {
+        const contactUser = memoryStore.users[contactKey];
+        contactsMap.set(contactKey, {
           username: contact,
           avatar: contactUser?.avatar || null,
           lastMessage: row.text,
           timestamp: row.timestamp,
-          createdAt: row.createdAt
+          createdAt: row.createdAt,
+          unreadCount: isUnread ? 1 : 0
         });
+      } else if (isUnread) {
+        contactsMap.get(contactKey).unreadCount += 1;
       }
     }
   }
   return Array.from(contactsMap.values());
 }
+
+export async function markDirectMessagesAsRead(receiver, sender) {
+  const rec = (receiver || '').trim().toLowerCase();
+  const snd = (sender || '').trim().toLowerCase();
+  if (!rec || !snd) return;
+
+  if (isConnected && pool) {
+    try {
+      await pool.query(
+        `UPDATE direct_messages SET read_status = 1 WHERE LOWER(receiver_name) = ? AND LOWER(sender_name) = ? AND read_status = 0`,
+        [rec, snd]
+      );
+    } catch (e) {
+      console.warn('Erro ao marcar DMs como lidas no MariaDB:', e.message);
+    }
+  }
+
+  memoryStore.directMessages.forEach(m => {
+    if ((m.receiver || '').toLowerCase() === rec && (m.sender || '').toLowerCase() === snd) {
+      m.read = true;
+    }
+  });
+}
+

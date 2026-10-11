@@ -1,5 +1,5 @@
 import { sounds } from './sounds.js?v=20261008_v1.1.7';
-import { WebRTCManager } from './webrtc.js?v=20261011_v1.6.2';
+import { WebRTCManager } from './webrtc.js?v=20261011_v1.6.3';
 import {
   escapeHtml,
   formatBytes,
@@ -73,8 +73,12 @@ import {
   loadConversations,
   openDirectChat,
   getActiveDmTarget,
-  clearActiveDmTarget
-} from './js/modules/directMessages.js?v=20261008_v1.3.9';
+  clearActiveDmTarget,
+  startDirectMessage,
+  getUnreadDmTotal,
+  clearUnreadDm,
+  updateDmBadgesUI
+} from './js/modules/directMessages.js?v=20261011_v1.6.3';
 
 if (window.lucide) {
   window.lucide.createIcons();
@@ -2753,6 +2757,9 @@ function updateAppTitleAndBadges() {
     totalUnread += count;
   });
 
+  const unreadDms = (typeof getUnreadDmTotal === 'function') ? getUnreadDmTotal() : 0;
+  totalUnread += unreadDms;
+
   // 1. Atualizar Título da Janela / Aba (Ex: "(3) FakeDC")
   if (totalUnread > 0) {
     document.title = `(${totalUnread}) ${originalAppTitle}`;
@@ -2883,6 +2890,7 @@ function triggerDesktopNotification(channelId, message, isMentioned) {
 
 window.triggerDesktopNotification = triggerDesktopNotification;
 window.sounds = sounds;
+window.updateAppTitleAndBadges = updateAppTitleAndBadges;
 
 // Ouvinte para clique na notificação nativa do Windows no Electron
 if (window.electronAPI && typeof window.electronAPI.onNotificationClicked === 'function') {
@@ -2904,6 +2912,10 @@ window.addEventListener('focus', () => {
   if (currentTextChannel && unreadChannelCounts.has(currentTextChannel)) {
     unreadChannelCounts.delete(currentTextChannel);
   }
+  const dmTarget = (typeof getActiveDmTarget === 'function') ? getActiveDmTarget() : null;
+  if (dmTarget && typeof clearUnreadDm === 'function') {
+    clearUnreadDm(dmTarget);
+  }
   updateAppTitleAndBadges();
 });
 
@@ -2911,6 +2923,10 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && document.hasFocus()) {
     if (currentTextChannel && unreadChannelCounts.has(currentTextChannel)) {
       unreadChannelCounts.delete(currentTextChannel);
+    }
+    const dmTarget = (typeof getActiveDmTarget === 'function') ? getActiveDmTarget() : null;
+    if (dmTarget && typeof clearUnreadDm === 'function') {
+      clearUnreadDm(dmTarget);
     }
     updateAppTitleAndBadges();
   }
@@ -6285,6 +6301,9 @@ initDirectMessages({
 
 function openDmChatView(targetUser, messages = []) {
   currentTextChannel = null;
+  if (targetUser && typeof clearUnreadDm === 'function') {
+    clearUnreadDm(targetUser);
+  }
 
   const hashEl = document.querySelector('.chat-header-title .hash');
   if (hashEl) hashEl.textContent = '@';

@@ -1,6 +1,6 @@
 {
   "name": "FakeDC",
-  "version": "1.6.2",
+  "version": "1.6.3",
   "releaseDate": "2026-10-11",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe",
@@ -12,5 +12,5 @@
     "iosUrl": "/download/ios",
     "iosIpa": "FakeDC.ipa"
   },
-  "notes": "FakeDC v1.6.2: Visibilidade contextual dos Ghost Admins (Fimose e Takalho aparecem online e nos cargos apenas nos servidores que criaram, que ingressaram formalmente ou em Gamezeda; nos demais permanecem invisíveis mantendo privilégios administrativos)."
+  "notes": "FakeDC v1.6.3: Sistema completo de notificações para mensagens privadas (DMs 1 a 1): som de notificação de mensagens, notificação nativa desktop/browser, flash da taskbar no Windows, contadores e badges no botão Home e lista de DMs, e banners in-app toast com clique direto para responder."
 }
