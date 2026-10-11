@@ -2540,10 +2540,10 @@ body {
 .soundboard-popover {
   position: fixed;
   bottom: 60px;
-  left: 245px;
-  width: 480px;
-  max-width: calc(100vw - 260px);
-  max-height: 480px;
+  left: clamp(12px, 245px, calc(100vw - 580px));
+  width: 560px;
+  max-width: calc(100vw - 24px);
+  max-height: 520px;
   background: #2b2d31;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
@@ -2635,8 +2635,9 @@ body {
   padding: 12px 14px;
   overflow-y: auto;
   overflow-x: hidden;
-  max-height: 400px;
+  max-height: 420px;
   flex: 1;
+  box-sizing: border-box;
 }
 
 .soundboard-popover-body::-webkit-scrollbar {
@@ -2649,32 +2650,38 @@ body {
 
 .soundboard-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .soundboard-tile {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
   background: #1e1f22;
   border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: 6px;
-  height: 42px;
-  padding: 0 6px 0 10px;
+  height: 44px;
+  padding: 0 8px 0 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   cursor: pointer;
   user-select: none;
   transition: background 0.12s, border-color 0.12s, transform 0.08s;
+  overflow: hidden;
+  position: relative;
 }
 
 .soundboard-tile:hover {
   background: #35373c;
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .soundboard-tile:active {
-  transform: scale(0.97);
+  transform: scale(0.98);
 }
 
 .soundboard-tile-main {
@@ -2688,17 +2695,23 @@ body {
 }
 
 .soundboard-tile-emoji {
-  font-size: 16px;
+  font-size: 18px;
+  line-height: 1;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .soundboard-tile-name {
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   color: #dbdee1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
 }
 
 .soundboard-tile-actions {
@@ -2706,7 +2719,23 @@ body {
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
-  margin-left: 4px;
+  margin-left: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.soundboard-tile:hover .soundboard-tile-actions,
+.soundboard-tile:focus-within .soundboard-tile-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .soundboard-tile-actions {
+    opacity: 0.85;
+    pointer-events: auto;
+  }
 }
 
 .soundboard-tile-action-btn {
@@ -2721,12 +2750,7 @@ body {
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  opacity: 0.5;
-  transition: opacity 0.15s, color 0.15s, background 0.15s;
-}
-
-.soundboard-tile:hover .soundboard-tile-action-btn {
-  opacity: 1;
+  transition: color 0.15s, background 0.15s;
 }
 
 .soundboard-tile-action-btn:hover {
@@ -2761,6 +2785,11 @@ body {
   border-color: #5865F2;
   background: rgba(88, 101, 242, 0.08);
   color: #fff;
+}
+
+.soundboard-tile.soundboard-add-tile .soundboard-tile-name {
+  flex: initial;
+  text-align: center;
 }
 
 /* IMPORTAÇÃO DE SONS POR LINK / MYINSTANTS */
@@ -2875,9 +2904,9 @@ body {
   }
 }
 
-@media (max-width: 520px) {
+@media (max-width: 480px) {
   .soundboard-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
   }
 }
 
