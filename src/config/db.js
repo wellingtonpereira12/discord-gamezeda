@@ -209,6 +209,7 @@ export async function initDatabase() {
       await conn.query(`ALTER TABLE channels ADD COLUMN IF NOT EXISTS guild_id VARCHAR(64) DEFAULT 'gamezeda'`);
       await conn.query(`ALTER TABLE channels ADD COLUMN IF NOT EXISTS category_id VARCHAR(64) DEFAULT 'cat-text'`);
       await conn.query(`ALTER TABLE channels ADD COLUMN IF NOT EXISTS position INT DEFAULT 0`);
+      await conn.query(`ALTER TABLE channels ADD COLUMN IF NOT EXISTS created_by VARCHAR(64) DEFAULT 'Sistema'`);
     } catch (e) {
       // Ignora caso já existam ou versão antiga de engine
     }
@@ -467,8 +468,8 @@ export async function createGuild({ name, iconUrl = null, ownerUsername }) {
   const chGeralId = `geral-${id}`;
   const chVozId = `voz-${id}`;
   const defaultChannels = [
-    { id: chGeralId, guildId: id, name: 'geral', type: 'text', categoryId: catTextId, position: 0 },
-    { id: chVozId, guildId: id, name: 'Geral', type: 'voice', categoryId: catVoiceId, position: 0 }
+    { id: chGeralId, guildId: id, name: 'geral', type: 'text', categoryId: catTextId, position: 0, createdBy: owner },
+    { id: chVozId, guildId: id, name: 'Geral', type: 'voice', categoryId: catVoiceId, position: 0, createdBy: owner }
   ];
   memoryStore.channels.push(...defaultChannels);
   memoryStore.messages[chGeralId] = [];
@@ -501,8 +502,8 @@ export async function createGuild({ name, iconUrl = null, ownerUsername }) {
       }
       for (const ch of defaultChannels) {
         await pool.query(
-          'INSERT INTO channels (id, guild_id, name, type, category_id, position) VALUES (?, ?, ?, ?, ?, ?)',
-          [ch.id, id, ch.name, ch.type, ch.categoryId, ch.position]
+          'INSERT INTO channels (id, guild_id, name, type, category_id, position, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [ch.id, id, ch.name, ch.type, ch.categoryId, ch.position, ch.createdBy || owner]
         );
       }
       for (const r of defaultRoles) {
@@ -1361,7 +1362,7 @@ export async function getChannelsFull(guildId = 'gamezeda') {
   if (isConnected && pool) {
     try {
       const [rows] = await pool.query(
-        'SELECT id, guild_id as guildId, name, type, category_id as categoryId, position FROM channels WHERE guild_id = ? ORDER BY position ASC, created_at ASC',
+        'SELECT id, guild_id as guildId, name, type, category_id as categoryId, position, COALESCE(created_by, "Sistema") as createdBy, created_at as createdAt FROM channels WHERE guild_id = ? ORDER BY position ASC, created_at ASC',
         [targetGuild]
       );
       if (rows) return rows;
@@ -1369,7 +1370,10 @@ export async function getChannelsFull(guildId = 'gamezeda') {
       console.warn('Erro ao obter canais completos do MariaDB:', e.message);
     }
   }
-  return memoryStore.channels.filter(c => (c.guildId || 'gamezeda') === targetGuild);
+  return memoryStore.channels.filter(c => (c.guildId || 'gamezeda') === targetGuild).map(c => ({
+    ...c,
+    createdBy: c.createdBy || 'Sistema'
+  }));
 }
 
 export async function getChannels(guildId = 'gamezeda') {
@@ -1391,10 +1395,11 @@ export async function isValidChannel(channelId) {
   return memoryStore.channels.some(c => c.id === channelId);
 }
 
-export async function createChannel({ name, type = 'text', categoryId, guildId = 'gamezeda' }) {
+export async function createChannel({ name, type = 'text', categoryId, guildId = 'gamezeda', createdBy = 'Sistema' }) {
   const cleanName = (name || '').trim();
   if (!cleanName) throw new Error('Nome do canal é obrigatório.');
   const cleanType = type === 'voice' ? 'voice' : 'text';
+  const cleanCreatedBy = (createdBy || 'Sistema').trim();
   const targetGuild = guildId || 'gamezeda';
   const defaultCat = cleanType === 'voice' 
     ? (targetGuild === 'gamezeda' ? 'cat-voice' : `cat-voice-${targetGuild}`)
@@ -1408,7 +1413,7 @@ export async function createChannel({ name, type = 'text', categoryId, guildId =
   const id = existing ? `${slug}-${Date.now().toString(36).substring(2, 6)}` : slug;
 
   const position = memoryStore.channels.filter(c => c.categoryId === targetCat && (c.guildId || 'gamezeda') === targetGuild).length;
-  const chObj = { id, guildId: targetGuild, name: cleanName, type: cleanType, categoryId: targetCat, position };
+  const chObj = { id, guildId: targetGuild, name: cleanName, type: cleanType, categoryId: targetCat, position, createdBy: cleanCreatedBy, createdAt: new Date().toISOString() };
 
   memoryStore.channels.push(chObj);
   if (cleanType === 'text') {
@@ -1418,8 +1423,8 @@ export async function createChannel({ name, type = 'text', categoryId, guildId =
   if (isConnected && pool) {
     try {
       await pool.query(
-        'INSERT INTO channels (id, guild_id, name, type, category_id, position) VALUES (?, ?, ?, ?, ?, ?)',
-        [id, targetGuild, cleanName, cleanType, targetCat, position]
+        'INSERT INTO channels (id, guild_id, name, type, category_id, position, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [id, targetGuild, cleanName, cleanType, targetCat, position, cleanCreatedBy]
       );
     } catch (e) {
       console.warn('Erro ao salvar canal no MariaDB:', e.message);

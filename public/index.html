@@ -1884,6 +1884,10 @@
             <i data-lucide="info" style="width: 15px; height: 15px;"></i>
             <span>Visão Geral</span>
           </button>
+          <button type="button" class="server-tab-btn" id="tab-btn-server-channels" style="display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; background: transparent; color: #949ba4; border: none; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; text-align: left;">
+            <i data-lucide="hash" style="width: 15px; height: 15px;"></i>
+            <span>Canais & Criadores</span>
+          </button>
           <button type="button" class="server-tab-btn" id="tab-btn-server-roles" style="display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; background: transparent; color: #949ba4; border: none; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; text-align: left;">
             <i data-lucide="shield" style="width: 15px; height: 15px;"></i>
             <span>Cargos (Roles)</span>
@@ -1921,6 +1925,23 @@
               <input type="text" id="server-settings-name-input" class="form-input" placeholder="Nome do servidor" required maxlength="100">
             </div>
 
+            <!-- Bloco Informativo: Criador do Servidor -->
+            <div style="background: #2b2d31; border-radius: 8px; padding: 14px 18px; border: 1px solid rgba(255, 255, 255, 0.08); display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 14px;">
+                <div style="width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, #f1c40f 0%, #e67e22 100%); display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 2px 8px rgba(241, 196, 15, 0.3); flex-shrink: 0;">
+                  👑
+                </div>
+                <div>
+                  <div style="font-size: 11px; font-weight: 700; color: #b5bac1; text-transform: uppercase; letter-spacing: 0.5px;">CRIADOR / DONO DO SERVIDOR</div>
+                  <div style="display: flex; align-items: center; gap: 8px; margin-top: 3px;">
+                    <span id="server-settings-owner-name" style="font-size: 15px; font-weight: 700; color: #fff;">Sistema</span>
+                    <span id="server-settings-owner-badge" style="background: rgba(241, 196, 15, 0.15); color: #f1c40f; border: 1px solid rgba(241, 196, 15, 0.3); font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 4px; text-transform: uppercase;">Dono</span>
+                  </div>
+                </div>
+              </div>
+              <div id="server-settings-created-date" style="font-size: 12px; color: #949ba4; font-family: monospace;">Criado em: --</div>
+            </div>
+
             <div style="margin-top: 10px;">
               <button type="button" class="btn-enter" id="btn-save-server-overview" style="padding: 10px 24px; font-size: 14px;">Salvar Alterações</button>
               <span id="server-settings-feedback" style="display: none; color: #23a55a; font-size: 13px; margin-left: 12px; font-weight: 600;">Salvo com sucesso!</span>
@@ -1934,6 +1955,20 @@
               <button type="button" class="btn-subtle" id="btn-delete-server-trigger" style="background: rgba(242,63,67,0.15); color: #f23f43; border: 1px solid rgba(242,63,67,0.3); padding: 8px 16px; border-radius: 4px; font-weight: 600; cursor: pointer;">
                 Excluir Servidor
               </button>
+            </div>
+          </div>
+
+          <!-- Aba: Canais & Criadores -->
+          <div id="tab-content-server-channels" style="display: none; flex-direction: column; gap: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h4 style="color: #f2f3f5; font-size: 16px; font-weight: 700; margin: 0;">Canais e Criadores</h4>
+                <p style="color: #949ba4; font-size: 12px; margin-top: 2px;">Lista de canais deste servidor com a identificação de quem criou cada canal.</p>
+              </div>
+              <span id="server-channels-count-badge" style="background: #2b2d31; color: #b5bac1; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;">0 canais</span>
+            </div>
+            <div id="server-channels-list-container" style="display: flex; flex-direction: column; gap: 8px; max-height: 420px; overflow-y: auto; padding-right: 4px;">
+              <!-- Preenchido via JavaScript -->
             </div>
           </div>
 

@@ -691,6 +691,7 @@ let allChannels = [
   { id: 'to-sem-mic', name: 'to-sem-mic', type: 'text', categoryId: 'cat-text', position: 10 },
   { id: 'gamezeda', name: 'Gamezeda', type: 'voice', categoryId: 'cat-voice', position: 0 }
 ];
+window.getAllChannels = () => allChannels;
 
 let collapsedCategories = new Set(JSON.parse(localStorage.getItem('discord_collapsed_cats') || '[]'));
 let currentVoiceChannelId = null;
@@ -2496,6 +2497,8 @@ function renderSidebarChannels() {
 
         item.className = `channel-item ${currentTextChannel === channel.id ? 'active' : ''} ${hasUnread ? 'has-unread' : ''}`;
         item.setAttribute('data-channel', channel.id);
+        const textChannelCreator = channel.createdBy || 'Sistema';
+        item.setAttribute('title', `#${channel.name} • Criado por @${textChannelCreator}`);
 
         item.innerHTML = `
           ${hasUnread ? '<span class="channel-unread-pill"></span>' : ''}
@@ -2545,6 +2548,8 @@ function renderSidebarChannels() {
         const item = document.createElement('div');
         item.className = `channel-item ${isCurrentVoiceRoom ? 'active' : ''}`;
         item.setAttribute('data-voice', channel.id);
+        const voiceChannelCreator = channel.createdBy || 'Sistema';
+        item.setAttribute('title', `${channel.name} • Criado por @${voiceChannelCreator}`);
         if (isCurrentVoiceRoom) {
           item.style.fontWeight = '700';
           item.style.color = '#fff';
@@ -2946,7 +2951,11 @@ function switchTextChannel(chName) {
   let displayName = chObj ? chObj.name : chName;
   if (displayName.startsWith('geral-guild-')) displayName = 'geral';
 
-  if (currentChannelNameEl) currentChannelNameEl.textContent = displayName;
+  if (currentChannelNameEl) {
+    currentChannelNameEl.textContent = displayName;
+    const author = chObj && chObj.createdBy ? chObj.createdBy : 'Sistema';
+    currentChannelNameEl.title = `#${displayName} • Criado por @${author}`;
+  }
   if (chatInput) chatInput.placeholder = `Conversar em #${displayName}`;
 
   if (videoStage) videoStage.style.display = 'none';

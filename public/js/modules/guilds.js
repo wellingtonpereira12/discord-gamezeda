@@ -407,24 +407,81 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
   const tabContentBans = document.getElementById('tab-content-server-bans');
   const btnRefreshServerBans = document.getElementById('btn-refresh-server-bans');
 
+  function renderServerChannelsList() {
+    const listContainer = document.getElementById('server-channels-list-container');
+    const countBadge = document.getElementById('server-channels-count-badge');
+    if (!listContainer) return;
+
+    listContainer.innerHTML = '';
+    const allChannelsList = typeof window.getAllChannels === 'function' ? window.getAllChannels() : (window.allChannels || []);
+    const curGuild = cachedGuilds.find(g => g && String(g.id) === String(activeGuildId)) || { name: 'FakeDC', ownerUsername: 'Sistema' };
+    const defaultOwner = curGuild.ownerUsername || 'Sistema';
+
+    const guildChannels = allChannelsList.filter(c => {
+      const gId = c.guildId || 'gamezeda';
+      return String(gId) === String(activeGuildId);
+    });
+
+    if (countBadge) {
+      countBadge.textContent = `${guildChannels.length} canal${guildChannels.length === 1 ? '' : 'is'}`;
+    }
+
+    if (guildChannels.length === 0) {
+      listContainer.innerHTML = `
+        <div style="text-align: center; color: #949ba4; padding: 30px; font-size: 13px;">
+          Nenhum canal encontrado neste servidor.
+        </div>
+      `;
+      return;
+    }
+
+    guildChannels.forEach(ch => {
+      const item = document.createElement('div');
+      item.style.cssText = 'background: #2b2d31; border-radius: 6px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; border: 1px solid rgba(255, 255, 255, 0.04);';
+      const isVoice = ch.type === 'voice';
+      const icon = isVoice ? '🔊' : '#';
+      const typeLabel = isVoice ? 'Canal de Voz' : 'Canal de Texto';
+      const creator = ch.createdBy || defaultOwner;
+
+      item.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+          <span style="font-size: 16px; color: ${isVoice ? '#23a55a' : '#80848e'}; font-weight: 700; width: 20px; text-align: center;">${icon}</span>
+          <div style="min-width: 0;">
+            <div style="color: #f2f3f5; font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(ch.name)}</div>
+            <div style="color: #80848e; font-size: 11px;">${typeLabel}</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+          <span style="font-size: 11px; color: #949ba4;">Criado por:</span>
+          <span style="background: rgba(88, 101, 242, 0.15); color: #5865F2; border: 1px solid rgba(88, 101, 242, 0.3); padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: 700;">
+            @${escapeHtml(creator)}
+          </span>
+        </div>
+      `;
+      listContainer.appendChild(item);
+    });
+  }
+
   function switchSettingsTab(tab) {
     const tabBtnOverview = document.getElementById('tab-btn-server-overview');
+    const tabBtnChannels = document.getElementById('tab-btn-server-channels');
     const tabBtnRoles = document.getElementById('tab-btn-server-roles');
     const tabBtnMembers = document.getElementById('tab-btn-server-members');
     const tabBtnBans = document.getElementById('tab-btn-server-bans');
 
     const tabContentOverview = document.getElementById('tab-content-server-overview');
+    const tabContentChannels = document.getElementById('tab-content-server-channels');
     const tabContentRoles = document.getElementById('tab-content-server-roles');
     const tabContentMembers = document.getElementById('tab-content-server-members');
     const tabContentBans = document.getElementById('tab-content-server-bans');
 
-    [tabBtnOverview, tabBtnRoles, tabBtnMembers, tabBtnBans].forEach(b => {
+    [tabBtnOverview, tabBtnChannels, tabBtnRoles, tabBtnMembers, tabBtnBans].forEach(b => {
       if (b) {
         b.style.background = 'transparent';
         b.style.color = '#949ba4';
       }
     });
-    [tabContentOverview, tabContentRoles, tabContentMembers, tabContentBans].forEach(c => {
+    [tabContentOverview, tabContentChannels, tabContentRoles, tabContentMembers, tabContentBans].forEach(c => {
       if (c) c.style.display = 'none';
     });
 
@@ -434,6 +491,13 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
         tabBtnOverview.style.color = '#fff';
       }
       if (tabContentOverview) tabContentOverview.style.display = 'flex';
+    } else if (tab === 'channels') {
+      if (tabBtnChannels) {
+        tabBtnChannels.style.background = '#35373c';
+        tabBtnChannels.style.color = '#fff';
+      }
+      if (tabContentChannels) tabContentChannels.style.display = 'flex';
+      renderServerChannelsList();
     } else if (tab === 'roles') {
       if (tabBtnRoles) {
         tabBtnRoles.style.background = '#35373c';
@@ -462,6 +526,8 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
     }
   }
 
+  const tabBtnChannels = document.getElementById('tab-btn-server-channels');
+  if (tabBtnChannels) tabBtnChannels.addEventListener('click', () => switchSettingsTab('channels'));
   if (tabBtnOverview) tabBtnOverview.addEventListener('click', () => switchSettingsTab('overview'));
   if (tabBtnRoles) tabBtnRoles.addEventListener('click', () => switchSettingsTab('roles'));
   if (tabBtnMembers) tabBtnMembers.addEventListener('click', () => switchSettingsTab('members'));
@@ -480,7 +546,7 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
       return;
     }
 
-    const curGuild = cachedGuilds.find(g => g && String(g.id) === String(activeGuildId)) || { name: 'FakeDC', iconUrl: '/assets/logo.png' };
+    const curGuild = cachedGuilds.find(g => g && String(g.id) === String(activeGuildId)) || { name: 'FakeDC', iconUrl: '/assets/logo.png', ownerUsername: 'Sistema' };
 
     const titleEl = document.getElementById('server-settings-title');
     if (titleEl) titleEl.textContent = `Configurações: ${curGuild.name || 'Servidor'}`;
@@ -491,6 +557,27 @@ export function initGuilds({ socket, onGuildSelected, onHomeSelected }) {
     const settingsPreviewImg = document.getElementById('server-settings-preview-img');
     if (settingsPreviewImg) settingsPreviewImg.src = curGuild.iconUrl || '/assets/logo.png';
     updatedServerIconUrl = curGuild.iconUrl || null;
+
+    // Preenche informações do criador / dono do servidor
+    const ownerNameEl = document.getElementById('server-settings-owner-name');
+    const ownerBadgeEl = document.getElementById('server-settings-owner-badge');
+    const createdDateEl = document.getElementById('server-settings-created-date');
+    const owner = curGuild.ownerUsername || 'Sistema';
+    if (ownerNameEl) ownerNameEl.textContent = `@${owner}`;
+    if (ownerBadgeEl) ownerBadgeEl.textContent = owner.toLowerCase() === 'sistema' ? 'Padrão' : 'Criador';
+
+    if (createdDateEl) {
+      if (curGuild.createdAt) {
+        try {
+          const d = new Date(curGuild.createdAt);
+          createdDateEl.textContent = `Criado em: ${d.toLocaleDateString('pt-BR')}`;
+        } catch (err) {
+          createdDateEl.textContent = '';
+        }
+      } else {
+        createdDateEl.textContent = '';
+      }
+    }
 
     const settingsFeedback = document.getElementById('server-settings-feedback');
     if (settingsFeedback) settingsFeedback.style.display = 'none';
