@@ -208,7 +208,7 @@ export class WebRTCManager {
       this.audioContext.resume();
     }
     if (this.audioContext.audioWorklet && !rnnoiseWorkletLoaded) {
-      this.audioContext.audioWorklet.addModule('/rnnoise/workletProcessor.js?v=20261010_v1.6.1')
+      this.audioContext.audioWorklet.addModule('/rnnoise/workletProcessor.js?v=20261011_v1.6.2')
         .then(() => {
           rnnoiseWorkletLoaded = true;
           console.log('[WebRTC 🤖 RNNoise] AudioWorkletProcessor registrado com sucesso.');
@@ -1187,7 +1187,7 @@ export class WebRTCManager {
       try {
         const wasm = await preloadRnnoise();
         if (this.audioContext.audioWorklet && !rnnoiseWorkletLoaded) {
-          await this.audioContext.audioWorklet.addModule('/rnnoise/workletProcessor.js?v=20261010_v1.6.1');
+          await this.audioContext.audioWorklet.addModule('/rnnoise/workletProcessor.js?v=20261011_v1.6.2');
           rnnoiseWorkletLoaded = true;
         }
 

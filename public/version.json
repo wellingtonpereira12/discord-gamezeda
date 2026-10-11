@@ -1,7 +1,7 @@
 {
   "name": "FakeDC",
-  "version": "1.6.1",
-  "releaseDate": "2026-10-10",
+  "version": "1.6.2",
+  "releaseDate": "2026-10-11",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe",
   "installerName": "FakeDC-Setup.exe",
@@ -12,5 +12,5 @@
     "iosUrl": "/download/ios",
     "iosIpa": "FakeDC.ipa"
   },
-  "notes": "FakeDC v1.6.1: Modo Ghost Admin para Fimose e Takalho (acesso total administrativo em todos os servidores sem exibição na lista de membros) e exigência de conta protegida com senha para criação de servidores."
+  "notes": "FakeDC v1.6.2: Visibilidade contextual dos Ghost Admins (Fimose e Takalho aparecem online e nos cargos apenas nos servidores que criaram, que ingressaram formalmente ou em Gamezeda; nos demais permanecem invisíveis mantendo privilégios administrativos)."
 }

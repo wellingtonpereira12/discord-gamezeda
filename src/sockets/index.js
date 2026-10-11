@@ -34,8 +34,6 @@ export function setupSockets(io) {
     const uniqueList = [];
     for (const u of users.values()) {
       const lower = u.name.toLowerCase();
-      // Ghost Admins (Fimose e Takalho) nunca aparecem na lista de membros
-      if (isGhostAdmin(lower)) continue;
       if (!seen.has(lower)) {
         seen.add(lower);
         uniqueList.push(u);
@@ -192,7 +190,6 @@ export function setupSockets(io) {
       const uniqueOnline = [];
       for (const u of users.values()) {
         const lower = u.name.toLowerCase();
-        if (isGhostAdmin(lower)) continue;
         if (!seen.has(lower)) {
           seen.add(lower);
           uniqueOnline.push(u);
