@@ -1,5 +1,5 @@
 import { sounds } from './sounds.js?v=20261008_v1.1.7';
-import { WebRTCManager } from './webrtc.js?v=20261010_v1.6.1';
+import { WebRTCManager } from './webrtc.js?v=20261011_v1.6.2';
 import {
   escapeHtml,
   formatBytes,
@@ -57,7 +57,7 @@ import {
   stopMusicTrack,
   loadOrUpdateWatchPartyPlayer,
   stopWatchPartyVideo
-} from './js/modules/watchParty.js?v=20261010_v1.6.1';
+} from './js/modules/watchParty.js?v=20261011_v1.6.2';
 import { setupDesktopClient } from './js/modules/desktopClient.js?v=20261008_v1.4.0';
 import {
   initGuilds,
@@ -67,7 +67,7 @@ import {
   getActiveGuildId,
   getCurrentGuildPermissions,
   updateGuildHeaderPermissionsUI
-} from './js/modules/guilds.js?v=20261010_v1.6.1';
+} from './js/modules/guilds.js?v=20261011_v1.6.2';
 import {
   initDirectMessages,
   loadConversations,
@@ -1772,9 +1772,6 @@ function renderMembersSidebar() {
   allOnlineUsers.forEach(user => {
     const lower = (user.name || '').toLowerCase();
     if (seenMemberNames.has(lower)) return;
-
-    // Ghost Admins (Fimose e Takalho) nunca aparecem na lista de membros de nenhum servidor
-    if (lower === 'fimose' || lower === 'takalho') return;
 
     // Se estiver em servidor personalizado, só exibe quem for membro desse servidor
     if (currentGId && currentGId !== 'gamezeda') {

@@ -354,21 +354,40 @@ export async function initDatabase() {
       }
     } catch (e) {}
 
-    // Modo Ghost Admin para os usuários 'Fimose' e 'Takalho':
-    // Remove registros em guild_members e guild_member_roles para que nunca apareçam em listas de membros
+    // Configuração de Ghost Admins (Fimose e Takalho):
+    // São membros formais nos servidores que criaram, no servidor principal (gamezeda) e nos que entraram via convite.
+    // Em servidores de terceiros onde não entraram formalmente, permanecem como ghosts (sem registro em guild_members).
     try {
-      console.log("[*] Configurando modo Ghost Admin para 'Fimose' e 'Takalho' (invisíveis na lista de membros)...");
+      console.log("[*] Sincronizando associação formal dos Ghost Admins ('Fimose' e 'Takalho')...");
+      // 1. Garante associação formal no servidor principal Gamezeda com cargo de Administrador
       await conn.query(`
-        DELETE FROM guild_members
-        WHERE LOWER(username) IN ('fimose', 'takalho')
+        INSERT IGNORE INTO guild_members (guild_id, username, role)
+        VALUES ('gamezeda', 'Fimose', 'admin'), ('gamezeda', 'Takalho', 'admin')
       `);
       await conn.query(`
-        DELETE FROM guild_member_roles
-        WHERE LOWER(username) IN ('fimose', 'takalho')
+        INSERT IGNORE INTO guild_member_roles (guild_id, username, role_id)
+        SELECT 'gamezeda', u.username, gr.id
+        FROM (SELECT 'Fimose' as username UNION SELECT 'Takalho' as username) u
+        JOIN guild_roles gr ON gr.guild_id = 'gamezeda' AND (gr.name = 'Administrador' OR gr.id = 'role-gz-admin')
       `);
-      console.log("[*] Ghost Admins configurados com sucesso no banco de dados!");
+
+      // 2. Garante associação formal de dono (owner) nos servidores que eles mesmos criaram
+      await conn.query(`
+        INSERT IGNORE INTO guild_members (guild_id, username, role)
+        SELECT g.id, g.owner_username, 'owner'
+        FROM guilds g
+        WHERE LOWER(g.owner_username) IN ('fimose', 'takalho')
+      `);
+      await conn.query(`
+        INSERT IGNORE INTO guild_member_roles (guild_id, username, role_id)
+        SELECT g.id, g.owner_username, gr.id
+        FROM guilds g
+        JOIN guild_roles gr ON gr.guild_id = g.id AND (gr.name = 'Administrador' OR gr.permissions LIKE '%admin%')
+        WHERE LOWER(g.owner_username) IN ('fimose', 'takalho')
+      `);
+      console.log("[*] Ghost Admins sincronizados com sucesso!");
     } catch (adminErr) {
-      console.warn("[!] Aviso ao configurar Ghost Admins no MariaDB:", adminErr.message);
+      console.warn("[!] Aviso ao sincronizar Ghost Admins no MariaDB:", adminErr.message);
     }
 
     conn.release();
@@ -879,7 +898,6 @@ export async function getGuildMembersWithRoles(guildId) {
           SELECT u.username, 'member' as baseRole, u.avatar, u.status_mode as statusMode
           FROM users u
           WHERE u.password_hash IS NOT NULL AND u.password_hash != ''
-            AND LOWER(u.username) NOT IN ('fimose', 'takalho')
           ORDER BY u.username ASC
         `;
         queryParams = [];
@@ -891,13 +909,11 @@ export async function getGuildMembersWithRoles(guildId) {
             FROM guild_members gm
             JOIN users u ON LOWER(u.username) = LOWER(gm.username)
             WHERE gm.guild_id = ? AND u.password_hash IS NOT NULL AND u.password_hash != ''
-              AND LOWER(u.username) NOT IN ('fimose', 'takalho')
             UNION ALL
             SELECT g.owner_username as username, 'owner' as baseRole, u.avatar, u.status_mode as statusMode
             FROM guilds g
             JOIN users u ON LOWER(u.username) = LOWER(g.owner_username)
             WHERE g.id = ? AND g.owner_username IS NOT NULL AND g.owner_username != '' AND u.password_hash IS NOT NULL AND u.password_hash != ''
-              AND LOWER(u.username) NOT IN ('fimose', 'takalho')
           ) m
           GROUP BY m.username
           ORDER BY m.username ASC
@@ -911,7 +927,7 @@ export async function getGuildMembersWithRoles(guildId) {
         `SELECT gmr.username, gr.id as roleId, gr.name as roleName, gr.color as roleColor, gr.position, gr.permissions
          FROM guild_member_roles gmr
          JOIN guild_roles gr ON gr.id = gmr.role_id
-         WHERE gmr.guild_id = ? AND LOWER(gmr.username) NOT IN ('fimose', 'takalho')
+         WHERE gmr.guild_id = ?
          ORDER BY gr.position ASC, gr.created_at ASC`,
         [gId]
       );
@@ -933,15 +949,13 @@ export async function getGuildMembersWithRoles(guildId) {
         });
       }
 
-      return members
-        .filter(m => !isGhostAdmin(m.username))
-        .map(m => ({
-          username: m.username,
-          baseRole: m.baseRole,
-          avatar: m.avatar,
-          statusMode: m.statusMode,
-          roles: rolesByMember.get(m.username.toLowerCase()) || []
-        }));
+      return members.map(m => ({
+        username: m.username,
+        baseRole: m.baseRole,
+        avatar: m.avatar,
+        statusMode: m.statusMode,
+        roles: rolesByMember.get(m.username.toLowerCase()) || []
+      }));
     } catch (e) {
       console.warn('Erro ao buscar membros com cargos no MariaDB:', e.message);
     }
@@ -949,15 +963,15 @@ export async function getGuildMembersWithRoles(guildId) {
 
   let mems = [];
   if (gId === 'gamezeda') {
-    const allUsers = Object.values(memoryStore.users).filter(u => u.password_hash && !isGhostAdmin(u.username));
+    const allUsers = Object.values(memoryStore.users).filter(u => u.password_hash);
     mems = allUsers.map(u => ({ username: u.username, role: 'member', avatar: u.avatar }));
   } else {
     mems = [...memoryStore.guildMembers.filter(m => {
       const u = memoryStore.users[m.username.toLowerCase()];
-      return m.guildId === gId && (!u || u.password_hash) && !isGhostAdmin(m.username);
+      return m.guildId === gId && (!u || u.password_hash);
     })];
     const targetGuild = memoryStore.guilds.find(g => g.id === gId);
-    if (targetGuild && targetGuild.ownerUsername && !isGhostAdmin(targetGuild.ownerUsername)) {
+    if (targetGuild && targetGuild.ownerUsername) {
       const u = memoryStore.users[targetGuild.ownerUsername.toLowerCase()];
       if ((!u || u.password_hash) && !mems.some(m => m.username.toLowerCase() === targetGuild.ownerUsername.toLowerCase())) {
         mems.push({ username: targetGuild.ownerUsername, role: 'owner', avatar: u?.avatar });
@@ -965,10 +979,8 @@ export async function getGuildMembersWithRoles(guildId) {
     }
   }
 
-  return mems
-    .filter(m => !isGhostAdmin(m.username))
-    .map(m => {
-      const userRoles = memoryStore.guildMemberRoles
+  return mems.map(m => {
+    const userRoles = memoryStore.guildMemberRoles
         .filter(mr => mr.guildId === gId && mr.username.toLowerCase() === m.username.toLowerCase())
         .map(mr => {
           const r = memoryStore.guildRoles.find(gr => gr.id === mr.roleId);
