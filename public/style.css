@@ -6493,6 +6493,223 @@ body.is-electron #btn-download-desktop {
 }
 
 /* ==========================================
+   BADGES E NOTIFICAÇÕES DE MENSAGENS DIRETAS (DMs)
+   ========================================== */
+
+/* Badge no botão Home / Mensagens Diretas na barra lateral de servidores */
+.guild-icon-btn {
+  position: relative;
+}
+
+.guild-icon-btn.has-unread:not(.active):not(:hover) .guild-pill {
+  height: 8px;
+}
+
+.guild-unread-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  background: #f23f43;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  border: 3px solid #1e1f22;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  box-sizing: content-box;
+  animation: badgePopIn 0.18s ease-out;
+  z-index: 10;
+}
+
+@keyframes badgePopIn {
+  0% { transform: scale(0.4); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Badge de não lidas na lista de DMs */
+.dm-item.has-unread .dm-item-name {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.dm-item.has-unread .dm-item-last {
+  color: #dbdee1;
+  font-weight: 600;
+}
+
+.dm-unread-badge {
+  background: #f23f43;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: 8px;
+  animation: badgePopIn 0.18s ease-out;
+}
+
+/* Container de Toasts de DM Flutuante (In-App Push) */
+.dm-toast-container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 10005;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+  max-width: 360px;
+  width: calc(100vw - 32px);
+}
+
+.dm-notification-toast {
+  pointer-events: auto;
+  background: #111214;
+  border: 1px solid rgba(88, 101, 242, 0.45);
+  border-left: 4px solid #5865F2;
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  animation: dmToastSlideIn 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+.dm-notification-toast:hover {
+  background: #1e1f22;
+  border-color: #5865F2;
+  transform: translateY(-2px);
+}
+
+.dm-notification-toast.fade-out {
+  animation: dmToastSlideOut 0.2s ease-in forwards;
+}
+
+.dm-toast-avatar-box {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.dm-toast-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.dm-toast-icon-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  font-size: 12px;
+  background: #2b2d31;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #111214;
+}
+
+.dm-toast-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dm-toast-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dm-toast-sender {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #f2f3f5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dm-toast-time {
+  font-size: 11px;
+  color: #949ba4;
+  flex-shrink: 0;
+}
+
+.dm-toast-text {
+  font-size: 12.5px;
+  color: #dbdee1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.dm-toast-close {
+  background: transparent;
+  border: none;
+  color: #949ba4;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.dm-toast-close:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+@keyframes dmToastSlideIn {
+  from { transform: translateX(40px) scale(0.95); opacity: 0; }
+  to { transform: translateX(0) scale(1); opacity: 1; }
+}
+
+@keyframes dmToastSlideOut {
+  from { transform: translateX(0) scale(1); opacity: 1; }
+  to { transform: translateX(40px) scale(0.95); opacity: 0; }
+}
+
+@media (max-width: 768px) {
+  .dm-toast-container {
+    top: 14px;
+    right: 14px;
+    left: 14px;
+    max-width: none;
+    width: auto;
+  }
+}
+
+/* ==========================================
    INDICADOR DE DIGITAÇÃO (TYPING INDICATOR)
    ========================================== */
 .chat-typing-indicator {
