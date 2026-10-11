@@ -108,7 +108,13 @@ export function registerChannelHandlers(io, socket, users, voiceRooms, broadcast
         return;
       }
 
-      const newChannel = await createChannel({ name: cleanName, type: channelType, categoryId, guildId: targetGuild });
+      const newChannel = await createChannel({
+        name: cleanName,
+        type: channelType,
+        categoryId,
+        guildId: targetGuild,
+        createdBy: user ? user.name : 'Sistema'
+      });
       console.log(`[+] Canal criado por ${userName} no servidor [${targetGuild}]: #${newChannel.name} [${newChannel.type}] (${newChannel.id})`);
       io.emit('channel:created', newChannel);
 
