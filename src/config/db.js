@@ -553,22 +553,28 @@ export async function joinGuildByInvite(username, inviteCode) {
 
   // Adiciona como membro
   const existingMem = memoryStore.guildMembers.find(m => m.guildId === targetGuild.id && m.username.toLowerCase() === cleanUser.toLowerCase());
+  let isFirstJoin = !existingMem;
   if (!existingMem) {
     memoryStore.guildMembers.push({ guildId: targetGuild.id, username: cleanUser, role: 'member' });
   }
 
   if (isConnected && pool) {
     try {
-      await pool.query(
+      const [res] = await pool.query(
         'INSERT IGNORE INTO guild_members (guild_id, username, role) VALUES (?, ?, ?)',
         [targetGuild.id, cleanUser, 'member']
       );
+      if (res && res.affectedRows > 0) {
+        isFirstJoin = true;
+      } else {
+        isFirstJoin = false;
+      }
     } catch (e) {
       console.warn('Erro ao registrar membro no MariaDB:', e.message);
     }
   }
 
-  return targetGuild;
+  return { ...targetGuild, isFirstJoin };
 }
 
 export async function updateGuild(guildId, { name, iconUrl }) {
