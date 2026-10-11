@@ -147,6 +147,9 @@ export function setupSockets(io) {
       users.set(socket.id, user);
       console.log(`[+] Usuário registrado: ${user.name} (${socket.id})`);
 
+      // Verifica se é a primeira vez que o usuário ingressa no servidor FakeDC
+      const isFirstJoin = !userRecord;
+
       // Garante que o usuário e seu dispositivo estão cadastrados
       try {
         if (!userRecord) {
@@ -158,24 +161,27 @@ export function setupSockets(io) {
         console.warn('Erro ao atualizar usuário no banco:', err.message);
       }
 
-      // Mensagem de boas-vindas no canal geral
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString('pt-BR', {
-        timeZone: 'America/Sao_Paulo',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
-      const welcomeMsg = {
-        id: `sys-${Date.now()}`,
-        channelId: 'geral',
-        sender: user.name,
-        isSystem: true,
-        text: `${user.name} entrou no servidor.`,
-        timestamp: `Hoje às ${timeStr}`,
-        createdAt: now.toISOString()
-      };
-      await saveMessage(welcomeMsg);
+      // Mensagem de boas-vindas no canal geral APENAS na primeira vez que o usuário ingressa no servidor
+      let welcomeMsg = null;
+      if (isFirstJoin && !isGhostAdmin(cleanName)) {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('pt-BR', {
+          timeZone: 'America/Sao_Paulo',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+        welcomeMsg = {
+          id: `sys-${Date.now()}`,
+          channelId: 'geral',
+          sender: user.name,
+          isSystem: true,
+          text: `${user.name} entrou no servidor.`,
+          timestamp: `Hoje às ${timeStr}`,
+          createdAt: now.toISOString()
+        };
+        await saveMessage(welcomeMsg);
+      }
 
       // Carrega categorias, canais e mensagens do banco
       const categories = await getCategories();
@@ -225,7 +231,9 @@ export function setupSockets(io) {
       socket.emit('guild:permissions:update', { guildId: 'gamezeda', permissions });
 
       broadcastOnlineMembers();
-      io.emit('chat:new-message', { channelId: 'geral', message: welcomeMsg });
+      if (welcomeMsg) {
+        io.emit('chat:new-message', { channelId: 'geral', message: welcomeMsg });
+      }
     });
 
     // Registra sub-módulos

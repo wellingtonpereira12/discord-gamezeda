@@ -8,6 +8,7 @@ import {
   getCategories,
   getChannelsFull,
   getChannelMessages,
+  saveMessage,
   getGuildRoles,
   createGuildRole,
   updateGuildRole,
@@ -122,6 +123,39 @@ export function registerGuildHandlers(io, socket, users, voiceRooms, broadcastVo
 
       const joinedGuild = await joinGuildByInvite(user.name, inviteCode);
       console.log(`[+] Usuário ${user.name} entrou no servidor ${joinedGuild.name} (${joinedGuild.id})`);
+
+      // Se for a primeira vez do usuário neste servidor, envia mensagem de boas-vindas no canal geral
+      if (joinedGuild.isFirstJoin && !isGhostAdmin(user.name)) {
+        try {
+          const channels = await getChannelsFull(joinedGuild.id);
+          const generalTextChannel = channels.find(c => c.type === 'text' && (c.name.toLowerCase() === 'geral' || c.id === `geral-${joinedGuild.id}`)) || channels.find(c => c.type === 'text');
+          if (generalTextChannel) {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('pt-BR', {
+              timeZone: 'America/Sao_Paulo',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false
+            });
+            const guildWelcomeMsg = {
+              id: `sys-${Date.now()}`,
+              channelId: generalTextChannel.id,
+              sender: user.name,
+              isSystem: true,
+              text: `${user.name} entrou no servidor.`,
+              timestamp: `Hoje às ${timeStr}`,
+              createdAt: now.toISOString()
+            };
+            await saveMessage(guildWelcomeMsg);
+            io.to(`guild:${joinedGuild.id}`).emit('chat:new-message', {
+              channelId: generalTextChannel.id,
+              message: guildWelcomeMsg
+            });
+          }
+        } catch (msgErr) {
+          console.warn('Erro ao registrar mensagem de boas-vindas em servidor secundário:', msgErr.message);
+        }
+      }
 
       const userGuilds = await getUserGuilds(user.name);
       socket.emit('guild:updated-list', userGuilds);
