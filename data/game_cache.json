@@ -32,5 +32,24 @@
     "verified": false,
     "name": "RxDiag Message l",
     "cachedAt": 1791593823458
+  },
+  "fivem": {
+    "verified": false,
+    "name": "FiveM",
+    "cachedAt": 1792024697442
+  },
+  "deadlock": {
+    "verified": true,
+    "rawgId": 13086,
+    "officialName": "DEADLOCK",
+    "coverUrl": "https://media.rawg.io/media/screenshots/f46/f4658add0a9aae824f438ccfafa73eb7.jpg",
+    "genres": [
+      "Strategy",
+      "Indie"
+    ],
+    "released": "2016-08-15",
+    "rating": 2.3,
+    "steamUrl": "http://store.steampowered.com/app/513790/",
+    "cachedAt": 1792024698103
   }
 }
