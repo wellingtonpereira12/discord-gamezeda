@@ -1910,6 +1910,10 @@ function showActivityHoverCard(user, activity, triggerEl, pin = false) {
     actCardPoster.src = activity.coverUrl;
     actCardPoster.style.display = 'block';
     if (actCardPosterFallback) actCardPosterFallback.style.display = 'none';
+    actCardPoster.onerror = () => {
+      actCardPoster.style.display = 'none';
+      if (actCardPosterFallback) actCardPosterFallback.style.display = 'flex';
+    };
   } else {
     if (actCardPoster) actCardPoster.style.display = 'none';
     if (actCardPosterFallback) actCardPosterFallback.style.display = 'flex';
@@ -2095,6 +2099,10 @@ function openUserProfileCard(user, triggerEl, clickEvent) {
       popoutGameCover.src = activity.coverUrl;
       popoutGameCover.style.display = 'block';
       if (popoutGameIconFallback) popoutGameIconFallback.style.display = 'none';
+      popoutGameCover.onerror = () => {
+        popoutGameCover.style.display = 'none';
+        if (popoutGameIconFallback) popoutGameIconFallback.style.display = 'block';
+      };
     } else {
       if (popoutGameCover) popoutGameCover.style.display = 'none';
       if (popoutGameIconFallback) popoutGameIconFallback.style.display = 'block';
@@ -2326,7 +2334,7 @@ function createMemberItem(user, isVoice, roleColor = null) {
   if (hasGame && currentAct.coverUrl) {
     gameThumbHtml = `
       <div class="member-game-thumb-wrap" title="Jogando ${escapeHtml(currentAct.game)}">
-        <img class="member-game-thumb" src="${currentAct.coverUrl}" alt="${escapeHtml(currentAct.game)}" loading="lazy" />
+        <img class="member-game-thumb" src="${currentAct.coverUrl}" alt="${escapeHtml(currentAct.game)}" loading="lazy" onerror="this.parentElement.style.display='none'" />
       </div>
     `;
   }
@@ -2690,7 +2698,7 @@ function renderVoiceStageCards() {
         ` : ''}
         ${myGameActivity && myGameActivity.game && myGameActivity.verified ? `
           <div class="voice-card-game-badge" title="Jogando ${escapeHtml(myGameActivity.game)} (${formatGameDuration(myGameActivity.startedAt)})">
-            ${myGameActivity.coverUrl ? `<img src="${myGameActivity.coverUrl}" style="width: 13px; height: 13px; border-radius: 2px; object-fit: cover; flex-shrink: 0;" />` : getGameIconSvg(11, '#23a55a')}
+            ${myGameActivity.coverUrl ? `<img src="${myGameActivity.coverUrl}" style="width: 13px; height: 13px; border-radius: 2px; object-fit: cover; flex-shrink: 0;" onerror="this.style.display='none'" />` : getGameIconSvg(11, '#23a55a')}
             <span>${escapeHtml(myGameActivity.game)}</span>
           </div>
         ` : ''}
@@ -2725,7 +2733,7 @@ function renderVoiceStageCards() {
         </div>
         ${user.activity && user.activity.game && user.activity.verified ? `
           <div class="voice-card-game-badge" title="Jogando ${escapeHtml(user.activity.game)} (${formatGameDuration(user.activity.startedAt)})">
-            ${user.activity.coverUrl ? `<img src="${user.activity.coverUrl}" style="width: 13px; height: 13px; border-radius: 2px; object-fit: cover; flex-shrink: 0;" />` : getGameIconSvg(11, '#23a55a')}
+            ${user.activity.coverUrl ? `<img src="${user.activity.coverUrl}" style="width: 13px; height: 13px; border-radius: 2px; object-fit: cover; flex-shrink: 0;" onerror="this.style.display='none'" />` : getGameIconSvg(11, '#23a55a')}
             <span>${escapeHtml(user.activity.game)}</span>
           </div>
         ` : ''}
