@@ -37,4 +37,5 @@ public/uploads/avatars/*
 !public/uploads/avatars/.gitkeep
 # Scratch / arquivos temporários
 scratch/
+relatorio_*.html
 
