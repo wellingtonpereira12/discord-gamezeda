@@ -92,35 +92,80 @@ const KNOWN_GAMES = {
   'hollow_knight.exe': 'Hollow Knight',
   'deadcells.exe': 'Dead Cells',
   'eurotrucks2.exe': 'Euro Truck Simulator 2',
+  'amtrucks.exe': 'American Truck Simulator',
   'osu!.exe': 'osu!',
   'valheim.exe': 'Valheim',
-  'javaw.exe': 'Minecraft'
+  'javaw.exe': 'Minecraft',
+  'minecraft.windows.exe': 'Minecraft Bedrock',
+  'witcher3.exe': 'The Witcher 3: Wild Hunt',
+  'sekiro.exe': 'Sekiro: Shadows Die Twice',
+  'darksoulsiii.exe': 'Dark Souls III',
+  'darksoulsremastered.exe': 'Dark Souls Remastered',
+  'forzahorizon5.exe': 'Forza Horizon 5',
+  'forzahorizon4.exe': 'Forza Horizon 4',
+  'sims4.exe': 'The Sims 4',
+  'ts4_x64.exe': 'The Sims 4',
+  'warframe.x64.exe': 'Warframe',
+  'tft.exe': 'Teamfight Tactics',
+  'civ6.exe': 'Civilization VI',
+  'factorio.exe': 'Factorio',
+  'rimworldwin64.exe': 'RimWorld',
+  'deeprockgalactic.exe': 'Deep Rock Galactic',
+  'fsd-win64-shipping.exe': 'Deep Rock Galactic',
+  'readyornot.exe': 'Ready or Not',
+  'readyornot-win64-shipping.exe': 'Ready or Not',
+  'squad.exe': 'Squad',
+  'hellletloose.exe': 'Hell Let Loose',
+  'bodycam.exe': 'Bodycam',
+  'content warning.exe': 'Content Warning'
 };
 
-// Lista de executáveis de programas que NÃO são jogos (navegadores, chat, utilitários, SO)
+// Lista de executáveis de programas que NÃO são jogos (navegadores, chat, utilitários, SO, nuvem, hardware)
 const IGNORED_EXES = new Set([
   'explorer.exe', 'chrome.exe', 'firefox.exe', 'msedge.exe', 'brave.exe', 'opera.exe', 'opera_gx.exe', 'vivaldi.exe', 'tor.exe', 'safari.exe',
   'discord.exe', 'fakedc.exe', 'electron.exe', 'antigravity.exe', 'code.exe', 'devenv.exe', 'idea64.exe', 'pycharm64.exe',
-  'cmd.exe', 'powershell.exe', 'windowsterminal.exe', 'taskmgr.exe', 'notepad.exe', 'notepad++.exe', 'calc.exe',
+  'cmd.exe', 'powershell.exe', 'windowsterminal.exe', 'taskmgr.exe', 'notepad.exe', 'notepad++.exe', 'calc.exe', 'calculatorapp.exe',
   'spotify.exe', 'vlc.exe', 'wmplayer.exe', 'mediaplayer.exe', 'microsoft.media.player.exe', 'music.ui.exe', 'video.ui.exe', 'foobar2000.exe', 'aimp.exe', 'potplayer64.exe', 'mpc-hc64.exe', 'mpc-be64.exe',
   'steam.exe', 'steamwebhelper.exe', 'gameoverlayui.exe', 'gameoverlayui64.exe',
   'epicgameslauncher.exe', 'riotclientservices.exe', 'battlenet.exe', 'origin.exe', 'ea.exe', 'upc.exe', 'ubisoftconnect.exe', 'gog galaxy.exe',
   'nvidia overlay.exe', 'lghub.exe', 'lghub_system_tray.exe', 'obs64.exe', 'obs32.exe', 'streamlabs obs.exe',
-  'githubdesktop.exe', 'slack.exe', 'teams.exe', 'ms-teams.exe', 'telegram.exe', 'whatsapp.exe', 'skype.exe',
-  'lightshot.exe', 'sharex.exe', 'greenshot.exe', 'lockapp.exe', 'searchhost.exe', 'startmenuexperiencehost.exe',
+  'githubdesktop.exe', 'slack.exe', 'teams.exe', 'ms-teams.exe', 'telegram.exe', 'whatsapp.exe', 'skype.exe', 'zoom.exe',
+  'lightshot.exe', 'sharex.exe', 'greenshot.exe', 'lockapp.exe', 'searchhost.exe', 'searchapp.exe', 'searchui.exe', 'startmenuexperiencehost.exe',
   'shellexperiencehost.exe', 'shellhost.exe', 'textinputhost.exe', 'applicationframehost.exe', 'xboxpcapp.exe',
   'm365copilot.exe', 'msedgewebview2.exe', 'jusched.exe', 'jucheck.exe', 'unsecapp.exe', 'crossdeviceservice.exe',
-  'crossdeviceresume.exe', 'widgetservice.exe', 'monotificationux.exe', 'taskhostw.exe', 'atieclxx.exe',
+  'crossdeviceresume.exe', 'widgetservice.exe', 'widgets.exe', 'widgetboard.exe', 'feedeaservice.exe', 'newsandinterests.exe',
+  'monotificationux.exe', 'taskhostw.exe', 'atieclxx.exe',
   'rxdiag.exe', 'radeonsoftware.exe', 'amdrsserv.exe', 'amddvr.exe', 'amdow.exe', 'cnext.exe',
-  'chatgpt.exe', 'chatgpt desktop.exe', 'copilot.exe', 'claude.exe', 'cursor.exe', 'windsurf.exe', 'postman.exe', 'insomnia.exe', 'docker desktop.exe', 'vmware.exe', 'virtualbox.exe'
+  'chatgpt.exe', 'chatgpt desktop.exe', 'copilot.exe', 'claude.exe', 'cursor.exe', 'windsurf.exe', 'postman.exe', 'insomnia.exe', 'docker desktop.exe', 'vmware.exe', 'virtualbox.exe',
+  // Sincronização em Nuvem e Utilitários de Segundo Plano (OneDrive, GDrive, Dropbox)
+  'onedrive.exe', 'onedrivesetup.exe', 'filecoauth.exe', 'googledrivesync.exe', 'googledrivefs.exe', 'dropbox.exe', 'dropboxupdate.exe', 'megasync.exe', 'icloudservices.exe', 'pcloud.exe', 'nextcloud.exe',
+  // Segurança, Diagnóstico e Sistema Windows
+  'securityhealthsystray.exe', 'securityhealthservice.exe', 'smartscreen.exe', 'msmpeng.exe',
+  'phoneexperiencehost.exe', 'yourphone.exe', 'phonelink.exe', 'cortana.exe',
+  'gameinputredistservice.exe', 'defendersessionhelper.exe', 'sihost.exe', 'fontdrvhost.exe', 'conhost.exe',
+  // Consoles de Áudio e Software de Periféricos
+  'ravcpl64.exe', 'rtkngui64.exe', 'audiodg.exe', 'nahimic.exe', 'steelseriesgg.exe', 'sonar.exe',
+  'icue.exe', 'synapse.exe', 'razer synapse service.exe', 'armourycrate.exe', 'msiafterburner.exe', 'rtss.exe',
+  // Ferramentas UWP e Produtividade
+  'time.exe', 'windowscamera.exe', 'microsoft.photos.exe', 'winstore.app.exe',
+  'winword.exe', 'excel.exe', 'powerpnt.exe', 'outlook.exe', 'onenote.exe', 'acrobat.exe', 'acrocheck.exe',
+  'anydesk.exe', 'teamviewer.exe', 'parsec.exe', 'rustdesk.exe'
 ]);
 
-const IGNORED_PREFIXES = ['system', 'nv', 'amd', 'radeon', 'ati', 'rxdiag', 'svchost', 'dwm', 'dllhost', 'runtimebroker', 'csrss', 'wininit', 'winlogon', 'smss', 'services', 'lsass', 'chatgpt', 'copilot'];
+const IGNORED_PREFIXES = ['system', 'nv', 'amd', 'radeon', 'ati', 'rxdiag', 'svchost', 'dwm', 'dllhost', 'runtimebroker', 'csrss', 'wininit', 'winlogon', 'smss', 'services', 'lsass', 'chatgpt', 'copilot', 'onedrive', 'widget', 'feed'];
 
-const IGNORED_TITLE_STARTS = ['{', '.net', 'dwm notification', 'windows push', 'broadcastlistener', 'wuicon', 'olemainthread', 'task host', 'rtc video', 'rxdiag', 'radeon', 'amd ', 'chatgpt', 'copilot', 'esc to cancel'];
+const IGNORED_TITLE_STARTS = [
+  '{', '.net', 'dwm notification', 'windows push', 'broadcastlistener', 'wuicon', 'olemainthread',
+  'task host', 'rtc video', 'rxdiag', 'radeon', 'amd ', 'chatgpt', 'copilot', 'esc to cancel',
+  'microsoft onedrive', 'onedrive', 'notícias', 'noticias', 'news', 'feeds', 'widgets',
+  'segurança', 'windows security', 'vincular ao celular', 'phone link', 'calculadora', 'calculator',
+  'gerenciador de tarefas', 'task manager', 'configurações', 'settings', 'pesquisar', 'iniciar'
+];
+
 const IGNORED_EXACT_TITLES = new Set([
   'n/a', 'olemainthreadwndname', 'task host window', 'quick settings', 'pesquisar', 'iniciar', 'search', 'start',
-  'sem título', 'sem titulo', 'untitled', 'settings', 'configurações', 'configuracoes', 'xbox'
+  'sem título', 'sem titulo', 'untitled', 'settings', 'configurações', 'configuracoes', 'xbox', 'microsoft store',
+  'fotos', 'photos', 'relógio', 'relogio', 'clock', 'alarms', 'câmera', 'camera'
 ]);
 
 function decodeWindowsText(str) {
@@ -146,8 +191,24 @@ function decodeWindowsText(str) {
  */
 function cleanGameTitle(rawTitle, exeName) {
   let title = decodeWindowsText(rawTitle.replace(/["“”]/g, '').trim());
+  const lower = title.toLowerCase();
 
-  if (title.toLowerCase().includes('is using your computer') || title.toLowerCase().includes('esc to cancel')) {
+  // Rejeita utilitários de IA, diálogos do Windows, serviços e nuvem
+  if (
+    lower.includes('is using your computer') ||
+    lower.includes('esc to cancel') ||
+    lower.includes('onedrive') ||
+    lower.includes('sync service') ||
+    lower.includes('notícia') ||
+    lower.includes('noticia') ||
+    lower.includes('news') ||
+    lower.includes('widget') ||
+    lower.includes('feed') ||
+    lower.includes('microsoft') ||
+    lower.includes('windows update') ||
+    lower.includes('gerenciador de tarefas') ||
+    lower.includes('segurança')
+  ) {
     return '';
   }
 
@@ -159,11 +220,9 @@ function cleanGameTitle(rawTitle, exeName) {
   title = title.replace(/\s*v\d+(\.\d+)*.*$/i, ''); // Remove "v1.2.3"
   title = title.trim();
 
-  // Se o título ficou vazio ou curto demais, formata o nome do arquivo .exe
+  // Se o título ficou vazio ou curto demais, não força conversão de .exe aleatório em jogo
   if (!title || title.length < 2) {
-    title = exeName.replace(/\.exe$/i, '');
-    title = title.replace(/[-_]/g, ' ');
-    title = title.replace(/\b\w/g, l => l.toUpperCase());
+    return '';
   }
 
   // Limita tamanho para não quebrar a interface
@@ -177,7 +236,7 @@ function cleanGameTitle(rawTitle, exeName) {
 class GameDetector extends EventEmitter {
   constructor() {
     super();
-    this.currentActivity = null; // { game: string, exe: string, startedAt: number }
+    this.currentActivity = null; // { game: string, exe: string, isKnownGame: boolean, startedAt: number }
     this.timer = null;
     this.isChecking = false;
   }
@@ -199,12 +258,13 @@ class GameDetector extends EventEmitter {
     return this.currentActivity;
   }
 
-  setActivity(game, exe) {
+  setActivity(game, exe, isKnownGame = false) {
     if (game) {
       if (!this.currentActivity || this.currentActivity.game !== game) {
         this.currentActivity = {
           game,
           exe,
+          isKnownGame,
           startedAt: (this.currentActivity && this.currentActivity.exe === exe)
             ? this.currentActivity.startedAt
             : Date.now()
@@ -250,13 +310,13 @@ class GameDetector extends EventEmitter {
       let foundKnown = null;
       for (const [knownExe, knownTitle] of Object.entries(KNOWN_GAMES)) {
         if (runningExes.has(knownExe.toLowerCase())) {
-          foundKnown = { game: knownTitle, exe: knownExe.toLowerCase() };
+          foundKnown = { game: knownTitle, exe: knownExe.toLowerCase(), isKnownGame: true };
           break;
         }
       }
 
       if (foundKnown) {
-        this.setActivity(foundKnown.game, foundKnown.exe);
+        this.setActivity(foundKnown.game, foundKnown.exe, true);
         this.isChecking = false;
         return;
       }
@@ -265,7 +325,7 @@ class GameDetector extends EventEmitter {
       exec('chcp 65001 >nul & tasklist /v /fo csv /nh /fi "SESSIONNAME eq Console"', { windowsHide: true, timeout: 15000, encoding: 'utf8' }, (vErr, vStdout) => {
         this.isChecking = false;
         if (vErr || !vStdout) {
-          this.setActivity(null, null);
+          this.setActivity(null, null, false);
           return;
         }
 
@@ -287,17 +347,21 @@ class GameDetector extends EventEmitter {
           if (!title || IGNORED_EXACT_TITLES.has(titleLower)) continue;
           if (IGNORED_TITLE_STARTS.some(p => titleLower.startsWith(p))) continue;
 
+          const cleaned = cleanGameTitle(title, exe);
+          if (!cleaned) continue;
+
           dynamicGame = {
-            game: cleanGameTitle(title, exe),
-            exe
+            game: cleaned,
+            exe,
+            isKnownGame: false
           };
           break;
         }
 
         if (dynamicGame) {
-          this.setActivity(dynamicGame.game, dynamicGame.exe);
+          this.setActivity(dynamicGame.game, dynamicGame.exe, false);
         } else {
-          this.setActivity(null, null);
+          this.setActivity(null, null, false);
         }
       });
     });

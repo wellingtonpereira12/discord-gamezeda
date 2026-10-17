@@ -348,10 +348,68 @@ export function isGarbageTitle(rawTitle) {
   if (lower.startsWith('windows push') || lower.startsWith('broadcastlistener') || lower.startsWith('rtc video')) return true;
   if (lower.startsWith('radeon') || lower.startsWith('geforce experience') || lower.startsWith('nvidia')) return true;
 
+  // Serviços e utilitários da Microsoft / Windows / Nuvem / Notícias / Widgets
+  if (
+    lower.includes('onedrive') ||
+    lower.includes('sync service') ||
+    lower.includes('notícia') ||
+    lower.includes('noticia') ||
+    lower.includes('news') ||
+    lower.includes('widget') ||
+    lower.includes('feed') ||
+    lower.includes('cortana') ||
+    lower.includes('windows update') ||
+    lower.includes('smartscreen') ||
+    lower.includes('segurança do windows') ||
+    lower.includes('windows security') ||
+    lower.includes('vincular ao celular') ||
+    lower.includes('phone link') ||
+    lower.includes('your phone') ||
+    lower.includes('gerenciador de tarefas') ||
+    lower.includes('task manager') ||
+    lower.includes('painel de controle') ||
+    lower.includes('control panel') ||
+    lower.includes('calculadora') ||
+    lower.includes('calculator') ||
+    lower.includes('bloco de notas') ||
+    lower.includes('notepad') ||
+    lower.includes('prompt de comando') ||
+    lower.includes('powershell') ||
+    lower.includes('terminal')
+  ) {
+    return true;
+  }
+
+  // Utilitários de produtividade, nuvem, comunicadores, áudio e hardware
+  if (
+    lower.includes('google drive') ||
+    lower.includes('dropbox') ||
+    lower.includes('icloud') ||
+    lower.includes('whatsapp') ||
+    lower.includes('telegram') ||
+    lower.includes('teams') ||
+    lower.includes('slack') ||
+    lower.includes('zoom') ||
+    lower.includes('skype') ||
+    lower.includes('anydesk') ||
+    lower.includes('teamviewer') ||
+    lower.includes('realtek') ||
+    lower.includes('sound blaster') ||
+    lower.includes('steelseries') ||
+    lower.includes('razer synapse') ||
+    lower.includes('logitech g hub') ||
+    lower.includes('corsair icue') ||
+    lower.includes('armoury crate') ||
+    lower.includes('afterburner')
+  ) {
+    return true;
+  }
+
   // Janelas sem título ou comuns
   const exactGarbage = new Set([
     'n/a', 'sem título', 'sem titulo', 'untitled', 'settings', 'configurações', 'configuracoes',
-    'pesquisar', 'iniciar', 'search', 'start', 'quick settings', 'cortana'
+    'pesquisar', 'iniciar', 'search', 'start', 'quick settings', 'cortana', 'xbox', 'microsoft store',
+    'fotos', 'photos', 'relógio', 'relogio', 'clock', 'alarms', 'câmera', 'camera'
   ]);
   if (exactGarbage.has(lower)) return true;
 
@@ -488,16 +546,21 @@ export async function enrichGameActivity(activity) {
     console.warn(`[RAWG ⚠️] Erro ao enriquecer jogo "${rawTitle}":`, err.message);
   }
 
-  // Fallback Resiliente: NUNCA apaga o jogo do usuário!
-  // Se a RAWG estiver fora do ar (502/timeout) ou for jogo independente/mod (ex: FiveM),
-  // exibe o jogo com o nome detectado e o ícone padrão de controle verde oficial.
-  return {
-    game: rawTitle,
-    startedAt: Number(activity.startedAt) || Date.now(),
-    verified: true,
-    rawgId: null,
-    coverUrl: null,
-    genres: [],
-    steamUrl: `https://store.steampowered.com/search/?term=${encodeURIComponent(rawTitle)}`
-  };
+  // Fallback Resiliente APENAS para executáveis comprovados de jogos (ex: mods, servidores FiveM, emuladores)
+  if (activity && activity.isKnownGame === true) {
+    return {
+      game: rawTitle,
+      startedAt: Number(activity.startedAt) || Date.now(),
+      verified: true,
+      rawgId: null,
+      coverUrl: null,
+      genres: [],
+      steamUrl: `https://store.steampowered.com/search/?term=${encodeURIComponent(rawTitle)}`
+    };
+  }
+
+  // Se não foi verificado na RAWG nem no catálogo popular, e NÃO é um executável de jogo comprovado:
+  // DESCARTA! Não é um jogo (ex: janelas de utilitários, serviços em segundo plano como OneDrive, Notícias, etc).
+  console.log(`[RAWG 🚫] Título não reconhecido como jogo nem verificado na RAWG: "${rawTitle}". Descartado.`);
+  return null;
 }

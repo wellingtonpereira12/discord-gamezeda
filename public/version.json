@@ -1,6 +1,6 @@
 {
   "name": "FakeDC",
-  "version": "1.6.5",
+  "version": "1.6.6",
   "releaseDate": "2026-10-17",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe",
@@ -12,5 +12,5 @@
     "iosUrl": "/download/ios",
     "iosIpa": "FakeDC.ipa"
   },
-  "notes": "FakeDC v1.6.5: Aceleração total por hardware GPU para transmissões de tela e janelas (Web & Desktop): Priorização ativa do codec H.264 (NVIDIA NVENC, AMD AMF e Intel QuickSync) no pipeline WebRTC e SDP, flags avançadas de captura de GPU e zero-copy no Electron, reduzindo drasticamente o uso de CPU e eliminando perda de FPS em jogos durante o streaming."
+  "notes": "FakeDC v1.6.6: Filtro inteligente e rigoroso de Rich Presence / Detector de Jogos: Bloqueio definitivo de processos em segundo plano, ferramentas de nuvem e serviços do sistema operacional (Microsoft OneDrive Sync Service, Notícias, Widgets, feeds do Windows, utilitários de áudio/hardware e navegadores). Adicionado catálogo expandido de jogos populares e validação dupla (cliente + servidor RAWG) para exibir estritamente jogos reais na lista de membros e perfil."
 }
