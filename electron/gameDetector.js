@@ -93,7 +93,8 @@ const KNOWN_GAMES = {
   'deadcells.exe': 'Dead Cells',
   'eurotrucks2.exe': 'Euro Truck Simulator 2',
   'osu!.exe': 'osu!',
-  'valheim.exe': 'Valheim'
+  'valheim.exe': 'Valheim',
+  'javaw.exe': 'Minecraft'
 };
 
 // Lista de executáveis de programas que NÃO são jogos (navegadores, chat, utilitários, SO)
@@ -110,12 +111,13 @@ const IGNORED_EXES = new Set([
   'shellexperiencehost.exe', 'shellhost.exe', 'textinputhost.exe', 'applicationframehost.exe', 'xboxpcapp.exe',
   'm365copilot.exe', 'msedgewebview2.exe', 'jusched.exe', 'jucheck.exe', 'unsecapp.exe', 'crossdeviceservice.exe',
   'crossdeviceresume.exe', 'widgetservice.exe', 'monotificationux.exe', 'taskhostw.exe', 'atieclxx.exe',
-  'rxdiag.exe', 'radeonsoftware.exe', 'amdrsserv.exe', 'amddvr.exe', 'amdow.exe', 'cnext.exe'
+  'rxdiag.exe', 'radeonsoftware.exe', 'amdrsserv.exe', 'amddvr.exe', 'amdow.exe', 'cnext.exe',
+  'chatgpt.exe', 'chatgpt desktop.exe', 'copilot.exe', 'claude.exe', 'cursor.exe', 'windsurf.exe', 'postman.exe', 'insomnia.exe', 'docker desktop.exe', 'vmware.exe', 'virtualbox.exe'
 ]);
 
-const IGNORED_PREFIXES = ['system', 'nv', 'amd', 'radeon', 'ati', 'rxdiag', 'svchost', 'dwm', 'dllhost', 'runtimebroker', 'csrss', 'wininit', 'winlogon', 'smss', 'services', 'lsass'];
+const IGNORED_PREFIXES = ['system', 'nv', 'amd', 'radeon', 'ati', 'rxdiag', 'svchost', 'dwm', 'dllhost', 'runtimebroker', 'csrss', 'wininit', 'winlogon', 'smss', 'services', 'lsass', 'chatgpt', 'copilot'];
 
-const IGNORED_TITLE_STARTS = ['{', '.net', 'dwm notification', 'windows push', 'broadcastlistener', 'wuicon', 'olemainthread', 'task host', 'rtc video', 'rxdiag', 'radeon', 'amd '];
+const IGNORED_TITLE_STARTS = ['{', '.net', 'dwm notification', 'windows push', 'broadcastlistener', 'wuicon', 'olemainthread', 'task host', 'rtc video', 'rxdiag', 'radeon', 'amd ', 'chatgpt', 'copilot', 'esc to cancel'];
 const IGNORED_EXACT_TITLES = new Set([
   'n/a', 'olemainthreadwndname', 'task host window', 'quick settings', 'pesquisar', 'iniciar', 'search', 'start',
   'sem título', 'sem titulo', 'untitled', 'settings', 'configurações', 'configuracoes', 'xbox'
@@ -144,6 +146,10 @@ function decodeWindowsText(str) {
  */
 function cleanGameTitle(rawTitle, exeName) {
   let title = decodeWindowsText(rawTitle.replace(/["“”]/g, '').trim());
+
+  if (title.toLowerCase().includes('is using your computer') || title.toLowerCase().includes('esc to cancel')) {
+    return '';
+  }
 
   // Remove sufixos técnicos comuns adicionados por engines
   title = title.replace(/\s*-\s*Unreal\s*Engine.*$/i, '');

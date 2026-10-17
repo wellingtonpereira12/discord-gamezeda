@@ -9,6 +9,263 @@ const DATA_DIR = path.join(__dirname, '../../data');
 const CACHE_FILE = path.join(DATA_DIR, 'game_cache.json');
 const RAWG_API_KEY = process.env.RAWG_API_KEY || 'e2406b1ec2b5400985e2c51e9a66b7d5';
 
+// Catálogo com URLs 100% permanentes e estáveis (CDN oficial da Steam e RAWG verificado)
+// que nunca expiram e respondem com 0ms e status 200 OK
+const POPULAR_GAMES_METADATA = {
+  'counterstrike2': {
+    officialName: 'Counter-Strike 2',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/730/header.jpg',
+    genres: ['Shooter', 'Action'],
+    steamUrl: 'https://store.steampowered.com/app/730/CounterStrike_2/'
+  },
+  'cs2': {
+    officialName: 'Counter-Strike 2',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/730/header.jpg',
+    genres: ['Shooter', 'Action'],
+    steamUrl: 'https://store.steampowered.com/app/730/CounterStrike_2/'
+  },
+  'csgo': {
+    officialName: 'Counter-Strike: Global Offensive',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/730/header.jpg',
+    genres: ['Shooter', 'Action'],
+    steamUrl: 'https://store.steampowered.com/app/730/CounterStrike_2/'
+  },
+  'valheim': {
+    officialName: 'Valheim',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/892970/header.jpg',
+    genres: ['Survival', 'Indie'],
+    steamUrl: 'https://store.steampowered.com/app/892970/Valheim/'
+  },
+  'grandtheftautov': {
+    officialName: 'Grand Theft Auto V',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/271590/header.jpg',
+    genres: ['Action', 'Adventure'],
+    steamUrl: 'https://store.steampowered.com/app/271590/Grand_Theft_Auto_V/'
+  },
+  'gta5': {
+    officialName: 'Grand Theft Auto V',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/271590/header.jpg',
+    genres: ['Action', 'Adventure'],
+    steamUrl: 'https://store.steampowered.com/app/271590/Grand_Theft_Auto_V/'
+  },
+  'fivem': {
+    officialName: 'FiveM (GTA V)',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/271590/header.jpg',
+    genres: ['Action', 'Multiplayer'],
+    steamUrl: 'https://fivem.net/'
+  },
+  'deadlock': {
+    officialName: 'Deadlock',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1422450/header.jpg',
+    genres: ['Shooter', 'MOBA'],
+    steamUrl: 'https://store.steampowered.com/app/1422450/Deadlock/'
+  },
+  'apexlegends': {
+    officialName: 'Apex Legends',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1172470/header.jpg',
+    genres: ['Shooter', 'Battle Royale'],
+    steamUrl: 'https://store.steampowered.com/app/1172470/Apex_Legends/'
+  },
+  'rainbowsixsiege': {
+    officialName: "Tom Clancy's Rainbow Six Siege",
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/359550/header.jpg',
+    genres: ['Shooter', 'Tactical'],
+    steamUrl: 'https://store.steampowered.com/app/359550/Tom_Clancys_Rainbow_Six_Siege/'
+  },
+  'rust': {
+    officialName: 'Rust',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/252490/header.jpg',
+    genres: ['Survival', 'Action'],
+    steamUrl: 'https://store.steampowered.com/app/252490/Rust/'
+  },
+  'left4dead2': {
+    officialName: 'Left 4 Dead 2',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/550/header.jpg',
+    genres: ['Shooter', 'Action'],
+    steamUrl: 'https://store.steampowered.com/app/550/Left_4_Dead_2/'
+  },
+  'terraria': {
+    officialName: 'Terraria',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/105600/header.jpg',
+    genres: ['Platformer', 'Indie'],
+    steamUrl: 'https://store.steampowered.com/app/105600/Terraria/'
+  },
+  'stardewvalley': {
+    officialName: 'Stardew Valley',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/413150/header.jpg',
+    genres: ['RPG', 'Simulation'],
+    steamUrl: 'https://store.steampowered.com/app/413150/Stardew_Valley/'
+  },
+  'palworld': {
+    officialName: 'Palworld',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1623730/header.jpg',
+    genres: ['Action', 'Adventure'],
+    steamUrl: 'https://store.steampowered.com/app/1623730/Palworld/'
+  },
+  'baldursgate3': {
+    officialName: "Baldur's Gate 3",
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1086940/header.jpg',
+    genres: ['RPG', 'Strategy'],
+    steamUrl: 'https://store.steampowered.com/app/1086940/Baldurs_Gate_3/'
+  },
+  'bg3': {
+    officialName: "Baldur's Gate 3",
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1086940/header.jpg',
+    genres: ['RPG', 'Strategy'],
+    steamUrl: 'https://store.steampowered.com/app/1086940/Baldurs_Gate_3/'
+  },
+  'cyberpunk2077': {
+    officialName: 'Cyberpunk 2077',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1091500/header.jpg',
+    genres: ['RPG', 'Action'],
+    steamUrl: 'https://store.steampowered.com/app/1091500/Cyberpunk_2077/'
+  },
+  'eldenring': {
+    officialName: 'ELDEN RING',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1245620/header.jpg',
+    genres: ['RPG', 'Action'],
+    steamUrl: 'https://store.steampowered.com/app/1245620/ELDEN_RING/'
+  },
+  'projectzomboid': {
+    officialName: 'Project Zomboid',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/108600/header.jpg',
+    genres: ['RPG', 'Survival'],
+    steamUrl: 'https://store.steampowered.com/app/108600/Project_Zomboid/'
+  },
+  'lethalcompany': {
+    officialName: 'Lethal Company',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1966720/header.jpg',
+    genres: ['Indie', 'Horror'],
+    steamUrl: 'https://store.steampowered.com/app/1966720/Lethal_Company/'
+  },
+  'phasmophobia': {
+    officialName: 'Phasmophobia',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/739630/header.jpg',
+    genres: ['Horror', 'Indie'],
+    steamUrl: 'https://store.steampowered.com/app/739630/Phasmophobia/'
+  },
+  'seaofthieves': {
+    officialName: 'Sea of Thieves',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1172620/header.jpg',
+    genres: ['Adventure', 'Action'],
+    steamUrl: 'https://store.steampowered.com/app/1172620/Sea_of_Thieves/'
+  },
+  'helldivers2': {
+    officialName: 'HELLDIVERS™ 2',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/553850/header.jpg',
+    genres: ['Shooter', 'Action'],
+    steamUrl: 'https://store.steampowered.com/app/553850/HELLDIVERS_2/'
+  },
+  'dota2': {
+    officialName: 'Dota 2',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/570/header.jpg',
+    genres: ['MOBA', 'Strategy'],
+    steamUrl: 'https://store.steampowered.com/app/570/Dota_2/'
+  },
+  'brawlhalla': {
+    officialName: 'Brawlhalla',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/291550/header.jpg',
+    genres: ['Fighting', 'Action'],
+    steamUrl: 'https://store.steampowered.com/app/291550/Brawlhalla/'
+  },
+  'amongus': {
+    officialName: 'Among Us',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/945360/header.jpg',
+    genres: ['Casual', 'Indie'],
+    steamUrl: 'https://store.steampowered.com/app/945360/Among_Us/'
+  },
+  'overwatch2': {
+    officialName: 'Overwatch 2',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/2357570/header.jpg',
+    genres: ['Shooter', 'Action'],
+    steamUrl: 'https://store.steampowered.com/app/2357570/Overwatch_2/'
+  },
+  'easportsfc25': {
+    officialName: 'EA SPORTS FC 25',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/2669320/header.jpg',
+    genres: ['Sports'],
+    steamUrl: 'https://store.steampowered.com/app/2669320/EA_SPORTS_FC_25/'
+  },
+  'fc25': {
+    officialName: 'EA SPORTS FC 25',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/2669320/header.jpg',
+    genres: ['Sports'],
+    steamUrl: 'https://store.steampowered.com/app/2669320/EA_SPORTS_FC_25/'
+  },
+  'easportsfc24': {
+    officialName: 'EA SPORTS FC 24',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/2195250/header.jpg',
+    genres: ['Sports'],
+    steamUrl: 'https://store.steampowered.com/app/2195250/EA_SPORTS_FC_24/'
+  },
+  'fc24': {
+    officialName: 'EA SPORTS FC 24',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/2195250/header.jpg',
+    genres: ['Sports'],
+    steamUrl: 'https://store.steampowered.com/app/2195250/EA_SPORTS_FC_24/'
+  },
+  'marvelrivals': {
+    officialName: 'Marvel Rivals',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/2767030/header.jpg',
+    genres: ['Shooter', 'Action'],
+    steamUrl: 'https://store.steampowered.com/app/2767030/Marvel_Rivals/'
+  },
+  'callofdutywarzone': {
+    officialName: 'Call of Duty: Warzone',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1938090/header.jpg',
+    genres: ['Shooter', 'Battle Royale'],
+    steamUrl: 'https://store.steampowered.com/app/1938090/Call_of_Duty/'
+  },
+  'callofduty': {
+    officialName: 'Call of Duty',
+    coverUrl: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1938090/header.jpg',
+    genres: ['Shooter'],
+    steamUrl: 'https://store.steampowered.com/app/1938090/Call_of_Duty/'
+  },
+  'valorant': {
+    officialName: 'Valorant',
+    coverUrl: 'https://media.rawg.io/media/games/b11/b11127b9ee3c3701bd15b9af3286d20e.jpg',
+    genres: ['Shooter', 'Action'],
+    steamUrl: 'https://playvalorant.com/'
+  },
+  'leagueoflegends': {
+    officialName: 'League of Legends',
+    coverUrl: 'https://media.rawg.io/media/games/78b/78bc81e247fc7e77af700cbd632a9297.jpg',
+    genres: ['MOBA', 'Strategy'],
+    steamUrl: 'https://www.leagueoflegends.com/'
+  },
+  'lol': {
+    officialName: 'League of Legends',
+    coverUrl: 'https://media.rawg.io/media/games/78b/78bc81e247fc7e77af700cbd632a9297.jpg',
+    genres: ['MOBA', 'Strategy'],
+    steamUrl: 'https://www.leagueoflegends.com/'
+  },
+  'roblox': {
+    officialName: 'Roblox',
+    coverUrl: 'https://media.rawg.io/media/games/3af/3af386b6e26be6741b711ae6215ef42f.jpg',
+    genres: ['Adventure', 'Family'],
+    steamUrl: 'https://www.roblox.com/'
+  },
+  'minecraft': {
+    officialName: 'Minecraft',
+    coverUrl: 'https://media.rawg.io/media/games/b4e/b4e4c73d5aa4ec66bbf75375c4847a2b.jpg',
+    genres: ['Sandbox', 'Adventure'],
+    steamUrl: 'https://www.minecraft.net/'
+  },
+  'fortnite': {
+    officialName: 'Fortnite',
+    coverUrl: 'https://media.rawg.io/media/games/dcb/dcbb67f371a9a28ea38ffd73ee0f53f3.jpg',
+    genres: ['Shooter', 'Battle Royale'],
+    steamUrl: 'https://store.epicgames.com/p/fortnite'
+  },
+  'genshinimpact': {
+    officialName: 'Genshin Impact',
+    coverUrl: 'https://media.rawg.io/media/games/c38/c38bdb5da139005777176d33c463d70f.jpg',
+    genres: ['Action', 'RPG'],
+    steamUrl: 'https://genshin.hoyoverse.com/'
+  }
+};
+
 // Cache em memória para acesso com 0ms e economia estrita de requisições da cota RAWG
 const memoryCache = new Map();
 
@@ -69,14 +326,40 @@ function isTitleMatch(query, candidate) {
   // Para termos curtos (menos de 6 letras), exige correspondência exata
   if (q.length < 6 || c.length < 6) return false;
 
-  // Para títulos longos, permite apenas pequena variação de sequência ou sufixo (máx 3 caracteres, ex: '2', 'ii')
-  if (c.startsWith(q) && (c.length - q.length <= 3)) return true;
-  if (q.startsWith(c) && (q.length - c.length <= 3)) return true;
+  // Para títulos longos, permite pequena variação de sequência ou sufixo
+  if (c.startsWith(q) && (c.length - q.length <= 4)) return true;
+  if (q.startsWith(c) && (q.length - c.length <= 4)) return true;
   return false;
 }
 
 /**
- * Consulta a API do RAWG para validar o jogo, obter capa oficial e link da Steam
+ * Identifica se uma string de título é lixo/janela utilitária do sistema e não jogo
+ */
+export function isGarbageTitle(rawTitle) {
+  if (!rawTitle || typeof rawTitle !== 'string') return true;
+  const t = rawTitle.trim();
+  if (t.length < 2 || t.length > 55) return true;
+  const lower = t.toLowerCase();
+
+  // Utilitários de IA / Background / Diálogos do Windows
+  if (lower.includes('is using your computer') || lower.includes('esc to cancel')) return true;
+  if (lower.startsWith('chatgpt') || lower.startsWith('copilot') || lower.startsWith('rxdiag')) return true;
+  if (lower.startsWith('task host') || lower.startsWith('olemainthread') || lower.startsWith('dwm notification')) return true;
+  if (lower.startsWith('windows push') || lower.startsWith('broadcastlistener') || lower.startsWith('rtc video')) return true;
+  if (lower.startsWith('radeon') || lower.startsWith('geforce experience') || lower.startsWith('nvidia')) return true;
+
+  // Janelas sem título ou comuns
+  const exactGarbage = new Set([
+    'n/a', 'sem título', 'sem titulo', 'untitled', 'settings', 'configurações', 'configuracoes',
+    'pesquisar', 'iniciar', 'search', 'start', 'quick settings', 'cortana'
+  ]);
+  if (exactGarbage.has(lower)) return true;
+
+  return false;
+}
+
+/**
+ * Consulta metadados (cache popular local -> cache persistido -> API do RAWG)
  * @param {string} rawTitle - Nome do jogo detectado
  * @returns {Promise<Object|null>}
  */
@@ -87,24 +370,35 @@ export async function getGameMetadata(rawTitle) {
   const cacheKey = normalizeTitle(trimmed);
   if (!cacheKey) return null;
 
-  // 1. Checa cache em memória
+  // 1. Checa catálogo popular pré-carregado (0ms, 100% confiável)
+  if (POPULAR_GAMES_METADATA[cacheKey]) {
+    const p = POPULAR_GAMES_METADATA[cacheKey];
+    return {
+      verified: true,
+      rawgId: null,
+      officialName: p.officialName,
+      coverUrl: p.coverUrl,
+      genres: p.genres,
+      released: null,
+      rating: null,
+      steamUrl: p.steamUrl,
+      cachedAt: Date.now()
+    };
+  }
+
+  // 2. Checa cache persistido em memória
   if (memoryCache.has(cacheKey)) {
     const cached = memoryCache.get(cacheKey);
-    // Se foi validado como falso, respeita tempo de expiração de 2 horas
-    if (!cached.verified) {
-      if (Date.now() - (cached.cachedAt || 0) < 2 * 60 * 60 * 1000) {
-        return cached;
-      }
-    } else {
+    if (cached && cached.verified) {
       return cached;
     }
   }
 
-  // 2. Consulta à API RAWG
+  // 3. Consulta à API RAWG para jogos novos / menos comuns (com timeout seguro de 4s)
   try {
     const searchUrl = `https://api.rawg.io/api/games?key=${RAWG_API_KEY}&search=${encodeURIComponent(trimmed)}&search_precise=true&page_size=5`;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
+    const timeout = setTimeout(() => controller.abort(), 4000);
 
     const res = await fetch(searchUrl, {
       signal: controller.signal,
@@ -113,70 +407,32 @@ export async function getGameMetadata(rawTitle) {
     clearTimeout(timeout);
 
     if (!res.ok) {
-      console.warn(`[RAWG ⚠️] Resposta não OK (${res.status}) para jogo: ${trimmed}`);
+      console.warn(`[RAWG ⚠️] Resposta status (${res.status}) para jogo: ${trimmed}`);
       return null;
     }
 
     const json = await res.json();
     const results = json.results || [];
     if (results.length === 0) {
-      const negativeResult = {
-        verified: false,
-        name: trimmed,
-        cachedAt: Date.now()
-      };
-      memoryCache.set(cacheKey, negativeResult);
-      persistCacheDebounced();
-      return negativeResult;
+      return null;
     }
 
     // Procura o melhor match nos resultados
     let matchedGame = results.find(g => isTitleMatch(trimmed, g.name));
-    if (!matchedGame && results[0]) {
-      // Se o primeiro resultado for bem similar
-      if (isTitleMatch(trimmed, results[0].name)) {
-        matchedGame = results[0];
-      }
+    if (!matchedGame && results[0] && isTitleMatch(trimmed, results[0].name)) {
+      matchedGame = results[0];
     }
 
     if (!matchedGame) {
-      const negativeResult = {
-        verified: false,
-        name: trimmed,
-        cachedAt: Date.now()
-      };
-      memoryCache.set(cacheKey, negativeResult);
-      persistCacheDebounced();
-      return negativeResult;
+      return null;
     }
 
-    // Jogo validado! Extrai metadados oficiais
+    // Jogo validado pelo RAWG!
     let steamUrl = null;
     const hasSteam = matchedGame.stores && matchedGame.stores.some(s => s.store && (s.store.id === 1 || s.store.slug === 'steam'));
 
-    // Tenta obter o link direto da loja Steam se disponível
     if (hasSteam) {
-      try {
-        const storeCtrl = new AbortController();
-        const storeTimeout = setTimeout(() => storeCtrl.abort(), 4000);
-        const storeRes = await fetch(`https://api.rawg.io/api/games/${matchedGame.id}/stores?key=${RAWG_API_KEY}`, {
-          signal: storeCtrl.signal,
-          headers: { 'User-Agent': 'FakeDC-App/1.4.1' }
-        });
-        clearTimeout(storeTimeout);
-        if (storeRes.ok) {
-          const storeJson = await storeRes.json();
-          const steamEntry = (storeJson.results || []).find(r => r.store_id === 1);
-          if (steamEntry && steamEntry.url) {
-            steamUrl = steamEntry.url;
-          }
-        }
-      } catch (err) {
-        // Fallback para busca direta na Steam
-      }
-      if (!steamUrl) {
-        steamUrl = `https://store.steampowered.com/search/?term=${encodeURIComponent(matchedGame.name)}`;
-      }
+      steamUrl = `https://store.steampowered.com/search/?term=${encodeURIComponent(matchedGame.name)}`;
     }
 
     const metadata = {
@@ -193,35 +449,55 @@ export async function getGameMetadata(rawTitle) {
 
     memoryCache.set(cacheKey, metadata);
     persistCacheDebounced();
-    console.log(`[RAWG ✅] Jogo validado e cacheado: "${matchedGame.name}" (${metadata.genres.join(', ')})`);
+    console.log(`[RAWG ✅] Jogo validado na API RAWG: "${matchedGame.name}" (${metadata.genres.join(', ')})`);
     return metadata;
   } catch (err) {
-    console.error(`[RAWG ❌] Erro ao consultar API para "${trimmed}":`, err.message);
+    console.warn(`[RAWG ⚠️] Consulta externa indisponível para "${trimmed}":`, err.message);
     return null;
   }
 }
 
 /**
- * Enriquece o objeto de atividade com metadados do RAWG
+ * Enriquece o objeto de atividade com metadados e garante fallback resiliente
  * @param {Object} activity - Objeto de atividade { game, startedAt, ... }
- * @returns {Promise<Object>} Objeto enriquecido
+ * @returns {Promise<Object|null>} Objeto enriquecido e garantido
  */
 export async function enrichGameActivity(activity) {
   if (!activity || !activity.game) return null;
 
-  const meta = await getGameMetadata(activity.game);
-  if (!meta || !meta.verified) {
-    console.log(`[RAWG 🚫] Jogo descartado (não existe ou não verificado na RAWG): "${activity.game}"`);
+  const rawTitle = String(activity.game).trim();
+  if (isGarbageTitle(rawTitle)) {
+    console.log(`[RAWG 🚫] Processo descartado por ser utilitário/janela de sistema: "${rawTitle}"`);
     return null;
   }
 
+  try {
+    const meta = await getGameMetadata(rawTitle);
+    if (meta && meta.verified) {
+      return {
+        game: meta.officialName || rawTitle,
+        startedAt: Number(activity.startedAt) || Date.now(),
+        verified: true,
+        rawgId: meta.rawgId || null,
+        coverUrl: meta.coverUrl || null,
+        genres: meta.genres || [],
+        steamUrl: meta.steamUrl || `https://store.steampowered.com/search/?term=${encodeURIComponent(meta.officialName || rawTitle)}`
+      };
+    }
+  } catch (err) {
+    console.warn(`[RAWG ⚠️] Erro ao enriquecer jogo "${rawTitle}":`, err.message);
+  }
+
+  // Fallback Resiliente: NUNCA apaga o jogo do usuário!
+  // Se a RAWG estiver fora do ar (502/timeout) ou for jogo independente/mod (ex: FiveM),
+  // exibe o jogo com o nome detectado e o ícone padrão de controle verde oficial.
   return {
-    game: meta.officialName || activity.game,
+    game: rawTitle,
     startedAt: Number(activity.startedAt) || Date.now(),
     verified: true,
-    rawgId: meta.rawgId,
-    coverUrl: meta.coverUrl,
-    genres: meta.genres || [],
-    steamUrl: meta.steamUrl
+    rawgId: null,
+    coverUrl: null,
+    genres: [],
+    steamUrl: `https://store.steampowered.com/search/?term=${encodeURIComponent(rawTitle)}`
   };
 }

@@ -1,7 +1,7 @@
 {
   "name": "FakeDC",
-  "version": "1.6.3",
-  "releaseDate": "2026-10-11",
+  "version": "1.6.4",
+  "releaseDate": "2026-10-17",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe",
   "installerName": "FakeDC-Setup.exe",
@@ -12,5 +12,5 @@
     "iosUrl": "/download/ios",
     "iosIpa": "FakeDC.ipa"
   },
-  "notes": "FakeDC v1.6.3: Sistema completo de notificações para mensagens privadas (DMs 1 a 1): som de notificação de mensagens, notificação nativa desktop/browser, flash da taskbar no Windows, contadores e badges no botão Home e lista de DMs, e banners in-app toast com clique direto para responder."
+  "notes": "FakeDC v1.6.4: Correções e aprimoramentos no Rich Presence de jogos: catálogo local com capas oficiais via Steam CDN de alta disponibilidade, fallback resiliente quando a API externa RAWG estiver instável, tratamento com fallback visual em todas as capas da interface e expansão de jogos detectados no Electron (ex: Minecraft/javaw.exe) ignorando utilitários de IA."
 }
