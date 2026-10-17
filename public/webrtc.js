@@ -330,6 +330,7 @@ export class WebRTCManager {
           pc.pendingCandidates = [];
         }
 
+        this.preferHardwareCodec(pc);
         const answer = await pc.createAnswer();
         answer.sdp = this.optimizeSdp(answer.sdp);
         await pc.setLocalDescription(answer);
@@ -452,6 +453,49 @@ export class WebRTCManager {
     const targetKbps = Math.floor((this.streamBitrate || 12000000) / 1000);
     if (sdp.includes('m=video')) {
       sdp = sdp.replace(/(m=video[^\r\n]*\r?\n)/g, `$1b=AS:${targetKbps}\r\nb=TIAS:${targetKbps * 1000}\r\n`);
+
+      // 3. Priorização direta no SDP: Coloca H.264 (NVENC, AMF, QuickSync) no topo dos codecs de vídeo
+      try {
+        const h264Payloads = [];
+        const rtxForH264 = [];
+        const rtpmapRegex = /a=rtpmap:(\d+)\s+H264\/90000/gi;
+        let match;
+        while ((match = rtpmapRegex.exec(sdp)) !== null) {
+          h264Payloads.push(match[1]);
+        }
+
+        if (h264Payloads.length > 0) {
+          h264Payloads.forEach(pt => {
+            const aptRegex = new RegExp(`a=fmtp:(\\d+)\\s+apt=${pt}`, 'i');
+            const aptMatch = sdp.match(aptRegex);
+            if (aptMatch) {
+              rtxForH264.push(aptMatch[1]);
+            }
+          });
+
+          const preferredPayloads = [...h264Payloads, ...rtxForH264];
+          sdp = sdp.replace(/(m=video\s+\d+\s+[A-Z\/]+\s+)([\d\s]+)(\r?\n)/i, (fullLine, prefix, pts, suffix) => {
+            const existingPts = pts.trim().split(/\s+/);
+            const newPts = [];
+
+            preferredPayloads.forEach(pt => {
+              if (existingPts.includes(pt) && !newPts.includes(pt)) {
+                newPts.push(pt);
+              }
+            });
+
+            existingPts.forEach(pt => {
+              if (!newPts.includes(pt)) {
+                newPts.push(pt);
+              }
+            });
+
+            return `${prefix}${newPts.join(' ')}${suffix}`;
+          });
+        }
+      } catch (err) {
+        console.warn('[WebRTC ⚠️ SDP] Falha ao priorizar codecs H.264 no SDP:', err);
+      }
     }
 
     return sdp;
@@ -459,24 +503,32 @@ export class WebRTCManager {
 
   preferHardwareCodec(pc) {
     try {
-      if (typeof pc.getTransceivers !== 'function' || typeof RTCRtpSender.getCapabilities !== 'function') return;
+      if (!pc || typeof pc.getTransceivers !== 'function' || typeof RTCRtpSender.getCapabilities !== 'function') return;
       const capabilities = RTCRtpSender.getCapabilities('video');
-      if (!capabilities || !capabilities.codecs) return;
+      if (!capabilities || !capabilities.codecs || capabilities.codecs.length === 0) return;
 
-      // Prioriza codecs acelerados por GPU: H.264 (NVENC, AMD, Intel) e VP9
+      // Prioriza codecs acelerados por GPU: H.264 (NVIDIA NVENC, AMD AMF, Intel QuickSync) e VP9
       const h264Codecs = capabilities.codecs.filter(c => c.mimeType.toLowerCase() === 'video/h264');
       const vp9Codecs = capabilities.codecs.filter(c => c.mimeType.toLowerCase() === 'video/vp9');
       const otherCodecs = capabilities.codecs.filter(c => !['video/h264', 'video/vp9'].includes(c.mimeType.toLowerCase()));
       const preferred = [...h264Codecs, ...vp9Codecs, ...otherCodecs];
 
       for (const t of pc.getTransceivers()) {
-        if (t.sender && t.sender.track && t.sender.track.kind === 'video' && typeof t.setCodecPreferences === 'function') {
+        const isVideoTransceiver = (t.receiver && t.receiver.track && t.receiver.track.kind === 'video') ||
+                                   (t.sender && t.sender.track && t.sender.track.kind === 'video') ||
+                                   (t.mid && pc.getSenders().some(s => s.track && s.track.kind === 'video'));
+        if (isVideoTransceiver && typeof t.setCodecPreferences === 'function') {
           try {
             t.setCodecPreferences(preferred);
-          } catch (e) {}
+            console.log('[WebRTC 🚀 GPU] Codec H.264 configurado com prioridade máxima para aceleração por hardware (GPU)');
+          } catch (e) {
+            console.warn('[WebRTC ⚠️ GPU] Aviso ao aplicar setCodecPreferences:', e.message);
+          }
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('[WebRTC ⚠️ GPU] Erro ao priorizar codecs de hardware:', e);
+    }
   }
 
   async applyBitrateParameters(pc) {
@@ -527,6 +579,7 @@ export class WebRTCManager {
         }
       }
 
+      this.preferHardwareCodec(pc);
       let offer = await pc.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true
@@ -1682,6 +1735,7 @@ export class WebRTCManager {
 
         if (screenVideoTrack) {
           senders.screenVideoSender = pc.addTrack(screenVideoTrack, this.localScreenStream);
+          this.preferHardwareCodec(pc);
         }
         if (screenAudioTrack) {
           senders.screenAudioSender = pc.addTrack(screenAudioTrack, this.localScreenStream);
@@ -1862,6 +1916,7 @@ export class WebRTCManager {
         return;
       }
 
+      this.preferHardwareCodec(pc);
       let offer = await pc.createOffer();
       offer.sdp = this.optimizeSdp(offer.sdp);
       await pc.setLocalDescription(offer);
@@ -1974,6 +2029,7 @@ export class WebRTCManager {
       if (typeof pc.restartIce === 'function') {
         pc.restartIce();
       }
+      this.preferHardwareCodec(pc);
       let offer = await pc.createOffer({ iceRestart: true });
       offer.sdp = this.optimizeSdp(offer.sdp);
       await pc.setLocalDescription(offer);

@@ -67,7 +67,18 @@ if (fs.existsSync(configPath)) {
 // Suporte a flags de aceleração por hardware e WebRTC
 app.commandLine.appendSwitch('ignore-certificate-errors', 'true');
 app.commandLine.appendSwitch('allow-insecure-localhost', 'true');
-app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer');
+
+// Aceleração por Hardware Total na GPU (NVIDIA NVENC, AMD AMF, Intel QuickSync)
+app.commandLine.appendSwitch('ignore-gpu-blocklist', 'true');
+app.commandLine.appendSwitch('enable-gpu-rasterization', 'true');
+app.commandLine.appendSwitch('enable-zero-copy', 'true');
+app.commandLine.appendSwitch('enable-accelerated-video-decode', 'true');
+app.commandLine.appendSwitch('enable-accelerated-video-encode', 'true');
+app.commandLine.appendSwitch('enable-native-gpu-memory-buffers', 'true');
+app.commandLine.appendSwitch('use-angle', 'd3d11');
+
+// Features WebRTC para priorização de captura e codificação de vídeo acelerada por GPU
+app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer,WebRtcHWH264Encoding,WebRtcHWVP8Encoding,WebRtcHWVP9Encoding,PlatformHEVCDecoderSupport');
 // Desativa Windows Graphics Capture (WGC) para remover a borda amarela de captura do Windows
 app.commandLine.appendSwitch('disable-features', 'WebRtcAllowWgcScreenCapturer,WebRtcAllowWgcWindowCapturer');
 
