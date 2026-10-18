@@ -374,6 +374,7 @@ export function setupDesktopClient(deps = {}) {
   // Detecção Automática de Jogos em Execução no Windows (Discord Game Activity)
   if (typeof window.electronAPI.onGameActivity === 'function') {
     window.electronAPI.onGameActivity((activity) => {
+      console.log('[GameActivity] Mudança detectada pelo Electron:', activity);
       if (!activity) {
         setMyGameActivity(null);
         if (socket && socket.connected) {
@@ -382,9 +383,20 @@ export function setupDesktopClient(deps = {}) {
         updateMyUserStatus();
         renderMembersSidebar();
         renderVoiceStageCards();
-      } else if (socket && socket.connected) {
-        // Envia ao servidor para validação oficial na RAWG.io antes de exibir na interface
-        socket.emit('user:activity-update', activity);
+      } else {
+        // Atualiza imediatamente o estado local do usuário para exibição instantânea
+        const immediateActivity = {
+          ...activity,
+          verified: true
+        };
+        setMyGameActivity(immediateActivity);
+        updateMyUserStatus();
+        renderMembersSidebar();
+        renderVoiceStageCards();
+
+        if (socket && socket.connected) {
+          socket.emit('user:activity-update', activity);
+        }
       }
     });
 
@@ -392,26 +404,110 @@ export function setupDesktopClient(deps = {}) {
       window.electronAPI.getGameActivity().then((activity) => {
         if (!activity) {
           setMyGameActivity(null);
-        } else if (socket && socket.connected) {
-          socket.emit('user:activity-update', activity);
+        } else {
+          setMyGameActivity({ ...activity, verified: true });
+          if (socket && socket.connected) {
+            socket.emit('user:activity-update', activity);
+          }
+          updateMyUserStatus();
+          renderMembersSidebar();
+          renderVoiceStageCards();
         }
       }).catch(() => {});
     }
   }
 
-  // Atualiza periodicamente o tempo decorrido do jogo ativo
-  setInterval(() => {
+  // Sincronização periódica ativa (Heartbeat do Game Presence a cada 5 segundos)
+  setInterval(async () => {
+    // 1. Atualiza tempo decorrido do jogo ativo na tela
     document.querySelectorAll('[data-game-started]').forEach((el) => {
       const started = Number(el.getAttribute('data-game-started'));
       if (started) {
         el.textContent = formatGameDuration(started);
       }
     });
+
+    // 2. Consulta ativa contínua ao processo principal do Electron (detecta jogos abertos com o Discord rodando)
+    if (typeof window.electronAPI?.getGameActivity === 'function') {
+      try {
+        const current = await window.electronAPI.getGameActivity();
+        const existing = getMyGameActivity();
+
+        const currentName = current ? (current.game || '') : '';
+        const existingName = existing ? (existing.game || '') : '';
+
+        if (currentName !== existingName) {
+          console.log('[GameActivity 🔄] Sincronização contínua detectou alteração:', existingName || 'Nenhum', '->', currentName || 'Nenhum');
+          if (!current) {
+            setMyGameActivity(null);
+            if (socket && socket.connected) {
+              socket.emit('user:activity-update', null);
+            }
+          } else {
+            const immediateActivity = {
+              ...current,
+              verified: true
+            };
+            setMyGameActivity(immediateActivity);
+            if (socket && socket.connected) {
+              socket.emit('user:activity-update', current);
+            }
+          }
+          updateMyUserStatus();
+          renderMembersSidebar();
+          renderVoiceStageCards();
+        }
+      } catch (err) {}
+    }
+
     updateMyUserStatus();
-  }, 25000);
+  }, 5000);
+
+  // Sincroniza imediatamente ao focar a janela do Discord
+  window.addEventListener('focus', async () => {
+    if (typeof window.electronAPI?.getGameActivity === 'function') {
+      try {
+        const current = await window.electronAPI.getGameActivity();
+        const existing = getMyGameActivity();
+        const currentName = current ? (current.game || '') : '';
+        const existingName = existing ? (existing.game || '') : '';
+
+        if (currentName !== existingName) {
+          if (!current) {
+            setMyGameActivity(null);
+            if (socket && socket.connected) {
+              socket.emit('user:activity-update', null);
+            }
+          } else {
+            setMyGameActivity({ ...current, verified: true });
+            if (socket && socket.connected) {
+              socket.emit('user:activity-update', current);
+            }
+          }
+          updateMyUserStatus();
+          renderMembersSidebar();
+          renderVoiceStageCards();
+        }
+      } catch (e) {}
+    }
+  });
 
   if (socket) {
-    socket.on('connect', () => {
+    socket.on('connect', async () => {
+      if (typeof window.electronAPI?.getGameActivity === 'function') {
+        try {
+          const current = await window.electronAPI.getGameActivity();
+          if (current) {
+            setMyGameActivity({ ...current, verified: true });
+            socket.emit('user:activity-update', current);
+            updateMyUserStatus();
+            renderMembersSidebar();
+            renderVoiceStageCards();
+            return;
+          }
+        } catch (e) {}
+      }
+
       const myGameActivity = getMyGameActivity();
       if (myGameActivity && socket && socket.connected) {
         socket.emit('user:activity-update', myGameActivity);

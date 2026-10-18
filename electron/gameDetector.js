@@ -117,7 +117,19 @@ const KNOWN_GAMES = {
   'squad.exe': 'Squad',
   'hellletloose.exe': 'Hell Let Loose',
   'bodycam.exe': 'Bodycam',
-  'content warning.exe': 'Content Warning'
+  'content warning.exe': 'Content Warning',
+  'satisfactory.exe': 'Satisfactory',
+  'factorygame-win64-shipping.exe': 'Satisfactory',
+  'spectredivide.exe': 'Spectre Divide',
+  'santorini-win64-shipping.exe': 'Spectre Divide',
+  'tl.exe': 'Throne and Liberty',
+  'beamng.drive.x64.exe': 'BeamNG.drive',
+  'acs.exe': 'Assetto Corsa',
+  'assetto corsa.exe': 'Assetto Corsa',
+  'hl2.exe': 'Half-Life 2',
+  'portal2.exe': 'Portal 2',
+  'fivem_gamelauncher.exe': 'FiveM',
+  'fivem_rosselauncher.exe': 'FiveM'
 };
 
 // Lista de executáveis de programas que NÃO são jogos (navegadores, chat, utilitários, SO, nuvem, hardware)
@@ -241,7 +253,7 @@ class GameDetector extends EventEmitter {
     this.isChecking = false;
   }
 
-  start(intervalMs = 10000) {
+  start(intervalMs = 5000) {
     if (this.timer) return;
     this.check();
     this.timer = setInterval(() => this.check(), intervalMs);
@@ -277,36 +289,64 @@ class GameDetector extends EventEmitter {
     }
   }
 
-  check() {
+  getRunningProcesses() {
+    return new Promise((resolve) => {
+      exec('tasklist /fo csv /nh', { windowsHide: true, timeout: 4000 }, (err, stdout) => {
+        const runningExes = new Set();
+        if (!err && stdout) {
+          const lines = stdout.split(/\r?\n/);
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            const match = line.match(/^"([^"]+)"/);
+            if (match && match[1]) {
+              runningExes.add(match[1].toLowerCase());
+            }
+          }
+        }
+        resolve(runningExes);
+      });
+    });
+  }
+
+  async getOpenWindows() {
+    try {
+      let desktopCapturer = null;
+      try {
+        desktopCapturer = require('electron').desktopCapturer;
+      } catch (e) {}
+
+      if (desktopCapturer && typeof desktopCapturer.getSources === 'function') {
+        const sources = await desktopCapturer.getSources({
+          types: ['window'],
+          thumbnailSize: { width: 1, height: 1 },
+          fetchWindowIcons: false
+        });
+        return sources.map(s => (s.name || '').trim()).filter(Boolean);
+      }
+    } catch (e) {}
+    return [];
+  }
+
+  async check() {
     if (this.isChecking) return;
     if (process.platform !== 'win32') return;
 
     this.isChecking = true;
-
-    // Etapa 1: Leitura rápida ultraleve (200ms) dos processos ativos da sessão
-    exec('tasklist /fo csv /nh /fi "SESSIONNAME eq Console"', { windowsHide: true, timeout: 5000 }, (err, stdout) => {
-      if (err || !stdout) {
-        this.isChecking = false;
+    try {
+      // Etapa 1: Leitura rápida e não-bloqueante dos processos ativos da máquina (~200ms)
+      const runningExes = await this.getRunningProcesses();
+      if (!runningExes || runningExes.size === 0) {
         return;
       }
 
-      const lines = stdout.split(/\r?\n/);
-      const runningExes = new Set();
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        const match = line.match(/^"([^"]+)"/);
-        if (match && match[1]) {
-          runningExes.add(match[1].toLowerCase());
+      // 1. Otimização de estabilidade: se o jogo atual ainda está em execução, mantém ativo sem reprocessar
+      if (this.currentActivity && this.currentActivity.exe && this.currentActivity.exe !== 'window') {
+        if (runningExes.has(this.currentActivity.exe.toLowerCase())) {
+          return;
         }
       }
 
-      // 1. Estabilidade e Desempenho: Se o jogo atual ainda está em execução, mantém ele ativo sem gastar CPU
-      if (this.currentActivity && runningExes.has(this.currentActivity.exe)) {
-        this.isChecking = false;
-        return;
-      }
-
-      // 2. Checagem instantânea na lista de jogos conhecidos
+      // 2. Busca instantânea na lista de jogos catalogados e conhecidos
       let foundKnown = null;
       for (const [knownExe, knownTitle] of Object.entries(KNOWN_GAMES)) {
         if (runningExes.has(knownExe.toLowerCase())) {
@@ -317,54 +357,39 @@ class GameDetector extends EventEmitter {
 
       if (foundKnown) {
         this.setActivity(foundKnown.game, foundKnown.exe, true);
-        this.isChecking = false;
         return;
       }
 
-      // 3. Fallback Universal Dinâmico: Se não está no catálogo, analisa títulos de janelas abertas no Windows
-      exec('chcp 65001 >nul & tasklist /v /fo csv /nh /fi "SESSIONNAME eq Console"', { windowsHide: true, timeout: 15000, encoding: 'utf8' }, (vErr, vStdout) => {
-        this.isChecking = false;
-        if (vErr || !vStdout) {
-          this.setActivity(null, null, false);
-          return;
-        }
+      // 3. Fallback Universal Nativo: Analisa títulos de janelas abertas via desktopCapturer (10ms, sem cmd/tasklist /v)
+      const windowTitles = await this.getOpenWindows();
+      let dynamicGame = null;
 
-        const vLines = vStdout.split(/\r?\n/);
-        let dynamicGame = null;
+      for (const title of windowTitles) {
+        const titleLower = title.toLowerCase();
+        if (IGNORED_EXACT_TITLES.has(titleLower)) continue;
+        if (IGNORED_TITLE_STARTS.some(p => titleLower.startsWith(p))) continue;
 
-        for (const line of vLines) {
-          const match = line.match(/^"([^"]+)","([^"]+)","([^"]+)","([^"]+)","([^"]+)","([^"]+)","([^"]+)","([^"]+)","(.*)"$/);
-          if (!match) continue;
+        const cleaned = cleanGameTitle(title, '');
+        if (!cleaned) continue;
 
-          const exe = match[1].toLowerCase();
-          const title = match[9].trim();
+        dynamicGame = {
+          game: cleaned,
+          exe: 'window',
+          isKnownGame: false
+        };
+        break;
+      }
 
-          // Ignora navegadores, IDEs, Discord, ferramentas de sistema
-          if (IGNORED_EXES.has(exe)) continue;
-          if (IGNORED_PREFIXES.some(p => exe.startsWith(p))) continue;
-
-          const titleLower = title.toLowerCase();
-          if (!title || IGNORED_EXACT_TITLES.has(titleLower)) continue;
-          if (IGNORED_TITLE_STARTS.some(p => titleLower.startsWith(p))) continue;
-
-          const cleaned = cleanGameTitle(title, exe);
-          if (!cleaned) continue;
-
-          dynamicGame = {
-            game: cleaned,
-            exe,
-            isKnownGame: false
-          };
-          break;
-        }
-
-        if (dynamicGame) {
-          this.setActivity(dynamicGame.game, dynamicGame.exe, false);
-        } else {
-          this.setActivity(null, null, false);
-        }
-      });
-    });
+      if (dynamicGame) {
+        this.setActivity(dynamicGame.game, dynamicGame.exe, false);
+      } else {
+        this.setActivity(null, null, false);
+      }
+    } catch (err) {
+      console.warn('[GameDetector ⚠️] Erro na verificação:', err.message);
+    } finally {
+      this.isChecking = false;
+    }
   }
 }
 

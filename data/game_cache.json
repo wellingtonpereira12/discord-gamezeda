@@ -34,8 +34,14 @@
     "cachedAt": 1791593823458
   },
   "fivem": {
-    "verified": false,
-    "name": "FiveM",
+    "verified": true,
+    "officialName": "FiveM (GTA V)",
+    "coverUrl": "https://cdn.cloudflare.steamstatic.com/steam/apps/271590/header.jpg",
+    "genres": [
+      "Action",
+      "Multiplayer"
+    ],
+    "steamUrl": "https://fivem.net/",
     "cachedAt": 1792024697442
   },
   "deadlock": {

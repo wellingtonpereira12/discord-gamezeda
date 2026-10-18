@@ -136,7 +136,8 @@ function createMainWindow(targetUrl) {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      backgroundThrottling: false
     }
   });
 
@@ -266,8 +267,16 @@ function createMainWindow(targetUrl) {
       splashWindow = null;
     }
 
-    // Inicia monitoramento de jogos do Windows (Discord Rich Presence / Game Activity)
-    gameDetector.start(10000);
+    // Inicia monitoramento de jogos do Windows (Discord Rich Presence / Game Activity) a cada 5s
+    gameDetector.start(5000);
+  });
+
+  mainWindow.on('focus', () => {
+    try { gameDetector.check(); } catch (e) {}
+  });
+
+  mainWindow.on('show', () => {
+    try { gameDetector.check(); } catch (e) {}
   });
 
   // Ao clicar no X ou tentar fechar a janela, oculta para a bandeja do sistema se não for app.quit()
@@ -329,7 +338,7 @@ function getAppVersion() {
       if (localPkg.version) return localPkg.version;
     }
   } catch (e) {}
-  return (app && typeof app.getVersion === 'function') ? app.getVersion() : '1.5.8';
+  return (app && typeof app.getVersion === 'function') ? app.getVersion() : '1.6.7';
 }
 
 /**
