@@ -1,6 +1,6 @@
 {
   "name": "FakeDC",
-  "version": "1.6.7",
+  "version": "1.6.8",
   "releaseDate": "2026-10-18",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe",
@@ -12,5 +12,5 @@
     "iosUrl": "/download/ios",
     "iosIpa": "FakeDC.ipa"
   },
-  "notes": "FakeDC v1.6.7: Sincronização contínua e dinâmica do indicador de jogos (Rich Presence) em tempo real com o Discord aberto, sem necessidade de reiniciar o aplicativo. Detecção não-bloqueante ultraleve a cada 5s, suporte a background sem throttling e atualização instantânea de presença para os amigos."
+  "notes": "FakeDC v1.6.8: Compilação e atualização automática via GitHub Actions."
 }
