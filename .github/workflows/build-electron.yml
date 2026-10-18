@@ -9,18 +9,43 @@ on:
       - 'package.json'
       - '.github/workflows/build-electron.yml'
   workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Tipo de incremento de versão (patch, minor, major)'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      custom_version:
+        description: 'Versão customizada explícita (opcional, ex: 1.7.0 - ignora o tipo se preenchida)'
+        required: false
+        default: ''
+        type: string
+      release_notes:
+        description: 'Notas de lançamento da versão (opcional)'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   build-electron:
     name: Build Electron Windows (.exe)
     runs-on: windows-latest
+    if: "!contains(github.event.head_commit.message, '[skip electron]')"
 
     steps:
       - name: Checkout do Código
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configurar Node.js 20
         uses: actions/setup-node@v4
@@ -31,13 +56,22 @@ jobs:
       - name: Instalar Dependências
         run: npm install
 
-      - name: Extrair Versão do package.json
+      - name: Incrementar e Sincronizar Versão
         id: pkg_version
         shell: pwsh
+        env:
+          INPUT_BUMP_TYPE: ${{ github.event.inputs.bump_type }}
+          INPUT_CUSTOM_VERSION: ${{ github.event.inputs.custom_version }}
+          RELEASE_NOTES: ${{ github.event.inputs.release_notes }}
         run: |
-          $pkg = Get-Content package.json | ConvertFrom-Json
-          echo "VERSION=$($pkg.version)" >> $env:GITHUB_OUTPUT
-          Write-Host "Versão do build: $($pkg.version)"
+          $target = "patch"
+          if ($env:INPUT_CUSTOM_VERSION -and $env:INPUT_CUSTOM_VERSION.Trim() -ne "") {
+            $target = $env:INPUT_CUSTOM_VERSION.Trim()
+          } elseif ($env:INPUT_BUMP_TYPE -and $env:INPUT_BUMP_TYPE.Trim() -ne "") {
+            $target = $env:INPUT_BUMP_TYPE.Trim()
+          }
+          Write-Host "Executando bump de versão com alvo: $target"
+          node scripts/bump-version.cjs $target
 
       - name: Compilar Instalador Windows com Electron Builder
         run: npm run dist:win
@@ -104,3 +138,30 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configurar Git e Salvar Nova Versão no Repositório
+        if: startsWith(github.ref, 'refs/heads/main')
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.pkg_version.outputs.VERSION }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json electron/package.json public/version.json public/index.html public/app.js electron/main.js
+          $status = git status --porcelain
+          if ($status) {
+            Write-Host "Comitando nova versão v$env:VERSION no repositório..."
+            git commit -m "chore(release): v$env:VERSION [skip electron]"
+            git push origin main
+          } else {
+            Write-Host "Nenhum arquivo de versão modificado para comitar."
+          }
+
+      - name: Acionar Deploy Automático na VPS com Nova Versão
+        if: startsWith(github.ref, 'refs/heads/main')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          Write-Host "Disparando pipeline de deploy na VPS para sincronizar versão e instalador..."
+          gh workflow run deploy.yml || true
