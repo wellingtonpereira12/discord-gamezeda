@@ -24,7 +24,7 @@ jobs:
             cd /root/discord-gamezeda
             git fetch origin main
             git reset --hard origin/main
-            git clean -fd -e public/downloads
+            git clean -fd -e public/downloads -e public/uploads -e data
             mkdir -p public/downloads
             echo "📥 [CI/CD] Sincronizando instaladores Windows para cache local na VPS..."
             curl -L -f -s -o public/downloads/FakeDC-Setup.exe https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe || true
