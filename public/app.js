@@ -1145,7 +1145,13 @@ function enterServer(name) {
   myAvatarImg.src = avatar;
   myUsernameEl.textContent = name;
   cardMyAvatar.src = avatar;
-  cardMyName.textContent = `${name} (Você)`;
+  if (cardMyName) {
+    cardMyName.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+        <span>${escapeHtml(name)}</span>
+      </div>
+    `;
+  }
   if (popoutAvatar) popoutAvatar.src = avatar;
   if (popoutName) popoutName.textContent = name;
 
@@ -2688,14 +2694,21 @@ function renderVoiceStageCards() {
     };
     const cardMyName = document.getElementById('card-my-name');
     if (cardMyName) {
+      cardMyName.style.display = 'flex';
+      cardMyName.style.flexDirection = 'column';
+      cardMyName.style.alignItems = 'center';
+      cardMyName.style.justifyContent = 'center';
+      cardMyName.style.gap = '3px';
       cardMyName.innerHTML = `
-        <span>${currentUser ? escapeHtml(currentUser.name) : 'Você'}</span>
-        ${(isMuted || isDeafened) ? `
-          <div class="voice-user-status-icons">
-            ${isMuted ? getMuteIconSvg(13) : ''}
-            ${isDeafened ? getDeafenIconSvg(13) : ''}
-          </div>
-        ` : ''}
+        <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+          <span>${currentUser ? escapeHtml(currentUser.name) : 'Você'}</span>
+          ${(isMuted || isDeafened) ? `
+            <div class="voice-user-status-icons">
+              ${isMuted ? getMuteIconSvg(13) : ''}
+              ${isDeafened ? getDeafenIconSvg(13) : ''}
+            </div>
+          ` : ''}
+        </div>
         ${myGameActivity && myGameActivity.game && myGameActivity.verified ? `
           <div class="voice-card-game-badge" title="Jogando ${escapeHtml(myGameActivity.game)} (${formatGameDuration(myGameActivity.startedAt)})">
             ${myGameActivity.coverUrl ? `<img src="${myGameActivity.coverUrl}" style="width: 13px; height: 13px; border-radius: 2px; object-fit: cover; flex-shrink: 0;" onerror="this.style.display='none'" />` : getGameIconSvg(11, '#23a55a')}

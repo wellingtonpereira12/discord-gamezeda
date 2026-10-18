@@ -1176,6 +1176,12 @@ body {
   color: var(--text-header);
   font-size: 14px;
   font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
 }
 
 /* BARRA FLUTUANTE DE CONTROLES DO DISCORD NA LIVE */
