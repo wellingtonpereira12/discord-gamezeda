@@ -1,7 +1,7 @@
 {
   "name": "FakeDC",
-  "version": "1.6.8",
-  "releaseDate": "2026-10-18",
+  "version": "1.6.9",
+  "releaseDate": "2026-10-19",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe",
   "installerName": "FakeDC-Setup.exe",
@@ -12,5 +12,5 @@
     "iosUrl": "/download/ios",
     "iosIpa": "FakeDC.ipa"
   },
-  "notes": "FakeDC v1.6.8: Compilação e atualização automática via GitHub Actions."
+  "notes": "FakeDC v1.6.9: Calibração de cores e correção para transmissões com HDR: Forçado perfil de cores sRGB estrito no cliente Electron para eliminar brilho estourado e aspecto lavado em capturas com HDR ativado no Windows. Adicionado botão dinâmico de Calibração de Brilho / Filtro Anti-HDR no reprodutor de vídeo para Desktop e Web com alternância entre Padrão, HDR Suave e HDR Forte."
 }

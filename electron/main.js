@@ -68,6 +68,9 @@ if (fs.existsSync(configPath)) {
 app.commandLine.appendSwitch('ignore-certificate-errors', 'true');
 app.commandLine.appendSwitch('allow-insecure-localhost', 'true');
 
+// Força o perfil de cores sRGB padrão para calibrar transmissões e evitar brilho estourado/lavado em telas e jogos com HDR
+app.commandLine.appendSwitch('force-color-profile', 'srgb');
+
 // Aceleração por Hardware Total na GPU (NVIDIA NVENC, AMD AMF, Intel QuickSync)
 app.commandLine.appendSwitch('ignore-gpu-blocklist', 'true');
 app.commandLine.appendSwitch('enable-gpu-rasterization', 'true');

@@ -1074,6 +1074,12 @@ body {
   background: rgba(0, 0, 0, 0.9);
 }
 
+.screen-btn.active {
+  color: #f1c40f;
+  background: rgba(241, 196, 15, 0.25);
+  box-shadow: 0 0 8px rgba(241, 196, 15, 0.3);
+}
+
 /* CONTROLE DE VOLUME DA TRANSMISSÃO NO QUADRO DE TELA */
 .screen-volume-control-box {
   display: flex;
