@@ -240,6 +240,7 @@ const streamSwitcherBar = document.getElementById('stream-switcher-bar');
 const mainScreenTile = document.getElementById('main-screen-tile');
 const sharedScreenVideo = document.getElementById('shared-screen-video');
 const screenSharerName = document.getElementById('screen-sharer-name');
+const btnHdrFilter = document.getElementById('btn-hdr-filter');
 const btnFullscreenScreen = document.getElementById('btn-fullscreen-screen');
 const btnStopScreenTile = document.getElementById('btn-stop-screen-tile');
 const btnToggleScreenSound = document.getElementById('btn-toggle-screen-sound');
@@ -1060,6 +1061,10 @@ function viewStream(id) {
     playPromise.catch(e => {
       console.warn('Video play blocked:', e);
     });
+  }
+
+  if (typeof applyHdrFilter === 'function') {
+    applyHdrFilter(hdrFilterMode);
   }
 
   screenSharerName.textContent = streamData.name;
@@ -4694,6 +4699,46 @@ btnFullscreenScreen.addEventListener('click', () => {
     sharedScreenVideo.webkitRequestFullscreen();
   }
 });
+
+// ==========================================
+// ------------------------------------------
+// ==========================================
+// ==========================================
+// CALIBRAÇÃO DE BRILHO E FILTRO HDR DE TRANSMISSÃO
+// ==========================================
+let hdrFilterMode = parseInt(localStorage.getItem('fakedc_screen_hdr_mode') || '0', 10);
+
+function applyHdrFilter(mode) {
+  hdrFilterMode = mode;
+  localStorage.setItem('fakedc_screen_hdr_mode', String(mode));
+  if (!sharedScreenVideo) return;
+  if (mode === 1) {
+    sharedScreenVideo.style.filter = 'contrast(1.12) brightness(0.92) saturate(1.12)';
+    if (btnHdrFilter) btnHdrFilter.classList.add('active');
+  } else if (mode === 2) {
+    sharedScreenVideo.style.filter = 'contrast(1.24) brightness(0.85) saturate(1.22)';
+    if (btnHdrFilter) btnHdrFilter.classList.add('active');
+  } else {
+    sharedScreenVideo.style.filter = 'none';
+    if (btnHdrFilter) btnHdrFilter.classList.remove('active');
+  }
+}
+
+if (btnHdrFilter) {
+  applyHdrFilter(hdrFilterMode);
+  btnHdrFilter.addEventListener('click', () => {
+    const nextMode = (hdrFilterMode + 1) % 3;
+    applyHdrFilter(nextMode);
+    const msgs = [
+      '☀️ Calibração de Brilho: Padrão (Sem filtro)',
+      '☀️ Calibração de Brilho: Modo HDR Suave (Contraste + Saturação)',
+      '☀️ Calibração de Brilho: Modo HDR Forte (Anti-Brilho Estourado)'
+    ];
+    if (typeof showSoundToast === 'function') {
+      showSoundToast(msgs[nextMode]);
+    }
+  });
+}
 
 // ==========================================
 // SELETOR DE TELAS E JANELAS (ELECTRON DESKTOP)
