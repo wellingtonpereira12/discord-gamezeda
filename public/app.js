@@ -58,7 +58,7 @@ import {
   loadOrUpdateWatchPartyPlayer,
   stopWatchPartyVideo
 } from './js/modules/watchParty.js?v=20261011_v1.6.2';
-import { setupDesktopClient } from './js/modules/desktopClient.js?v=20261018_v1.6.8';
+import { setupDesktopClient } from './js/modules/desktopClient.js?v=20261019_v1.6.10';
 import {
   initGuilds,
   renderGuildsList,
