@@ -1,6 +1,6 @@
 {
   "name": "FakeDC",
-  "version": "1.6.11",
+  "version": "1.6.12",
   "releaseDate": "2026-10-23",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe",
@@ -12,5 +12,5 @@
     "iosUrl": "/download/ios",
     "iosIpa": "FakeDC.ipa"
   },
-  "notes": "FakeDC v1.6.11: Correção no layout da lista de membros com jogos: Implementado truncamento inteligente com reticências (...) para títulos longos de jogos e nomes de membros, com contêiner flexível (min-width: 0) e fixação permanente da miniatura da capa do jogo (34x34) à direita, eliminando cortes e impedindo que a imagem saia da tela."
+  "notes": "FakeDC v1.6.12: Compilação e atualização automática via GitHub Actions."
 }
