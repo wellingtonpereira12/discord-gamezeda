@@ -58,7 +58,7 @@ import {
   loadOrUpdateWatchPartyPlayer,
   stopWatchPartyVideo
 } from './js/modules/watchParty.js?v=20261011_v1.6.2';
-import { setupDesktopClient } from './js/modules/desktopClient.js?v=20261019_v1.6.10';
+import { setupDesktopClient } from './js/modules/desktopClient.js?v=20261023_v1.6.11';
 import {
   initGuilds,
   renderGuildsList,
@@ -2318,7 +2318,7 @@ function createMemberItem(user, isVoice, roleColor = null) {
       <div class="member-game-status" title="Jogando ${escapeHtml(currentAct.game)} (${formatGameDuration(currentAct.startedAt)})">
         <span class="member-game-title">
           ${getGameIconSvg(12, '#23a55a')}
-          <span><strong>Jogando</strong> ${escapeHtml(currentAct.game)}</span>
+          <span class="member-game-title-text"><strong>Jogando</strong> ${escapeHtml(currentAct.game)}</span>
         </span>
         <span class="member-game-time" data-game-started="${currentAct.startedAt}">
           ${formatGameDuration(currentAct.startedAt)}
@@ -2356,7 +2356,7 @@ function createMemberItem(user, isVoice, roleColor = null) {
       <div class="status-dot status-${statusMode}"></div>
     </div>
     <div class="member-info">
-      <div style="display: flex; align-items: center; gap: 4px;">
+      <div style="display: flex; align-items: center; gap: 4px; min-width: 0; width: 100%;">
         <span class="member-name" style="${effectiveRoleColor ? `color: ${effectiveRoleColor}; font-weight: 600;` : ''}">${escapeHtml(user.name)}${isLocal ? ' (Você)' : ''}</span>
         ${isBot ? '<span class="bot-tag">BOT</span>' : ''}
         ${isVoice && (userIsMuted || userIsDeafened) ? `

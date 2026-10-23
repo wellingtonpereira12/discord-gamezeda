@@ -2104,6 +2104,7 @@ body {
 .member-avatar-wrap {
   position: relative;
   margin-right: 10px;
+  flex-shrink: 0;
 }
 
 .member-avatar {
@@ -2116,18 +2117,24 @@ body {
 .member-info {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .member-name {
   color: var(--text-header);
   font-size: 14px;
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .member-activity {
   font-size: 11px;
   color: var(--text-muted);
-  max-width: 150px;
+  width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2138,7 +2145,9 @@ body {
   display: flex;
   flex-direction: column;
   margin-top: 1px;
-  max-width: 160px;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
 }
 
 .member-game-title {
@@ -2148,10 +2157,19 @@ body {
   font-size: 11.5px;
   font-weight: 500;
   color: #dbdee1;
-  white-space: nowrap;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+  line-height: 1.3;
+}
+
+.member-game-title > span,
+.member-game-title-text {
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.3;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
 }
 
 .member-game-title strong {
@@ -6909,7 +6927,7 @@ body.is-electron #btn-download-desktop {
 /* Thumbnail da capa do jogo na lista de membros */
 .member-game-thumb-wrap {
   margin-left: auto;
-  padding-left: 6px;
+  padding-left: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6917,13 +6935,14 @@ body.is-electron #btn-download-desktop {
 }
 
 .member-game-thumb {
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   border-radius: 6px;
   object-fit: cover;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.15s ease;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .member-item:hover .member-game-thumb {
