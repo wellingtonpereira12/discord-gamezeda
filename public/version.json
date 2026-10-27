@@ -1,7 +1,7 @@
 {
   "name": "FakeDC",
-  "version": "1.6.12",
-  "releaseDate": "2026-10-23",
+  "version": "1.6.13",
+  "releaseDate": "2026-10-27",
   "minVersion": "1.0.0",
   "downloadUrl": "https://github.com/wellingtonpereira12/discord-gamezeda/releases/download/desktop-latest/FakeDC-Setup.exe",
   "installerName": "FakeDC-Setup.exe",
@@ -12,5 +12,5 @@
     "iosUrl": "/download/ios",
     "iosIpa": "FakeDC.ipa"
   },
-  "notes": "FakeDC v1.6.12: Compilação e atualização automática via GitHub Actions."
+  "notes": "FakeDC v1.6.13: Correção do looping de status e bloqueio de falsos positivos na detecção de janelas de navegadores, editores e do próprio FakeDC."
 }
