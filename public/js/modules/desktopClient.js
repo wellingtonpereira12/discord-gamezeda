@@ -372,48 +372,89 @@ export function setupDesktopClient(deps = {}) {
   });
 
   // Detecção Automática de Jogos em Execução no Windows (Discord Game Activity)
-  if (typeof window.electronAPI.onGameActivity === 'function') {
-    window.electronAPI.onGameActivity((activity) => {
-      console.log('[GameActivity] Mudança detectada pelo Electron:', activity);
-      if (!activity) {
-        setMyGameActivity(null);
-        if (socket && socket.connected) {
-          socket.emit('user:activity-update', null);
-        }
-        updateMyUserStatus();
-        renderMembersSidebar();
-        renderVoiceStageCards();
-      } else {
-        // Atualiza imediatamente o estado local do usuário para exibição instantânea
-        const immediateActivity = {
-          ...activity,
-          verified: true
-        };
-        setMyGameActivity(immediateActivity);
-        updateMyUserStatus();
-        renderMembersSidebar();
-        renderVoiceStageCards();
+  // Cache de títulos rejeitados pelo servidor ou sistema para prevenir looping infinito de status
+  const rejectedTitles = new Set();
+  let lastEmittedGame = '';
+  let pendingUnverifiedGame = null;
 
-        if (socket && socket.connected) {
-          socket.emit('user:activity-update', activity);
+  if (socket) {
+    socket.on('user:activity-update', ({ userId, userName, activity }) => {
+      const me = getCurrentUser();
+      const isMe = (userId && socket && socket.id === userId) ||
+        (me && userName && userName.toLowerCase() === me.name.toLowerCase());
+      if (isMe) {
+        if (!activity && pendingUnverifiedGame) {
+          rejectedTitles.add(pendingUnverifiedGame.toLowerCase());
+          pendingUnverifiedGame = null;
+        } else if (activity && activity.verified) {
+          pendingUnverifiedGame = null;
         }
       }
     });
+  }
+
+  function syncGameActivity(current) {
+    const currentName = current ? (current.game || '').trim() : '';
+    const currentLower = currentName.toLowerCase();
+
+    // Se o título está na lista de rejeitados, ignora e limpa se estava ativo
+    if (current && rejectedTitles.has(currentLower)) {
+      if (getMyGameActivity()) {
+        setMyGameActivity(null);
+        updateMyUserStatus();
+        renderMembersSidebar();
+        renderVoiceStageCards();
+      }
+      return;
+    }
+
+    if (currentName === lastEmittedGame) {
+      return;
+    }
+
+    lastEmittedGame = currentName;
+
+    if (!current) {
+      pendingUnverifiedGame = null;
+      setMyGameActivity(null);
+      if (socket && socket.connected) {
+        socket.emit('user:activity-update', null);
+      }
+      updateMyUserStatus();
+      renderMembersSidebar();
+      renderVoiceStageCards();
+      return;
+    }
+
+    if (current.isKnownGame) {
+      pendingUnverifiedGame = null;
+      setMyGameActivity({ ...current, verified: true });
+      if (socket && socket.connected) {
+        socket.emit('user:activity-update', current);
+      }
+      updateMyUserStatus();
+      renderMembersSidebar();
+      renderVoiceStageCards();
+    } else {
+      // Janela não catalogada: não ativa verified localmente até o servidor validar na RAWG
+      // Isso elimina qualquer loop de status piscando "Jogando Discord Clone" ou apps do Windows
+      pendingUnverifiedGame = currentName;
+      if (socket && socket.connected) {
+        socket.emit('user:activity-update', current);
+      }
+    }
+  }
+
+  if (typeof window.electronAPI.onGameActivity === 'function') {
+    window.electronAPI.onGameActivity((activity) => {
+      console.log('[GameActivity] Mudança detectada pelo Electron:', activity);
+      syncGameActivity(activity);
+    });
 
     if (typeof window.electronAPI.getGameActivity === 'function') {
-      window.electronAPI.getGameActivity().then((activity) => {
-        if (!activity) {
-          setMyGameActivity(null);
-        } else {
-          setMyGameActivity({ ...activity, verified: true });
-          if (socket && socket.connected) {
-            socket.emit('user:activity-update', activity);
-          }
-          updateMyUserStatus();
-          renderMembersSidebar();
-          renderVoiceStageCards();
-        }
-      }).catch(() => {});
+      window.electronAPI.getGameActivity()
+        .then((activity) => syncGameActivity(activity))
+        .catch(() => {});
     }
   }
 
@@ -427,36 +468,11 @@ export function setupDesktopClient(deps = {}) {
       }
     });
 
-    // 2. Consulta ativa contínua ao processo principal do Electron (detecta jogos abertos com o Discord rodando)
+    // 2. Consulta ativa contínua ao processo principal do Electron
     if (typeof window.electronAPI?.getGameActivity === 'function') {
       try {
         const current = await window.electronAPI.getGameActivity();
-        const existing = getMyGameActivity();
-
-        const currentName = current ? (current.game || '') : '';
-        const existingName = existing ? (existing.game || '') : '';
-
-        if (currentName !== existingName) {
-          console.log('[GameActivity 🔄] Sincronização contínua detectou alteração:', existingName || 'Nenhum', '->', currentName || 'Nenhum');
-          if (!current) {
-            setMyGameActivity(null);
-            if (socket && socket.connected) {
-              socket.emit('user:activity-update', null);
-            }
-          } else {
-            const immediateActivity = {
-              ...current,
-              verified: true
-            };
-            setMyGameActivity(immediateActivity);
-            if (socket && socket.connected) {
-              socket.emit('user:activity-update', current);
-            }
-          }
-          updateMyUserStatus();
-          renderMembersSidebar();
-          renderVoiceStageCards();
-        }
+        syncGameActivity(current);
       } catch (err) {}
     }
 
@@ -468,26 +484,7 @@ export function setupDesktopClient(deps = {}) {
     if (typeof window.electronAPI?.getGameActivity === 'function') {
       try {
         const current = await window.electronAPI.getGameActivity();
-        const existing = getMyGameActivity();
-        const currentName = current ? (current.game || '') : '';
-        const existingName = existing ? (existing.game || '') : '';
-
-        if (currentName !== existingName) {
-          if (!current) {
-            setMyGameActivity(null);
-            if (socket && socket.connected) {
-              socket.emit('user:activity-update', null);
-            }
-          } else {
-            setMyGameActivity({ ...current, verified: true });
-            if (socket && socket.connected) {
-              socket.emit('user:activity-update', current);
-            }
-          }
-          updateMyUserStatus();
-          renderMembersSidebar();
-          renderVoiceStageCards();
-        }
+        syncGameActivity(current);
       } catch (e) {}
     }
   });
@@ -498,11 +495,7 @@ export function setupDesktopClient(deps = {}) {
         try {
           const current = await window.electronAPI.getGameActivity();
           if (current) {
-            setMyGameActivity({ ...current, verified: true });
-            socket.emit('user:activity-update', current);
-            updateMyUserStatus();
-            renderMembersSidebar();
-            renderVoiceStageCards();
+            syncGameActivity(current);
             return;
           }
         } catch (e) {}

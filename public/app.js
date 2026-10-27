@@ -58,7 +58,7 @@ import {
   loadOrUpdateWatchPartyPlayer,
   stopWatchPartyVideo
 } from './js/modules/watchParty.js?v=20261011_v1.6.2';
-import { setupDesktopClient } from './js/modules/desktopClient.js?v=20261023_v1.6.12';
+import { setupDesktopClient } from './js/modules/desktopClient.js?v=20261027_v1.6.13'; (fix(presence): eliminar looping de status e bloquear deteccao do proprio app (v1.6.12))
 import {
   initGuilds,
   renderGuildsList,
