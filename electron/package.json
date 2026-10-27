@@ -1,6 +1,6 @@
 {
   "name": "fakedc-electron",
-  "version": "1.6.14",
+  "version": "1.6.12",
   "private": true,
   "type": "commonjs",
   "main": "main.js"

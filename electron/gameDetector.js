@@ -171,17 +171,13 @@ const IGNORED_TITLE_STARTS = [
   'task host', 'rtc video', 'rxdiag', 'radeon', 'amd ', 'chatgpt', 'copilot', 'esc to cancel',
   'microsoft onedrive', 'onedrive', 'notícias', 'noticias', 'news', 'feeds', 'widgets',
   'segurança', 'windows security', 'vincular ao celular', 'phone link', 'calculadora', 'calculator',
-  'gerenciador de tarefas', 'task manager', 'configurações', 'settings', 'pesquisar', 'iniciar',
-  'fakedc', 'discord', 'visual studio', 'vscode', 'github', 'google chrome', 'chrome',
-  'microsoft edge', 'edge', 'mozilla firefox', 'firefox', 'brave', 'opera', 'terminal',
-  'powershell', 'cmd'
+  'gerenciador de tarefas', 'task manager', 'configurações', 'settings', 'pesquisar', 'iniciar'
 ];
 
 const IGNORED_EXACT_TITLES = new Set([
   'n/a', 'olemainthreadwndname', 'task host window', 'quick settings', 'pesquisar', 'iniciar', 'search', 'start',
   'sem título', 'sem titulo', 'untitled', 'settings', 'configurações', 'configuracoes', 'xbox', 'microsoft store',
-  'fotos', 'photos', 'relógio', 'relogio', 'clock', 'alarms', 'câmera', 'camera',
-  'fakedc', 'discord', 'discord clone', 'chrome', 'edge', 'firefox', 'brave', 'opera', 'terminal', 'powershell', 'cmd'
+  'fotos', 'photos', 'relógio', 'relogio', 'clock', 'alarms', 'câmera', 'camera'
 ]);
 
 function decodeWindowsText(str) {
@@ -209,7 +205,7 @@ function cleanGameTitle(rawTitle, exeName) {
   let title = decodeWindowsText(rawTitle.replace(/["“”]/g, '').trim());
   const lower = title.toLowerCase();
 
-  // Rejeita utilitários de IA, diálogos do Windows, serviços, nuvem, navegadores, editores e o próprio FakeDC
+  // Rejeita utilitários de IA, diálogos do Windows, serviços e nuvem
   if (
     lower.includes('is using your computer') ||
     lower.includes('esc to cancel') ||
@@ -223,37 +219,7 @@ function cleanGameTitle(rawTitle, exeName) {
     lower.includes('microsoft') ||
     lower.includes('windows update') ||
     lower.includes('gerenciador de tarefas') ||
-    lower.includes('task manager') ||
-    lower.includes('segurança') ||
-    lower.includes('discord') ||
-    lower.includes('fakedc') ||
-    lower.includes('fake dc') ||
-    lower.includes('visual studio') ||
-    lower.includes('vscode') ||
-    lower.includes('github') ||
-    lower.includes('google chrome') ||
-    lower.endsWith(' - chrome') ||
-    lower.includes('microsoft edge') ||
-    lower.endsWith(' - edge') ||
-    lower.includes('mozilla firefox') ||
-    lower.endsWith(' - firefox') ||
-    lower.includes('brave browser') ||
-    lower.endsWith(' - brave') ||
-    lower.includes('opera gx') ||
-    lower.includes('opera browser') ||
-    lower.endsWith(' - opera') ||
-    lower.includes('terminal') ||
-    lower.includes('powershell') ||
-    lower.includes('cmd.exe') ||
-    lower.includes('localhost') ||
-    lower.includes('127.0.0.1') ||
-    lower.includes('187.127.17.88') ||
-    lower.includes('antigravity') ||
-    lower.includes('whatsapp') ||
-    lower.includes('telegram') ||
-    lower.includes('slack') ||
-    lower.includes('postman') ||
-    lower.includes('spotify')
+    lower.includes('segurança')
   ) {
     return '';
   }

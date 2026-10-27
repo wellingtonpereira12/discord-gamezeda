@@ -380,7 +380,7 @@ export function isGarbageTitle(rawTitle) {
     return true;
   }
 
-  // Utilitários de produtividade, nuvem, comunicadores, áudio, navegadores, editores e o próprio FakeDC
+  // Utilitários de produtividade, nuvem, comunicadores, áudio e hardware
   if (
     lower.includes('google drive') ||
     lower.includes('dropbox') ||
@@ -400,27 +400,7 @@ export function isGarbageTitle(rawTitle) {
     lower.includes('logitech g hub') ||
     lower.includes('corsair icue') ||
     lower.includes('armoury crate') ||
-    lower.includes('afterburner') ||
-    lower.includes('discord') ||
-    lower.includes('fakedc') ||
-    lower.includes('fake dc') ||
-    lower.includes('visual studio') ||
-    lower.includes('vscode') ||
-    lower.includes('github') ||
-    lower.includes('google chrome') ||
-    lower.endsWith(' - chrome') ||
-    lower.includes('microsoft edge') ||
-    lower.endsWith(' - edge') ||
-    lower.includes('mozilla firefox') ||
-    lower.endsWith(' - firefox') ||
-    lower.includes('brave browser') ||
-    lower.endsWith(' - brave') ||
-    lower.includes('opera gx') ||
-    lower.includes('opera browser') ||
-    lower.endsWith(' - opera') ||
-    lower.includes('localhost') ||
-    lower.includes('127.0.0.1') ||
-    lower.includes('187.127.17.88')
+    lower.includes('afterburner')
   ) {
     return true;
   }
@@ -429,8 +409,7 @@ export function isGarbageTitle(rawTitle) {
   const exactGarbage = new Set([
     'n/a', 'sem título', 'sem titulo', 'untitled', 'settings', 'configurações', 'configuracoes',
     'pesquisar', 'iniciar', 'search', 'start', 'quick settings', 'cortana', 'xbox', 'microsoft store',
-    'fotos', 'photos', 'relógio', 'relogio', 'clock', 'alarms', 'câmera', 'camera',
-    'fakedc', 'discord', 'discord clone', 'chrome', 'edge', 'firefox', 'brave', 'opera', 'terminal', 'powershell', 'cmd'
+    'fotos', 'photos', 'relógio', 'relogio', 'clock', 'alarms', 'câmera', 'camera'
   ]);
   if (exactGarbage.has(lower)) return true;
 
